@@ -50,7 +50,7 @@ export default function LoginPage() {
   const [toast, setToast] = useState('');
   const [verifiedBanner, setVerifiedBanner] = useState(false);
 
-  // ─── Redirect if authenticated ─────────────────────────────────────────
+  // ─── Redirect if already authenticated ────────────────────────────────
   useEffect(() => {
     if (isAuthenticated) {
       const role = JSON.parse(
@@ -60,7 +60,7 @@ export default function LoginPage() {
       if (role === 'HOD' || role === 'hod') {
         navigate('/hod', { replace: true });
       } else if (role === 'ADMIN' || role === 'admin') {
-        navigate('/app', { replace: true });
+        navigate('/admin', { replace: true });
       } else {
         navigate('/dashboard', { replace: true });
       }
@@ -107,11 +107,8 @@ export default function LoginPage() {
 
       if (userData.role === 'HOD' || userData.role === 'hod') {
         navigate('/hod', { replace: true });
-      } else if (
-        userData.role === 'ADMIN' ||
-        userData.role === 'admin'
-      ) {
-        navigate('/app', { replace: true });
+      } else if (userData.role === 'ADMIN' || userData.role === 'admin') {
+        navigate('/admin', { replace: true });
       } else {
         navigate('/dashboard', { replace: true });
       }
