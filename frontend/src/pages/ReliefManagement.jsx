@@ -112,8 +112,8 @@ const TypeBadge = ({ type, color }) => (
 );
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-const LeaveManagement = ({ user }) => {
-  const [pendingLeaves, setPendingLeaves] = useState(MOCK_PENDING);
+  const ReliefManagement = ({ user }) => {
+  const [pendingLeaves, setPendingLeaves] = useState([]);
   const [processed, setProcessed] = useState(MOCK_PROCESSED);
   const [showBanner, setShowBanner] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -155,9 +155,9 @@ const LeaveManagement = ({ user }) => {
       {/* Page header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-[20px] font-bold text-gray-900">Leave Approvals</h1>
+          <h1 className="text-[20px] font-bold text-gray-900">Relief Management</h1>
           <p className="text-[12px] text-gray-400 mt-0.5">
-            Manage department staff absences and relief planning.
+            Assign and manage relief teachers for approved absences.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -436,4 +436,4 @@ const LeaveManagement = ({ user }) => {
   );
 };
 
-export default LeaveManagement;
+export default ReliefManagement;

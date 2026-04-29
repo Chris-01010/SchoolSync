@@ -1,9 +1,9 @@
 import asyncio
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
-from database import engine, Base, AsyncSessionLocal
-import models
-import auth
+from backend.database import engine, Base, AsyncSessionLocal
+from backend import models
+from backend import auth
 
 async def seed_data():
     async with engine.begin() as conn:

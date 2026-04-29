@@ -12,15 +12,10 @@ const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const DashboardPlaceholder = lazy(() => import('./pages/DashboardPlaceholder'));
 
-<<<<<<< HEAD
-// Legacy authenticated dashboard (role-based, unchanged)
-const HODDashboard = lazy(() => import('./components/HODDashboard'));
-=======
 // ─── Teacher dashboard (existing, untouched) ─────────────────────────────────
 const TeacherDashboard = lazy(() => import('./components/TeacherDashboard'));
 
 // ─── Legacy app (existing, untouched) ────────────────────────────────────────
->>>>>>> main
 const LegacyApp = lazy(() => import('./LegacyApp'));
 
 // ─── HOD layout + pages ──────────────────────────────────────────────────────

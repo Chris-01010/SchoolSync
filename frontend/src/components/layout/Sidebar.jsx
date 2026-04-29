@@ -23,11 +23,11 @@ const NAV_ITEMS = [
 const Sidebar = ({ open, onClose, user }) => {
   const navigate = useNavigate();
 
-  const handleLogOut = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
-  };
-
+  const handleLogout = () => {
+  localStorage.clear();
+  sessionStorage.clear();
+  window.location.href = "/login";
+};
   return (
     <>
       {/* Desktop sidebar */}
@@ -102,7 +102,7 @@ const Sidebar = ({ open, onClose, user }) => {
             <span>Help Center</span>
           </button>
           <button
-            onClick={handleLogOut}
+            onClick={handleLogout}
             className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-[12px] font-medium text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
           >
             <LogOut size={14} />

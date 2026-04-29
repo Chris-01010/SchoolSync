@@ -100,17 +100,10 @@ const HODDashboard = ({ user }) => {
 
         const statsData = await statsRes.json();
         const leavesData = await leavesRes.json();
-<<<<<<< HEAD
-        setPendingLeaves(leavesData.data || []);
-        
-      } catch (err) {
-        console.error('Failed to fetch HOD data', err);
-=======
         setStats({ ...MOCK_STATS, ...statsData });
         setPendingLeaves(leavesData);
       } catch {
         // Use mock data on failure
->>>>>>> main
       } finally {
         setIsLoading(false);
       }
@@ -118,38 +111,6 @@ const HODDashboard = ({ user }) => {
     fetchData();
   }, []);
 
-<<<<<<< HEAD
-  const handleApprove = async (id, status) => {
-    try {
-      const token = localStorage.getItem('schoolsync_token');
-      await fetch(`http://localhost:8000/absences/${id}/approve`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status })
-      });
-
-      setPendingLeaves((prev) => prev.filter((l) => l.id !== id));
-
-      // Refresh stats silently
-      try {
-        const token2 = localStorage.getItem('schoolsync_token');
-        const headers2 = { Authorization: `Bearer ${token2}` };
-        const statsRes = await fetch('http://localhost:8000/hod/dashboard', { headers: headers2 });
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      } catch {
-        // ignore
-      }
-    } catch (err) {
-      console.error('Approval failed:', err);
-    }
-  };
-
-=======
->>>>>>> main
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -234,8 +195,12 @@ const HODDashboard = ({ user }) => {
                   Class 10-C (Chemistry) · Absent: Mr. Henderson
                 </p>
               </div>
-              <button className="px-3 py-1.5 bg-blue-600 text-white text-[11px] font-semibold rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap ml-3">
-                Assign Now
+              <button
+              onClick={() => window.location.href = "/hod/relief"}
+              className="px-3 py-1.5 bg-blue-600 text-white text-[11px] font-semibold rounded-lg"
+              
+              >  
+              Assign Now
               </button>
             </div>
           </div>

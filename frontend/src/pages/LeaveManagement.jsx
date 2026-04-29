@@ -113,22 +113,55 @@ const TypeBadge = ({ type, color }) => (
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const LeaveManagement = ({ user }) => {
-  const [pendingLeaves, setPendingLeaves] = useState(MOCK_PENDING);
-  const [processed, setProcessed] = useState(MOCK_PROCESSED);
+  const [pendingLeaves, setPendingLeaves] = useState([]);
+  const [processed, setProcessed] = useState(MOCK_PROCESSED)
   const [showBanner, setShowBanner] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
+  
+
+useEffect(() => {
+  const fetchPendingLeaves = async () => {
+    const token = localStorage.getItem('schoolsync_token');
+
+    const res = await fetch('http://localhost:8000/leaves/pending', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+    setPendingLeaves(
+  (data.data || []).map((leave) => ({
+    ...leave,
+    name: leave.teacher_name || leave.teacher?.name || 'Unknown Teacher',
+    dates:
+      leave.start_date && leave.end_date
+        ? `${leave.start_date} - ${leave.end_date}`
+        : leave.date || 'No Date',
+    reason: leave.reason || 'No reason provided',
+    type: leave.leave_type || 'Leave',
+  }))
+);
+  };
+
+  fetchPendingLeaves();
+}, []);
+
+
+
 
   const handleAction = async (id, action) => {
     setActionLoading(`${id}-${action}`);
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:8000/absences/${id}/approve`, {
+      await fetch(`http://localhost:8000/leaves/${id}/action`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status: action }),
+        body: JSON.stringify({
+  action: action === 'approved' ? 'approve' : 'reject',}),
       });
     } catch {
       // fallback: just update UI

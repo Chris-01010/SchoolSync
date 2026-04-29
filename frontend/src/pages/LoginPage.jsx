@@ -103,15 +103,6 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-<<<<<<< HEAD
-      const user = await login(email, password);
-      if (user?.role === 'hod') {
-        navigate('/hod-dashboard', { replace: true });
-      } else if (user?.role === 'teacher') {
-        navigate('/teacher-dashboard', { replace: true });
-      } else if (user?.role === 'admin') {
-        navigate('/admin-dashboard', { replace: true });
-=======
       const userData = await login(email, password);
 
       if (userData.role === 'HOD' || userData.role === 'hod') {
@@ -121,7 +112,6 @@ export default function LoginPage() {
         userData.role === 'admin'
       ) {
         navigate('/app', { replace: true });
->>>>>>> main
       } else {
         navigate('/dashboard', { replace: true });
       }

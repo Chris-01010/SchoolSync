@@ -51,6 +51,9 @@ class ReliefRespondRequest(BaseModel):
 class AdminOverrideRequest(BaseModel):
     relief_teacher_id: UUID
     override_note: Optional[str] = None
+class HODAssignReliefRequest(BaseModel):
+    relief_teacher_id: UUID
+    note: Optional[str] = None
 
 
 # ─── Helper: send notification ────────────────────────────────────────────────
@@ -258,7 +261,23 @@ async def get_pending_leaves(
     )
     leaves = result.scalars().all()
 
-    return {"success": True, "count": len(leaves), "data": leaves}
+    return {
+    "success": True,
+    "count": len(leaves),
+    "data": [
+        {
+            "id": str(l.id),
+            "teacher_name": l.teacher.name if l.teacher else "Unknown Teacher",
+            "date": str(l.date),
+            "leave_type": l.leave_type,
+            "reason": l.reason,
+            "status": l.status,
+            "period_start": l.period_start,
+            "period_end": l.period_end,
+        }
+        for l in leaves
+    ],
+}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -475,4 +494,34 @@ async def override_relief(
         "success": True,
         "message": "Relief assignment overridden successfully.",
         "data": {"id": str(assignment.id), "new_teacher_id": str(body.relief_teacher_id)},
+    }
+@router.post("/relief/{absence_id}/assign")
+async def assign_relief_teacher(
+    absence_id: UUID,
+    request: HODAssignReliefRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(models.Absence).filter(models.Absence.id == absence_id)
+    )
+
+    absence = result.scalars().first()
+
+    if not absence:
+        raise HTTPException(status_code=404, detail="Absence not found")
+
+    relief_assignment = models.ReliefAssignment(
+        absence_id=absence.id,
+        relief_teacher_id=request.relief_teacher_id,
+        status=models.ReliefStatus.ACCEPTED,
+    )
+
+    db.add(relief_assignment)
+
+    await db.commit()
+
+    return {
+        "message": "Relief assigned successfully",
+        "absence_id": str(absence.id),
+        "relief_teacher_id": str(request.relief_teacher_id)
     }
