@@ -17,9 +17,10 @@ from .database import engine, Base, get_db
 from . import models, schemas, relief, auth
 from .worker import generate_timetable_task
 from . import leave_api
-from crud import router as master_router
-from admin_dashboard import router as admin_dashboard_router
-from rooms import router as rooms_router
+
+from .crud import router as master_router
+from .admin_dashboard import router as admin_dashboard_router
+from .rooms import router as rooms_router
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -65,6 +66,8 @@ app.add_middleware(
         "http://localhost:5174",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
+        "http://localhost:5175",
+        "http://127.0.0.1:5175",
     ],
     allow_credentials=True,
     allow_methods=["*"],

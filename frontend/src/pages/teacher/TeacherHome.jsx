@@ -343,10 +343,29 @@ export default function TeacherHome() {
       <ApplyLeaveModal
         isOpen={leaveOpen}
         onClose={handleCloseLeave}
-        onSubmit={(data) => {
-          console.log('Leave submitted:', data);
-          handleCloseLeave();
-        }}
+        onSubmit={async (data) => {
+  const token = localStorage.getItem('schoolsync_token');
+
+  const res = await fetch('http://localhost:8000/leaves/apply', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      start_date: data.startDate,
+      end_date: data.endDate || data.startDate,
+      period_start: 1,
+      period_end: 2,
+      leave_type: data.leaveType?.toLowerCase().replace(' leave', '') || 'sick',
+      reason: data.reason,
+      handover_url: null,
+    }),
+  });
+
+  console.log('Leave API:', await res.json());
+  handleCloseLeave();
+}}
       />
     </div>
   );

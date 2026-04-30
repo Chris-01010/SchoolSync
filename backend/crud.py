@@ -4,14 +4,14 @@ from sqlalchemy import select
 from typing import List
 from uuid import UUID
 
-from database import get_db
-from models import Teacher, Department, Subject, User, UserRole
-from schemas import (
+from .database import get_db
+from .models import Teacher, Department, Subject, User, UserRole
+from .schemas import (
     TeacherCreate, TeacherUpdate, Teacher as TeacherSchema,
     DepartmentCreate, Department as DepartmentSchema,
     SubjectCreate, Subject as SubjectSchema,
 )
-import auth
+from . import auth
 
 router = APIRouter()
 
@@ -191,7 +191,7 @@ async def delete_subject(subject_id: UUID, db: AsyncSession = Depends(get_db), _
 # USER MANAGEMENT ENDPOINTS (Admin Only)
 # ══════════════════════════════════════════════
 
-from schemas import UserAdminView
+from .schemas import UserAdminView
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -253,4 +253,4 @@ async def admin_change_status(user_id: UUID, payload: StatusPayload, db: AsyncSe
         
     user.is_active = payload.is_active
     await db.commit()
-    return {"status": "success", "message": "User status updated"}
+    return {"status": "success", "message": "User status updated"}

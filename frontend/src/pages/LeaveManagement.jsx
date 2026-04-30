@@ -110,7 +110,18 @@ const KPICard = ({ label, value, icon: Icon, color, barColor, barValue, subLabel
 const TypeBadge = ({ type, color }) => (
   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${color}`}>{type}</span>
 );
-
+const TEACHER_TIMETABLE = {
+  'Marcus Johnson': [
+    { subject: 'Physics AP', period: 'Period 2', className: '10-B', room: 'Physics Lab' },
+    { subject: 'Physics AP', period: 'Period 3', className: '10-B', room: 'Physics Lab' },
+  ],
+  'Alice Low': [
+    { subject: 'Biology Lab', period: 'Period 1', className: '9-A', room: 'Room 402' },
+  ],
+  'Unknown Teacher': [
+    { subject: 'General', period: 'Period 1', className: 'Unknown', room: 'Unassigned' },
+  ],
+};
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const LeaveManagement = ({ user }) => {
   const [pendingLeaves, setPendingLeaves] = useState([]);
@@ -130,6 +141,7 @@ useEffect(() => {
     });
 
     const data = await res.json();
+    console.log("PENDING API RESPONSE:", data);
     setPendingLeaves(
   (data.data || []).map((leave) => ({
     ...leave,
@@ -169,6 +181,28 @@ useEffect(() => {
 
     const moved = pendingLeaves.find((l) => l.id === id);
     if (moved) {
+      if (action === 'approved') {
+  const existingReliefs = JSON.parse(localStorage.getItem('relief_requests') || '[]');
+
+  const teacherName = moved.name || 'Unknown Teacher';
+  const vacantPeriods = TEACHER_TIMETABLE[teacherName] || TEACHER_TIMETABLE['Unknown Teacher'];
+
+  const newReliefs = vacantPeriods.map((slot, index) => ({
+    id: `${moved.id}-${index}`,
+    name: teacherName,
+    subject: slot.subject,
+    period: slot.period,
+    className: slot.className,
+    room: slot.room,
+    availableRelief: 'Not Assigned',
+    status: 'Unassigned',
+  }));
+
+  localStorage.setItem(
+    'relief_requests',
+    JSON.stringify([...newReliefs, ...existingReliefs])
+  );
+}
       setPendingLeaves((prev) => prev.filter((l) => l.id !== id));
       setProcessed((prev) => [
         {
