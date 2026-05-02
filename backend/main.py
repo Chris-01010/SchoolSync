@@ -13,14 +13,15 @@ import logging
 from pydantic import BaseModel
 from .email_service import send_verification_email, send_password_reset_email
 
-from .database import engine, Base, get_db
-from . import models, schemas, relief, auth
-from .worker import generate_timetable_task
-from . import leave_api
+from backend.database import engine, Base, get_db
+from backend import models, schemas, relief, auth
+from backend.worker import generate_timetable_task
+from backend import leave_api
 
-from .crud import router as master_router
-from .admin_dashboard import router as admin_dashboard_router
-from .rooms import router as rooms_router
+from backend.crud import router as master_router
+from backend.admin_dashboard import router as admin_dashboard_router
+from backend.rooms import router as rooms_router
+
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(

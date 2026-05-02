@@ -50,8 +50,8 @@ const StatCard = ({ title, value, unit, total, fillClassName }) => {
 };
 
 export default function TeacherDashboard() {
-  const [pending, setPending] = useState(mockPendingRequests);
-  const [confirmed, setConfirmed] = useState(mockConfirmedReliefs);
+  const [pending, setPending] = useState([]);
+const [confirmed, setConfirmed] = useState([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -60,6 +60,21 @@ export default function TeacherDashboard() {
 
   const [activeFlagId, setActiveFlagId] = useState(null);
   const [leaveFormResetKey, setLeaveFormResetKey] = useState(0);
+  useEffect(() => {
+  const fetchReliefs = async () => {
+    try {
+      const token = localStorage.getItem('schoolsync_token');
+      const res = await fetch('http://localhost:8000/teachers/me/dashboard', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setPending(data.pending_requests?.filter(r => r.type === 'relief_request') || []);
+    } catch (err) {
+      console.error('Failed to fetch reliefs', err);
+    }
+  };
+  fetchReliefs();
+}, []);
 
   // Escape/Focus trap
   useEffect(() => {
@@ -124,7 +139,17 @@ export default function TeacherDashboard() {
   const remainingTotal = mockTeacher.teachingHours.total;
   const remainingCompleted = mockTeacher.remainingCap;
 
-  const handleRespond = (id, status, reason) => {
+  const handleRespond = async (id, status, reason) => {
+  try {
+    const token = localStorage.getItem('schoolsync_token');
+    await fetch(`http://localhost:8000/leaves/relief/${id}/respond`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, flag_reason: reason || null })
+    });
+  } catch (err) {
+    console.error('Failed to respond:', err);
+  }
     if (status === 'accepted') {
       const req = pending.find((p) => p.id === id);
       if (!req) return;
@@ -159,10 +184,22 @@ export default function TeacherDashboard() {
     }
   };
 
-  const leaveSubmit = (formData) => {
-    console.log('Leave Request Submitted:', formData);
+  const leaveSubmit = async (formData) => {
+  try {
+    const token = localStorage.getItem('schoolsync_token');
+    await fetch('http://localhost:8000/leaves/apply', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+      
+    
+    });
     setIsModalOpen(false);
     setLeaveFormResetKey((k) => k + 1);
+    
+  } catch (err) {
+    console.error('Failed to submit leave:', err);
+  }
   };
 
   const confirmedSorted = useMemo(() => {
