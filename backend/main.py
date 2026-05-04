@@ -1,3 +1,4 @@
+from sqlalchemy import select, delete
 import secrets
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, status, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,16 +12,15 @@ import time
 import collections
 import logging
 from pydantic import BaseModel
-from .email_service import send_verification_email, send_password_reset_email
+from email_service import send_verification_email, send_password_reset_email
 
-from .database import engine, Base, get_db
-from . import models, schemas, relief, auth
-from .worker import generate_timetable_task
-from . import leave_api
-
-from .crud import router as master_router
-from .admin_dashboard import router as admin_dashboard_router
-from .rooms import router as rooms_router
+from database import engine, Base, get_db
+import models, schemas, relief, auth
+from worker import generate_timetable_task
+import leave_api
+from crud import router as master_router
+from admin_dashboard import router as admin_dashboard_router
+from rooms import router as rooms_router
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -116,33 +116,52 @@ async def login_json(payload: EmailLoginRequest, response: Response, db: AsyncSe
 # ─── Token refresh ─────────────────────────────────────────────────────────────
 @app.post("/auth/refresh", response_model=schemas.Token)
 async def refresh_access_token(request: Request, db: AsyncSession = Depends(get_db)):
+    """
+    Takes the refresh token from the HttpOnly cookie,
+    validates it, and returns a new access token.
+    """
     refresh_token = request.cookies.get("refresh_token")
+
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Refresh token missing.")
-    result = await db.execute(select(models.User).filter(models.User.refresh_token == refresh_token))
+
+    result = await db.execute(
+        select(models.User).filter(models.User.refresh_token == refresh_token)
+    )
     user = result.scalars().first()
+
     if not user:
         raise HTTPException(status_code=401, detail="Invalid refresh token.")
+
     if user.refresh_token_expires_at < datetime.utcnow():
         user.refresh_token = None
         user.refresh_token_expires_at = None
         await db.commit()
         raise HTTPException(status_code=401, detail="Refresh token expired. Please log in again.")
-    new_access_token = auth.create_access_token({"sub": user.college_id, "role": user.role})
+
+    new_access_token = auth.create_access_token({
+        "sub": user.college_id,
+        "role": user.role
+    })
+
     logger.info(f"Access token refreshed for user {user.college_id}")
     return {"access_token": new_access_token, "token_type": "bearer"}
 
 # ─── Logout ────────────────────────────────────────────────────────────────────
 @app.post("/auth/logout")
 async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    """Invalidate refresh token on logout."""
     refresh_token = request.cookies.get("refresh_token")
     if refresh_token:
-        result = await db.execute(select(models.User).filter(models.User.refresh_token == refresh_token))
+        result = await db.execute(
+            select(models.User).filter(models.User.refresh_token == refresh_token)
+        )
         user = result.scalars().first()
         if user:
             user.refresh_token = None
             user.refresh_token_expires_at = None
             await db.commit()
+
     response.delete_cookie("refresh_token")
     response.delete_cookie("access_token")
     return {"message": "Logged out successfully."}
@@ -153,11 +172,20 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
     result = await db.execute(select(models.User).filter(models.User.email == form_data.username))
     user = result.scalars().first()
     if not user or not auth.verify_password(form_data.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     if not user.is_verified:
-        raise HTTPException(status_code=403, detail="Email not verified. Please check your inbox or request a new verification email.")
+        raise HTTPException(
+            status_code=403,
+            detail="Email not verified. Please check your inbox or request a new verification email."
+        )
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token(data={"sub": user.college_id, "role": user.role}, expires_delta=access_token_expires)
+    access_token = auth.create_access_token(
+        data={"sub": user.college_id, "role": user.role}, expires_delta=access_token_expires
+    )
     return {"access_token": access_token, "token_type": "bearer"}
 
 # ─── Social OAuth stubs ────────────────────────────────────────────────────────
@@ -183,43 +211,56 @@ async def signup(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
     if result.scalars().first():
         raise HTTPException(status_code=400, detail="Email already registered")
     db_user = models.User(
-        college_id=user.college_id, email=user.email,
-        password_hash=auth.get_password_hash(user.password), role=user.role
+        college_id=user.college_id,
+        email=user.email,
+        password_hash=auth.get_password_hash(user.password),
+        role=user.role
     )
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
     if db_user.role == models.UserRole.TEACHER:
         teacher_profile = models.Teacher(
-            user_id=db_user.id, name=user.name or db_user.college_id,
-            email=db_user.email, current_relief_hours=0, total_hours_worked=0, is_active=True
+            user_id=db_user.id,
+            name=user.name or db_user.college_id,
+            email=db_user.email,
+            current_relief_hours=0,
+            total_hours_worked=0,
+            is_active=True
         )
         db.add(teacher_profile)
         await db.commit()
+
     token = secrets.token_urlsafe(32)
     db_user.verification_token = token
     db_user.verification_token_expires_at = datetime.utcnow() + timedelta(hours=24)
-    db_user.is_verified = True
+    db_user.is_verified = True   # ← local dev: skip email verification gate
     await db.commit()
     try:
         send_verification_email(db_user.email, db_user.college_id, token)
     except Exception:
-        pass
+        pass  # don't crash if email fails locally
     return db_user
 
 # ─── Email Verification ────────────────────────────────────────────────────────
 @app.get("/verify-email")
 async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.User).filter(models.User.verification_token == token))
+    result = await db.execute(
+        select(models.User).filter(models.User.verification_token == token)
+    )
     user = result.scalars().first()
+
     if not user:
         raise HTTPException(status_code=400, detail="Invalid verification token.")
+
     if user.verification_token_expires_at < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Verification token expired. Please request a new one.")
+
     user.is_verified = True
     user.verification_token = None
     user.verification_token_expires_at = None
     await db.commit()
+
     logger.info(f"Email verified for user {user.college_id}")
     return {"message": "Email verified successfully. You can now log in."}
 
@@ -227,14 +268,18 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
 async def resend_verification(email: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.User).filter(models.User.email == email))
     user = result.scalars().first()
+
     if not user:
         return {"message": "If that email exists, a verification link has been sent."}
+
     if user.is_verified:
         raise HTTPException(status_code=400, detail="Account already verified.")
+
     token = secrets.token_urlsafe(32)
     user.verification_token = token
     user.verification_token_expires_at = datetime.utcnow() + timedelta(hours=24)
     await db.commit()
+
     send_verification_email(user.email, user.college_id, token)
     return {"message": "If that email exists, a verification link has been sent."}
 
@@ -243,28 +288,37 @@ async def resend_verification(email: str, db: AsyncSession = Depends(get_db)):
 async def forgot_password(email: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.User).filter(models.User.email == email))
     user = result.scalars().first()
+
     if not user:
         return {"message": "If that email exists, a reset link has been sent."}
+
     token = secrets.token_urlsafe(32)
     user.reset_token = token
     user.reset_token_expires_at = datetime.utcnow() + timedelta(hours=1)
     await db.commit()
+
     send_password_reset_email(user.email, user.college_id, token)
     logger.info(f"Password reset requested for {user.email}")
     return {"message": "If that email exists, a reset link has been sent."}
 
 @app.post("/auth/reset-password")
 async def reset_password(token: str, new_password: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.User).filter(models.User.reset_token == token))
+    result = await db.execute(
+        select(models.User).filter(models.User.reset_token == token)
+    )
     user = result.scalars().first()
+
     if not user:
         raise HTTPException(status_code=400, detail="Invalid reset token.")
+
     if user.reset_token_expires_at < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Reset token expired. Please request a new one.")
+
     user.password_hash = auth.get_password_hash(new_password)
     user.reset_token = None
     user.reset_token_expires_at = None
     await db.commit()
+
     logger.info(f"Password reset successful for {user.college_id}")
     return {"message": "Password reset successfully. You can now log in."}
 
@@ -329,9 +383,15 @@ async def get_teacher_dashboard(current_user: models.User = Depends(auth.get_cur
     teacher = teacher_result.scalar_one_or_none()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher profile not found")
-    relief_result = await db.execute(select(models.ReliefAssignment).where(models.ReliefAssignment.relief_teacher_id == teacher.id, models.ReliefAssignment.status == models.ReliefStatus.PENDING))
+    relief_result = await db.execute(
+        select(models.ReliefAssignment)
+        .where(models.ReliefAssignment.relief_teacher_id == teacher.id, models.ReliefAssignment.status == models.ReliefStatus.PENDING)
+    )
     pending_reliefs = relief_result.scalars().all()
-    slots_result = await db.execute(select(models.TimetableSlot).join(models.TimetableVersion).where(models.TimetableSlot.teacher_id == teacher.id, models.TimetableVersion.is_active == True))
+    slots_result = await db.execute(
+        select(models.TimetableSlot).join(models.TimetableVersion)
+        .where(models.TimetableSlot.teacher_id == teacher.id, models.TimetableVersion.is_active == True)
+    )
     slots = slots_result.scalars().all()
     timetable_data = [{"day": s.day_of_week, "period": s.period, "subject": "Class Session", "class": "Grade X", "room": "Room Y"} for s in slots]
     pending_requests = [{"id": str(r.id), "type": "relief_request", "message": "New relief duty assigned", "date": r.assigned_at.isoformat() if r.assigned_at else ""} for r in pending_reliefs]
@@ -436,61 +496,145 @@ async def get_pending_department_leaves(current_user: models.User = Depends(auth
     return result.scalars().all()
 
 # ─── Absence & Relief ──────────────────────────────────────────────────────────
-@app.get("/absences/my", response_model=List[schemas.AbsenceOut], dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))])
-async def get_my_absences(current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
-    teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.user_id == current_user.id))
+@app.get(
+    "/absences/my",
+    response_model=List[schemas.AbsenceOut],
+    dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))]
+)
+async def get_my_absences(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
     teacher = teacher_result.scalar_one_or_none()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher profile not found")
-    result = await db.execute(select(models.Absence).where(models.Absence.teacher_id == teacher.id).order_by(models.Absence.date.desc()))
+
+    result = await db.execute(
+        select(models.Absence)
+        .where(models.Absence.teacher_id == teacher.id)
+        .order_by(models.Absence.date.desc())
+    )
     return result.scalars().all()
 
-@app.post("/absences/", response_model=schemas.AbsenceOut, dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))])
-async def mark_absence(absence: schemas.AbsenceCreate, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
-    teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.user_id == current_user.id))
+@app.post(
+    "/absences/",
+    response_model=schemas.AbsenceOut,
+    dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))]
+)
+async def mark_absence(
+    absence: schemas.AbsenceCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
     teacher = teacher_result.scalar_one_or_none()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher profile not found")
-    overlap_result = await db.execute(select(models.Absence).where(models.Absence.teacher_id == teacher.id, models.Absence.date == absence.date, models.Absence.status != models.AbsenceStatus.REJECTED))
+
+    overlap_result = await db.execute(
+        select(models.Absence).where(
+            models.Absence.teacher_id == teacher.id,
+            models.Absence.date == absence.date,
+            models.Absence.status != models.AbsenceStatus.REJECTED
+        )
+    )
     if overlap_result.scalars().first():
-        raise HTTPException(status_code=409, detail="You already have a leave request for this date.")
+        raise HTTPException(
+            status_code=409,
+            detail="You already have a leave request for this date."
+        )
+
     db_absence = models.Absence(
-        teacher_id=teacher.id, date=absence.date, period_start=absence.period_start,
-        period_end=absence.period_end, leave_type=absence.leave_type, reason=absence.reason,
-        handover_url=absence.handover_url, status=models.AbsenceStatus.PENDING, resolved=False,
+        teacher_id=teacher.id,
+        date=absence.date,
+        period_start=absence.period_start,
+        period_end=absence.period_end,
+        leave_type=absence.leave_type,
+        reason=absence.reason,
+        handover_url=absence.handover_url,
+        status=models.AbsenceStatus.PENDING,
+        resolved=False,
     )
     db.add(db_absence)
     await db.flush()
-    db.add(models.Notification(user_id=current_user.id, title="Leave Request Submitted", content=f"Your {absence.leave_type} leave on {absence.date} is pending HOD approval."))
+
+    db.add(models.Notification(
+        user_id=current_user.id,
+        title="Leave Request Submitted",
+        content=f"Your {absence.leave_type} leave on {absence.date} is pending HOD approval."
+    ))
+
     if teacher.department_id:
-        dept_result = await db.execute(select(models.Department).where(models.Department.id == teacher.department_id))
+        dept_result = await db.execute(
+            select(models.Department).where(models.Department.id == teacher.department_id)
+        )
         dept = dept_result.scalar_one_or_none()
         if dept and dept.hod_id:
-            hod_teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.id == dept.hod_id))
+            hod_teacher_result = await db.execute(
+                select(models.Teacher).where(models.Teacher.id == dept.hod_id)
+            )
             hod_teacher = hod_teacher_result.scalar_one_or_none()
             if hod_teacher:
-                db.add(models.Notification(user_id=hod_teacher.user_id, title="New Leave Request", content=f"{teacher.name} has applied for {absence.leave_type} leave on {absence.date}."))
+                db.add(models.Notification(
+                    user_id=hod_teacher.user_id,
+                    title="New Leave Request",
+                    content=f"{teacher.name} has applied for {absence.leave_type} leave on {absence.date}."
+                ))
+
     await db.commit()
     await db.refresh(db_absence)
     return db_absence
 
-@app.put("/absences/{absence_id}/approve", response_model=schemas.AbsenceOut, dependencies=[Depends(auth.check_role([models.UserRole.HOD]))])
-async def approve_leave(absence_id: UUID, approval: schemas.AbsenceDecision, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.Absence).where(models.Absence.id == absence_id))
+@app.put(
+    "/absences/{absence_id}/approve",
+    response_model=schemas.AbsenceOut,
+    dependencies=[Depends(auth.check_role([models.UserRole.HOD]))]
+)
+async def approve_leave(
+    absence_id: UUID,
+    approval: schemas.AbsenceDecision,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(models.Absence).where(models.Absence.id == absence_id)
+    )
     absence = result.scalar_one_or_none()
     if not absence:
         raise HTTPException(status_code=404, detail="Absence not found")
+
     if absence.status != models.AbsenceStatus.PENDING:
-        raise HTTPException(status_code=400, detail=f"Cannot update a leave that is already {absence.status}.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot update a leave that is already {absence.status}."
+        )
+
     absence.status = approval.status
-    teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.id == absence.teacher_id))
+
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+    )
     teacher = teacher_result.scalar_one_or_none()
     if teacher:
         if approval.status == models.AbsenceStatus.APPROVED:
-            title, content = "Leave Request Approved", f"Your leave on {absence.date} has been approved."
+            title = "Leave Request Approved"
+            content = f"Your leave on {absence.date} has been approved."
         else:
-            title, content = "Leave Request Rejected", f"Your leave on {absence.date} has been rejected."
-        db.add(models.Notification(user_id=teacher.user_id, title=title, content=content, is_read=False))
+            title = "Leave Request Rejected"
+            content = f"Your leave on {absence.date} has been rejected."
+
+        db.add(models.Notification(
+            user_id=teacher.user_id,
+            title=title,
+            content=content,
+            is_read=False,
+        ))
+
     await db.commit()
     await db.refresh(absence)
     return absence
@@ -515,48 +659,6 @@ async def respond_to_relief(assignment_id: UUID, response: schemas.ReliefRespons
     await db.commit()
     await db.refresh(assignment)
     return assignment
-
-# ─── Relief Assignments — fetch pending for current teacher ───────────────────
-@app.get("/relief-assignments/my-pending", dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))])
-async def get_my_pending_relief_assignments(current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
-    teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.user_id == current_user.id))
-    teacher = teacher_result.scalar_one_or_none()
-    if not teacher:
-        raise HTTPException(status_code=404, detail="Teacher profile not found")
-    assignments_result = await db.execute(
-        select(models.ReliefAssignment).where(
-            models.ReliefAssignment.relief_teacher_id == teacher.id,
-            models.ReliefAssignment.status == models.ReliefStatus.PENDING
-        )
-    )
-    assignments = assignments_result.scalars().all()
-    result = []
-    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-    for a in assignments:
-        slot_result = await db.execute(select(models.TimetableSlot).where(models.TimetableSlot.id == a.slot_id))
-        slot = slot_result.scalar_one_or_none()
-        absence_result = await db.execute(select(models.Absence).where(models.Absence.id == a.absence_id))
-        absence = absence_result.scalar_one_or_none()
-        absent_teacher = None
-        if absence:
-            absent_teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.id == absence.teacher_id))
-            absent_teacher = absent_teacher_result.scalar_one_or_none()
-        class_name = "Unknown Class"
-        if slot and slot.class_id:
-            class_result = await db.execute(select(models.ClassRoom).where(models.ClassRoom.id == slot.class_id))
-            cls = class_result.scalar_one_or_none()
-            if cls:
-                class_name = cls.name
-        result.append({
-            "id": str(a.id),
-            "class_name": class_name,
-            "period": slot.period if slot else None,
-            "start_time": str(slot.start_time)[:5] if slot and slot.start_time else None,
-            "end_time": str(slot.end_time)[:5] if slot and slot.end_time else None,
-            "day_name": days[slot.day_of_week] if slot and slot.day_of_week is not None else "Unknown",
-            "teacher_name": absent_teacher.name if absent_teacher else "Unknown Teacher",
-        })
-    return result
 
 # ─── Timetable Slots CRUD ──────────────────────────────────────────────────────
 @app.post("/timetable/slots", response_model=schemas.TimetableSlot, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
@@ -628,5 +730,109 @@ async def delete_timetable_slot(slot_id: UUID, db: AsyncSession = Depends(get_db
 async def trigger_timetable_generation(request: schemas.TimetableGenerateRequest):
     task = generate_timetable_task.delay(str(request.school_id))
     return {"task_id": task.id, "status": "pending"}
-
 app.include_router(leave_api.router, prefix="/leaves", tags=["leaves"])
+# ─── Sync Timetable Generation (no Celery needed) ─────────────────────────────
+@app.post("/generate-timetable-sync/", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
+async def generate_timetable_sync(db: AsyncSession = Depends(get_db)):
+    import uuid as uuid_module
+
+    teachers_res = await db.execute(select(models.Teacher))
+    teachers = teachers_res.scalars().all()
+
+    rooms_res = await db.execute(select(models.Room))
+    rooms = rooms_res.scalars().all()
+
+    subjects_res = await db.execute(select(models.Subject))
+    subjects = subjects_res.scalars().all()
+
+    classes_res = await db.execute(select(models.ClassRoom))
+    classes = classes_res.scalars().all()
+
+    if not teachers:
+        raise HTTPException(status_code=400, detail="No teachers found in database")
+    if not rooms:
+        raise HTTPException(status_code=400, detail="No rooms found in database")
+    if not subjects:
+        raise HTTPException(status_code=400, detail="No subjects found in database")
+    if not classes:
+        raise HTTPException(status_code=400, detail="No classes found in database")
+
+    await db.execute(models.TimetableVersion.__table__.update().values(is_active=False))
+
+    version = models.TimetableVersion(
+        school_id=uuid_module.uuid4(),
+        published_at=datetime.utcnow(),
+        is_active=True,
+        data_snapshot={}
+    )
+    db.add(version)
+    await db.commit()
+    await db.refresh(version)
+
+
+    # Delete existing slots to avoid UNIQUE constraint conflicts
+    await db.execute(delete(models.TimetableSlot))
+    await db.commit()
+    slots_created = 0
+    subject_idx = 0
+
+    for class_idx, class_obj in enumerate(classes):
+        room = rooms[class_idx % len(rooms)]
+        teacher_idx = class_idx
+        for day in range(5):
+            for period in range(1, 7):
+                teacher = teachers[teacher_idx % len(teachers)]
+                subject = subjects[subject_idx % len(subjects)]
+                slot = models.TimetableSlot(
+                    timetable_version_id=version.id,
+                    teacher_id=teacher.id,
+                    class_id=class_obj.id,
+                    room_id=room.id,
+                    subject_id=subject.id,
+                    day_of_week=day,
+                    period=period
+                )
+                db.add(slot)
+                slots_created += 1
+                teacher_idx += 1
+                subject_idx += 1
+
+    await db.commit()
+    return {
+    "status": "success",
+    "task_id": str(version.id),
+    "version_id": str(version.id),
+    "slots_created": slots_created
+}
+    
+@app.get("/timetable/versions")
+async def get_timetable_versions(db: AsyncSession = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    result = await db.execute(select(models.TimetableVersion).order_by(models.TimetableVersion.published_at.desc()))
+    versions = result.scalars().all()
+    return [{"id": str(v.id), "is_active": v.is_active, "published_at": str(v.published_at)} for v in versions]
+
+@app.get("/timetable/slots")
+async def get_timetable_slots(db: AsyncSession = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # Get active version
+    result = await db.execute(select(models.TimetableVersion).filter(models.TimetableVersion.is_active == True))
+    active_version = result.scalars().first()
+    if not active_version:
+        return []
+    result = await db.execute(select(models.TimetableSlot).filter(models.TimetableSlot.timetable_version_id == active_version.id))
+    slots = result.scalars().all()
+    return [{"id": str(s.id), "teacher_id": str(s.teacher_id), "class_id": str(s.class_id), "subject_id": str(s.subject_id), "room_id": str(s.room_id), "day_of_week": s.day_of_week, "period": s.period, "is_relief": s.is_relief} for s in slots]
+
+@app.post("/timetable/versions/{version_id}/activate")
+async def activate_timetable_version(version_id: str, db: AsyncSession = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # Deactivate all versions
+    all_versions = await db.execute(select(models.TimetableVersion))
+    for v in all_versions.scalars().all():
+        v.is_active = False
+    # Activate selected
+    result = await db.execute(select(models.TimetableVersion).filter(models.TimetableVersion.id == version_id))
+    version = result.scalars().first()
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+    version.is_active = True
+    await db.commit()
+    return {"status": "success"}

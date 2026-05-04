@@ -1,8 +1,8 @@
 import asyncio
 import os
-from .database import AsyncSessionLocal
-from . import models
-from .solver import TimetableSolver
+from database import AsyncSessionLocal
+import models
+from solver import TimetableSolver
 from sqlalchemy import select
 import json
 from datetime import datetime

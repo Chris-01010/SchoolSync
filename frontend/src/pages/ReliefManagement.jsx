@@ -1,439 +1,258 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Users,
-  Calendar,
-  CheckSquare,
-  Filter,
-  FileDown,
-  ExternalLink,
-  FileText,
-  Clock,
-  ChevronRight,
-  X,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  MoreHorizontal,
-} from 'lucide-react';
+  Download, Search, ChevronDown, ShieldCheck,
+  CheckCircle2, AlertTriangle, Crown, X, Eye,
+} from "lucide-react";
+import { api } from "../services/api";
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_KPI = {
-  totalLeaveDays: 24,
-  pendingDecisions: 6,
-  availableCapacity: 12,
+const containerV = { hidden: {}, visible: { transition: { staggerChildren: 0.04 } } };
+const itemV = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: "easeOut" } } };
+const modalOverlay = { hidden: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } };
+const modalContent = {
+  hidden: { opacity: 0, scale: 0.92 },
+  visible: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 400, damping: 28 } },
+  exit: { opacity: 0, scale: 0.92, transition: { duration: 0.15 } },
 };
 
-const MOCK_LEAVE_IMPACT = [
-  { day: 'MON', date: 14, teachers: [{ initials: 'MJ', color: 'bg-blue-200 text-blue-800' }, { initials: 'AL', color: 'bg-pink-200 text-pink-800' }], extra: 2 },
-  { day: 'TUE', date: 15, teachers: [{ initials: 'SJ', color: 'bg-purple-200 text-purple-700' }], extra: 0, highlighted: true },
-  { day: 'WED', date: 16, teachers: [], extra: 0, empty: true },
-];
-
-const MOCK_PENDING = [
-  {
-    id: 'p1',
-    initials: 'MJ',
-    color: 'bg-blue-100 text-blue-700',
-    name: 'Marcus Johnson',
-    role: 'Senior Physics',
-    type: 'Sick Leave',
-    typeColor: 'bg-red-100 text-red-600',
-    dates: 'Oct 14 – Oct 15',
-    days: '2 Days',
-    reason: "Doctor's appointment...",
-    doc: 'Medical_Cert.pdf',
-    hasDoc: true,
-  },
-  {
-    id: 'p2',
-    initials: 'AL',
-    color: 'bg-pink-100 text-pink-700',
-    name: 'Alice Low',
-    role: 'Biology Lab Tech',
-    type: 'Personal',
-    typeColor: 'bg-purple-100 text-purple-700',
-    dates: 'Oct 20',
-    days: '1 Day',
-    reason: 'Family emergency -...',
-    doc: null,
-    hasDoc: false,
-  },
-];
-
-const MOCK_PROCESSED = [
-  {
-    id: 'r1',
-    initials: 'DC',
-    color: 'bg-green-100 text-green-700',
-    name: 'David Chen',
-    meta: 'Approved 2h ago',
-    detail: 'Professional Development',
-    dates: 'Oct 25 – 27',
-    status: 'approved',
-  },
-  {
-    id: 'r2',
-    initials: 'EB',
-    color: 'bg-amber-100 text-amber-700',
-    name: 'Emily Blunt',
-    meta: 'Clarification Requested yesterday',
-    detail: '',
-    dates: '',
-    status: 'pending',
-  },
-];
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-const KPICard = ({ label, value, icon: Icon, color, barColor, barValue, subLabel }) => (
-  <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex-1 min-w-0">
-    <div className="flex items-start justify-between mb-2">
-      <div>
-        <p className="text-[22px] font-bold text-gray-900 leading-none">{value}</p>
-        <p className="text-[11px] text-gray-400 font-medium mt-1">{label}</p>
-      </div>
-      <div className={`p-2 rounded-lg ${color}`}>
-        <Icon size={14} className="opacity-80" />
-      </div>
-    </div>
-    {barColor && (
-      <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden mt-3">
-        <div
-          className={`h-full rounded-full ${barColor}`}
-          style={{ width: `${barValue}%` }}
-        />
-      </div>
-    )}
-  </div>
-);
-
-const TypeBadge = ({ type, color }) => (
-  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${color}`}>{type}</span>
-);
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-  const ReliefManagement = ({ user }) => {
-  const [reliefRequests, setReliefRequests] = useState(() => {
-  const assignedIds = JSON.parse(localStorage.getItem('assignedReliefs') || '[]');
-  return MOCK_PENDING.filter((r) => !assignedIds.includes(r.id));
-});
-const [processed, setProcessed] = useState(MOCK_PROCESSED);
-const [showBanner, setShowBanner] = useState(true);
-const AVAILABLE_RELIEF_TEACHERS = [
-  'Ms. Julia Lee',
-  'Mr. David Smith',
-  'Ms. Sarah Oh',
-];
-
-const handleAssign = (id) => {
-  const assignedIds = JSON.parse(localStorage.getItem('assignedReliefs') || '[]');
-  localStorage.setItem('assignedReliefs', JSON.stringify([...assignedIds, id]));
-  const assigned = reliefRequests.find((r) => r.id === id);
-
-  if (assigned) {
-    setReliefRequests((prev) =>
-      prev.filter((r) => r.id !== id)
-    );
-    const selectedTeacher = AVAILABLE_RELIEF_TEACHERS[0];
-    setProcessed((prev) => [
-      {
-        ...assigned,
-        status: 'assigned',
-        availableRelief: selectedTeacher,
-        meta: `Relief assigned to ${selectedTeacher} just now`,
-      },
-      ...prev,
-    ]);
-  }
+const statusConfig = {
+  assigned:   { label: "Assigned",   pill: "bg-emerald-50 text-emerald-700 ring-emerald-500/20", dot: "bg-emerald-500" },
+  unassigned: { label: "Unassigned", pill: "bg-amber-50 text-amber-700 ring-amber-500/20",       dot: "bg-amber-500" },
+  overridden: { label: "Overridden", pill: "bg-purple-50 text-purple-700 ring-purple-500/20",    dot: "bg-purple-500" },
 };
-    
 
-    
+export default function ReliefManagementPage() {
+  const [reliefs, setReliefs]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalRow, setModalRow]   = useState(null);
 
+  const fetchReliefs = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.get("/api/v1/admin/relief");
+      const list = Array.isArray(data) ? data : (data?.data || []);
+      setReliefs(list);
+    } catch (err) {
+      setError(err.message || "Failed to load relief data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchReliefs(); }, []);
+
+  const totalRelief    = reliefs.length;
+  const assignedCount  = reliefs.filter((r) => r.status === "assigned").length;
+  const unassignedCount= reliefs.filter((r) => r.status === "unassigned" || !r.substitute_id).length;
+  const overrideCount  = reliefs.filter((r) => r.override || r.status === "overridden").length;
+
+  const summaryStats = [
+    { label: "TOTAL RELIEF TODAY", value: loading ? "—" : totalRelief,     sub: "Across all departments", accent: "text-teal-600",    icon: ShieldCheck,   iconBg: "bg-teal-50" },
+    { label: "ASSIGNED",           value: loading ? "—" : assignedCount,   sub: "Successfully covered",  accent: "text-emerald-600", icon: CheckCircle2,  iconBg: "bg-emerald-50" },
+    { label: "UNASSIGNED",         value: loading ? "—" : unassignedCount, sub: "Needs immediate action", accent: "text-red-600",     icon: AlertTriangle, iconBg: "bg-red-50" },
+    { label: "ADMIN OVERRIDES",    value: loading ? "—" : overrideCount,   sub: "Overridden by admin",   accent: "text-purple-600",  icon: Crown,         iconBg: "bg-purple-50" },
+  ];
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <>
+      <motion.div variants={containerV} initial="hidden" animate="visible" className="space-y-7">
 
-      {/* Page header */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-[20px] font-bold text-gray-900">Relief Management</h1>
-          <p className="text-[12px] text-gray-400 mt-0.5">
-            Assign and manage relief teachers for approved absences.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-[11px] font-medium text-gray-600 hover:bg-gray-50 bg-white">
-            <FileDown size={11} /> Download Report
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[11px] font-semibold hover:bg-blue-700">
-            <ExternalLink size={11} /> View School Calendar
-          </button>
-        </div>
-      </div>
-
-      {/* KPI + Leave Impact row */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-        {/* KPI cards */}
-        <div className="lg:col-span-3 flex gap-3">
-          <KPICard
-            label="Total Relief Requests"
-            value={MOCK_KPI.totalLeaveDays}
-            icon={Users}
-            color="bg-blue-50 text-blue-600"
-            barColor="bg-blue-500"
-            barValue={60}
-          />
-          <KPICard
-            label="Pending Assignments"
-            value={`0${MOCK_KPI.pendingDecisions}`}
-            icon={Clock}
-            color="bg-amber-50 text-amber-600"
-            barColor="bg-amber-400"
-            barValue={40}
-          />
-          <KPICard
-            label="Available Teachers"
-            value={MOCK_KPI.availableCapacity}
-            icon={CheckSquare}
-            color="bg-green-50 text-green-600"
-            barColor="bg-green-500"
-            barValue={75}
-          />
-        </div>
-
-        {/* Relief Impact */}
-        <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[12px] font-semibold text-gray-800">Leave Impact</p>
-            <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-              Week 34
-            </span>
+        {/* HEADER */}
+        <motion.div variants={itemV} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-[28px] font-bold tracking-tight text-gray-900">Relief Management</h1>
+            <p className="mt-1 text-sm text-gray-500">Manage and assign relief duties across all departments.</p>
           </div>
-          <div className="space-y-2">
-            {MOCK_LEAVE_IMPACT.map((item, i) => (
-              <div
-                key={i}
-                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${
-                  item.highlighted ? 'bg-blue-50 border border-blue-100' : ''
-                }`}
-              >
-                <div className="w-8 text-center flex-shrink-0">
-                  <p className="text-[8px] font-bold text-gray-400 uppercase">{item.day}</p>
-                  <p className="text-[13px] font-bold text-gray-800">{item.date}</p>
-                </div>
-                <div className="flex items-center gap-1 flex-1">
-                  {item.empty ? (
-                    <p className="text-[10px] text-gray-400 italic">No active absences</p>
-                  ) : (
-                    <>
-                      {item.teachers.map((t, j) => (
-                        <div
-                          key={j}
-                          className={`w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold ${t.color}`}
-                        >
-                          {t.initials}
-                        </div>
-                      ))}
-                      {item.extra > 0 && (
-                        <span className="text-[9px] text-gray-500 font-medium">
-                          +{item.extra} away
-                        </span>
-                      )}
-                      {item.highlighted && (
-                        <div className="ml-auto">
-                          <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-[8px] font-bold text-purple-700">
-                            SJ
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Pending Requests */}
-        <div
-        id="create-relief"
-        className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden"
-        >
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h3 className="text-[13px] font-semibold text-gray-800">Pending Requests</h3>
-          <button className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700 font-medium">
-            <Filter size={11} /> Filter by Type
+          <button className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">
+            <Download size={15} /> Export
           </button>
-        </div>
+        </motion.div>
 
-        {/* Table header */}
-        <div className="grid px-5 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-semibold text-gray-400 uppercase tracking-wide"
-          style={{ gridTemplateColumns: '2fr 1fr 1.2fr 2fr 1fr 1.5fr' }}>
-          <span>Absent Teacher</span>
-          <span>Subject</span>
-          <span>Period</span>
-          <span>Available Relief</span>
-          <span>Status</span>
-          <span className="text-right">Assign</span>
-          </div>
-
-        {/* Table rows */}
-        <div className="divide-y divide-gray-50">
-          <AnimatePresence>
-            {reliefRequests.map((leave) => (
-              <motion.div
-                key={leave.id}
-                layout
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="grid px-5 py-3 items-center hover:bg-gray-50/60 transition-colors"
-                style={{ gridTemplateColumns: '2fr 1fr 1.2fr 2fr 1fr 1.5fr' }}
-              >
-                {/* Teacher */}
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${leave.color}`}
-                  >
-                    {leave.initials}
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-semibold text-gray-800">{leave.name}</p>
-                    <p className="text-[10px] text-gray-400">{leave.role}</p>
-                  </div>
+        {/* STAT CARDS */}
+        <motion.div variants={itemV} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {summaryStats.map((s) => {
+            const Icon = s.icon;
+            return (
+              <motion.div key={s.label} whileHover={{ scale: 1.02 }} transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                className="flex items-start gap-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${s.iconBg} ${s.accent}`}>
+                  <Icon size={18} />
                 </div>
-
-                {/* Type */}
                 <div>
-                  <TypeBadge type={leave.type} color={leave.typeColor} />
-                  <p className="text-[9px] text-gray-400 mt-0.5">Leave</p>
-                </div>
-
-                {/* Dates */}
-                <div>
-                  <p className="text-[11px] text-gray-700 font-medium">{leave.dates}</p>
-                  <p className="text-[10px] text-gray-400">{leave.days}</p>
-                </div>
-
-                {/* Reason */}
-                <p className="text-[11px] text-gray-500 truncate pr-2">{leave.reason}</p>
-
-                {/* Docs */}
-                <div>
-                  {leave.hasDoc ? (
-                    <button className="flex items-center gap-1 text-[10px] text-blue-600 font-medium hover:text-blue-700">
-                      <FileText size={11} />
-                      {leave.doc}
-                    </button>
-                  ) : (
-                    <span className="text-[10px] text-gray-400">None</span>
-                  )}
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1.5 justify-end">
-                  <button
-                  onClick={() => {
-                    
-                    handleAssign(leave.id);
-                  }}
-                  className="px-3 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-semibold hover:bg-blue-700"
-                  >  Assign Relief
-                  </button>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{s.label}</p>
+                  <p className={`mt-0.5 text-[28px] font-bold leading-none tracking-tight ${s.accent}`}>{s.value}</p>
+                  <p className="mt-1.5 text-xs font-medium text-gray-400">{s.sub}</p>
                 </div>
               </motion.div>
-            ))}
-          </AnimatePresence>
+            );
+          })}
+        </motion.div>
 
-          {reliefRequests.length === 0 && (
-            <div className="px-5 py-8 text-center">
-              <CheckCircle size={24} className="text-green-400 mx-auto mb-2" />
-              <p className="text-[12px] text-gray-400 font-medium">All requests processed</p>
+        {/* FILTER ROW */}
+        <motion.div variants={itemV} className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <select className="appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-gray-700 shadow-sm">
+              <option>Department: All</option>
+            </select>
+            <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          </div>
+          <div className="relative">
+            <select className="appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-gray-700 shadow-sm">
+              <option>Status: All</option>
+              <option>Assigned</option>
+              <option>Unassigned</option>
+              <option>Overridden</option>
+            </select>
+            <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          </div>
+          <div className="relative">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" placeholder="Search relief..."
+              className="w-52 rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 placeholder-gray-400 shadow-sm" />
+          </div>
+        </motion.div>
+
+        {/* TABLE */}
+        <motion.div variants={itemV} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          {loading && (
+            <div className="flex items-center justify-center py-16 text-sm text-gray-400">Loading relief data…</div>
+          )}
+          {error && (
+            <div className="flex items-center justify-between px-5 py-4 bg-red-50 border-b border-red-100">
+              <p className="text-sm font-medium text-red-600">{error}</p>
+              <button onClick={fetchReliefs} className="ml-4 rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition">Retry</button>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Recent Relief Assignments */}
-      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h3 className="text-[13px] font-semibold text-gray-800">Recent Relief Assignments</h3>
-          <button className="p-1 rounded text-gray-400 hover:text-gray-600">
-            <MoreHorizontal size={14} />
-          </button>
-        </div>
-        <div className="divide-y divide-gray-50">
-          {processed.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold ${item.color}`}>
-                {item.initials}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold text-gray-800">{item.name}</p>
-                <p className="text-[10px] text-gray-400">{item.meta}</p>
-              </div>
-              {item.detail && (
-                <div className="text-right">
-                  <p className="text-[11px] text-gray-600 font-medium">{item.detail}</p>
-                  <p className="text-[10px] text-gray-400">{item.dates}</p>
-                </div>
-              )}
-              <div className="ml-2">
-                {item.status === 'approved' && (
-                  <CheckCircle size={15} className="text-green-500" />
-                )}
-                {item.status === 'rejected' && (
-                  <XCircle size={15} className="text-red-400" />
-                )}
-                {item.status === 'pending' && (
-                  <Clock size={15} className="text-amber-400" />
-                )}
-              </div>
+          {!loading && !error && reliefs.length === 0 && (
+            <div className="flex items-center justify-center py-16 text-sm text-gray-400">No relief duties found.</div>
+          )}
+          {!loading && !error && reliefs.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50/80">
+                    {["DEPT", "PERIOD", "SUBSTITUTE TEACHER", "ABSENT TEACHER", "CLASS", "STATUS", "ACTION"].map((h) => (
+                      <th key={h} className="whitespace-nowrap px-5 py-3 text-[11px] font-medium uppercase tracking-wider text-gray-500">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {reliefs.map((r) => {
+                    const status = r.status || (r.substitute_id ? "assigned" : "unassigned");
+                    const sc = statusConfig[status] || statusConfig.unassigned;
+                    return (
+                      <tr key={r.id} className="border-b border-gray-100 transition-colors hover:bg-gray-50/60">
+                        <td className="whitespace-nowrap px-5 py-3.5 text-[13px] font-medium text-gray-700">{r.department || "—"}</td>
+                        <td className="whitespace-nowrap px-5 py-3.5 text-[13px] text-gray-600">{r.period || "—"}</td>
+                        <td className="whitespace-nowrap px-5 py-3.5 text-[13px]">
+                          {r.substitute_id ? (
+                            <span className="font-medium text-gray-900">{r.substitute_name || r.substitute_id}</span>
+                          ) : (
+                            <span className="italic text-red-400">Unassigned</span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-3.5 text-[13px] text-gray-600">{r.absent_teacher || r.teacher_id || "—"}</td>
+                        <td className="whitespace-nowrap px-5 py-3.5 text-[13px] text-gray-600">{r.class_name || "—"}</td>
+                        <td className="whitespace-nowrap px-5 py-3.5">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${sc.pill}`}>
+                            <span className={`inline-block h-1.5 w-1.5 rounded-full ${sc.dot}`} />
+                            {sc.label}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-3.5">
+                          {status === "unassigned" ? (
+                            <button onClick={() => { setModalRow(r); setModalOpen(true); }}
+                              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                              Assign
+                            </button>
+                          ) : (
+                            <button className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 transition hover:text-indigo-600">
+                              <Eye size={13} /> View
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Bottom notification banner */}
-      <AnimatePresence>
-        {showBanner && reliefRequests.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-xl max-w-sm"
-          >
-            <AlertCircle size={15} className="text-amber-400 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold">Relief Planning Required</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">
-                3 approved absences lack assigned relief teachers for Tuesday.
+          )}
+          {!loading && !error && (
+            <div className="flex items-center justify-between border-t border-gray-200 px-5 py-3">
+              <p className="text-xs text-gray-500">
+                <span className="font-semibold text-emerald-600">{assignedCount} assigned</span>
+                {" | "}
+                <span className="font-semibold text-amber-600">{unassignedCount} unassigned</span>
+                {" | "}
+                <span className="font-semibold text-purple-600">{overrideCount} overridden by Admin</span>
               </p>
-            </div>
-            <button
-            onClick={() => {
-              if (reliefRequests.length > 0) {
-                handleAssign(reliefRequests[0].id);
-              }
-            }}
-            className="text-[10px] font-bold text-blue-400 hover:text-blue-300 whitespace-nowrap flex-shrink-0"
-            >
-              Fix Now
+              <button className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition hover:bg-gray-50">
+                <Download size={13} /> Export
               </button>
-            <button
-              onClick={() => setShowBanner(false)}
-              className="ml-1 p-0.5 text-gray-500 hover:text-gray-300 flex-shrink-0"
-            >
-              <X size={12} />
-            </button>
+            </div>
+          )}
+        </motion.div>
+      </motion.div>
+
+      {/* ASSIGN MODAL — unchanged */}
+      <AnimatePresence>
+        {modalOpen && (
+          <motion.div variants={modalOverlay} initial="hidden" animate="visible" exit="exit"
+            onClick={() => setModalOpen(false)}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <motion.div variants={modalContent} initial="hidden" animate="visible" exit="exit"
+              onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-gray-900">Assign Relief Teacher</h2>
+                <button onClick={() => setModalOpen(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Absent Teacher</label>
+                  <input type="text" readOnly value={modalRow?.absent_teacher || modalRow?.teacher_id || ""}
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Period</label>
+                  <input type="text" readOnly value={modalRow?.period || ""}
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Select Substitute</label>
+                  <div className="relative">
+                    <select className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm">
+                      <option value="">Choose a teacher...</option>
+                    </select>
+                    <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                  <span className="text-sm text-gray-700">Override HOD allocation</span>
+                </label>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Notes</label>
+                  <textarea rows={3} placeholder="Reason for override (optional)"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 placeholder-gray-400 shadow-sm resize-none" />
+                </div>
+              </div>
+              <div className="mt-6 flex items-center justify-end gap-2.5">
+                <button onClick={() => setModalOpen(false)}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">Cancel</button>
+                <button onClick={() => setModalOpen(false)}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700">Assign Relief</button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
-  )
-};
-
-
-export default ReliefManagement;
+    </>
+  );
+}

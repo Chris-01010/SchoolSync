@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   Building2, Users, BookOpen, Plane, AlertCircle, CheckSquare,
   AlertTriangle, RefreshCw, CalendarPlus, ClipboardList, Send, Clock, Radio,
@@ -45,12 +46,12 @@ const alerts = [
 ];
 
 const quickActions = [
-  { label: "Create Timetable",  icon: CalendarPlus  },
-  { label: "Manage Relief",     icon: RefreshCw     },
-  { label: "Review Leaves",     icon: ClipboardList },
-  { label: "Manage Users",      icon: Users         },
-  { label: "Manage Depts",      icon: Building2     },
-  { label: "Send Announcement", icon: Send          },
+   { label: "Create Timetable",  icon: CalendarPlus,  route: "/admin/timetables"    },
+  { label: "Manage Relief",     icon: RefreshCw,     route: "/admin/relief"        },
+  { label: "Review Leaves",     icon: ClipboardList, route: "/admin/leave"         },
+  { label: "Manage Users",      icon: Users,         route: "/admin/users"         },
+  { label: "Manage Depts",      icon: Building2,     route: "/admin/departments"   },
+  { label: "Send Announcement", icon: Send,          route: "/admin/announcements" },
 ];
 
 const conflicts = [
@@ -63,6 +64,7 @@ const containerVariants = { hidden: {}, visible: { transition: { staggerChildren
 const itemVariants = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } } };
 
 export default function AdminHome() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -161,7 +163,11 @@ export default function AdminHome() {
             {quickActions.map((qa) => {
               const Icon = qa.icon;
               return (
-                <motion.button key={qa.label} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+                <motion.button
+                  key={qa.label}
+                  onClick={() => navigate(qa.route)}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.97 }}
                   transition={{ type: "spring", stiffness: 400, damping: 22 }}
                   className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-5 text-center transition-colors hover:border-indigo-400 hover:bg-indigo-50">
                   <Icon size={22} strokeWidth={1.8} className="text-indigo-500 transition group-hover:text-indigo-700" />
