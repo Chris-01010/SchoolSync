@@ -51,11 +51,12 @@ const ReliefAssignmentModal = ({ isOpen, onClose, assignment, onAccept, onReject
     if (!assignment?.id) return;
     setLoading(true);
     try {
-      const body = { status };
-      if (flag_reason)  body.flag_reason  = flag_reason;
-      if (flag_comment) body.flag_comment = flag_comment;
-
-      await api.put(`/relief-assignments/${assignment.id}/respond`, body);
+      if (!assignment.id.startsWith('mock-')) {
+        const body = { status };
+        if (flag_reason)  body.flag_reason  = flag_reason;
+        if (flag_comment) body.flag_comment = flag_comment;
+        await api.put(`/relief-assignments/${assignment.id}/respond`, body);
+      }
 
       if (status === 'accepted') {
         showToast('Relief accepted! Your timetable has been updated.', 'accept');

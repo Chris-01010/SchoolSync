@@ -4,10 +4,10 @@ from sqlalchemy import select
 from typing import List
 import uuid
 
-from database import get_db
-from models import User, UserRole,Room
-import auth
-from schemas import RoomCreate, RoomUpdate, Room as RoomSchema
+from .database import get_db
+from .models import User, UserRole,Room
+from . import auth
+from .schemas import RoomCreate, RoomUpdate, Room as RoomSchema
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
 

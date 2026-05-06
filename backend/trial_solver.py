@@ -1,4 +1,4 @@
-from solver import TimetableSolver
+from .solver import TimetableSolver
 import json
 
 def run_trial():

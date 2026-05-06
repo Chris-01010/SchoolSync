@@ -8,9 +8,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from database import get_db
-import models
-from models import UserRole
+from .database import get_db
+from . import models
+from .models import UserRole
 import secrets
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
