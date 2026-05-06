@@ -203,3 +203,12 @@ class ReliefAssignment(Base):
     flag_reason = Column(String)
     assigned_at = Column(DateTime(timezone=True), server_default=func.now())
     acknowledged_at = Column(DateTime(timezone=True))
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    performed_by_college_id = Column(String, nullable=True)
+    action = Column(String, nullable=False)
+    target_college_id = Column(String, nullable=True)
+    details = Column(JSON, nullable=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
