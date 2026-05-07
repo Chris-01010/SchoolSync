@@ -1,0 +1,162 @@
+from pydantic import BaseModel, EmailStr
+from typing import List, Optional, Dict
+from uuid import UUID
+from datetime import date, time, datetime
+from models import UserRole, AbsenceStatus, ReliefStatus
+
+# Auth Schemas
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    college_id: Optional[str] = None
+
+class UserBase(BaseModel):
+    college_id: str
+    email: EmailStr
+    role: UserRole = UserRole.TEACHER
+
+class UserCreate(UserBase):
+    password: str
+
+class User(UserBase):
+    id: UUID
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Department Schemas
+class DepartmentBase(BaseModel):
+    name: str
+    hod_id: Optional[UUID] = None
+
+class DepartmentCreate(DepartmentBase):
+    pass
+
+class Department(DepartmentBase):
+    id: UUID
+    
+    class Config:
+        from_attributes = True
+
+# Teacher Schemas
+class TeacherBase(BaseModel):
+    name: str
+    email: str
+    department_id: Optional[UUID] = None
+    weekly_relief_cap: int = 3
+    max_weekly_hours: int = 30
+    blocked_slots: Dict[str, List[int]] = {}
+
+class TeacherCreate(TeacherBase):
+    user_id: UUID
+
+class TeacherUpdate(BaseModel):
+    name: Optional[str] = None
+    department_id: Optional[UUID] = None
+    weekly_relief_cap: Optional[int] = None
+    max_weekly_hours: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class Teacher(TeacherBase):
+    id: UUID
+    user_id: UUID
+    current_relief_hours: int
+    total_hours_worked: int
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+# Subject Schemas
+class SubjectBase(BaseModel):
+    name: str
+    department_id: UUID
+
+class SubjectCreate(SubjectBase):
+    pass
+
+class Subject(SubjectBase):
+    id: UUID
+
+    class Config:
+        from_attributes = True
+
+# Absence Schemas
+class AbsenceCreate(BaseModel):
+    teacher_id: UUID
+    date: date
+    period_start: int
+    period_end: int
+    leave_type: str
+    reason: Optional[str] = None
+    handover_url: Optional[str] = None
+
+class Absence(AbsenceCreate):
+    id: UUID
+    status: AbsenceStatus
+    resolved: bool
+    resolution_report_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+# Relief Schemas
+class ReliefResponse(BaseModel):
+    status: ReliefStatus
+    flag_reason: Optional[str] = None
+
+class ReliefAssignmentBase(BaseModel):
+    id: UUID
+    absence_id: UUID
+    relief_teacher_id: UUID
+    slot_id: UUID
+    status: ReliefStatus
+    assigned_at: datetime
+    acknowledged_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# Notification Schemas
+class NotificationBase(BaseModel):
+    title: str
+    content: str
+
+class Notification(NotificationBase):
+    id: UUID
+    is_read: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ReliefCandidate(BaseModel):
+    teacher_id: UUID
+    name: str
+    score: int
+    reasons: str
+
+class TimetableGenerateRequest(BaseModel):
+    school_id: UUID
+
+class DashboardSummary(BaseModel):
+    timetable: List[Dict]
+    relief_duties: List[Dict]
+    total_hours: int
+    relief_hours: int
+    pending_requests: List[Dict]
+
+class HODDashboardSummary(BaseModel):
+    department_name: str
+    active_absences: int
+    coverage_rate: float
+    total_staff: int
+    pending_approvals_count: int
+
+class LeaveApproval(BaseModel):
+    status: AbsenceStatus
+    resolution_report_url: Optional[str] = None
