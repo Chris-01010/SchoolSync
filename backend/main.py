@@ -361,6 +361,88 @@ async def respond_to_relief(assignment_id: UUID, response: schemas.ReliefRespons
     await db.commit()
     await db.refresh(assignment)
     return assignment
+# --- Timetable Slots CRUD ---
+
+@app.post("/timetable/slots", response_model=schemas.TimetableSlot, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
+async def create_timetable_slot(slot: schemas.TimetableSlotCreate, db: AsyncSession = Depends(get_db)):
+    db_slot = models.TimetableSlot(**slot.dict())
+    db.add(db_slot)
+    try:
+        await db.commit()
+        await db.refresh(db_slot)
+        return db_slot
+    except Exception:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Scheduling conflict: teacher, room or class already booked at this slot")
+
+
+@app.get("/timetable/slots", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
+async def list_timetable_slots(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.TimetableSlot))
+    return result.scalars().all()
+
+
+@app.get("/timetable/view")
+async def get_timetable_view(
+    scope: str,  # "teacher", "class", or "room"
+    scope_id: UUID,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # Role-scoped access control
+    if current_user.role == models.UserRole.TEACHER:
+        teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.user_id == current_user.id))
+        teacher = teacher_result.scalar_one_or_none()
+        if not teacher or (scope == "teacher" and teacher.id != scope_id):
+            raise HTTPException(status_code=403, detail="Teachers can only view their own timetable")
+
+    query = select(models.TimetableSlot).join(models.TimetableVersion).where(models.TimetableVersion.is_active == True)
+
+    if scope == "teacher":
+        query = query.where(models.TimetableSlot.teacher_id == scope_id)
+    elif scope == "class":
+        query = query.where(models.TimetableSlot.class_id == scope_id)
+    elif scope == "room":
+        query = query.where(models.TimetableSlot.room_id == scope_id)
+    else:
+        raise HTTPException(status_code=400, detail="scope must be 'teacher', 'class', or 'room'")
+
+    result = await db.execute(query)
+    slots = result.scalars().all()
+
+    # Group by day
+    grouped = {}
+    for slot in slots:
+        day = slot.day_of_week
+        if day not in grouped:
+            grouped[day] = []
+        grouped[day].append(slot)
+
+    return {"scope": scope, "scope_id": str(scope_id), "timetable": grouped}
+
+
+@app.put("/timetable/slots/{slot_id}", response_model=schemas.TimetableSlot, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
+async def update_timetable_slot(slot_id: UUID, slot_update: schemas.TimetableSlotCreate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.TimetableSlot).where(models.TimetableSlot.id == slot_id))
+    slot = result.scalar_one_or_none()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    for key, value in slot_update.dict(exclude_unset=True).items():
+        setattr(slot, key, value)
+    await db.commit()
+    await db.refresh(slot)
+    return slot
+
+
+@app.delete("/timetable/slots/{slot_id}", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
+async def delete_timetable_slot(slot_id: UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.TimetableSlot).where(models.TimetableSlot.id == slot_id))
+    slot = result.scalar_one_or_none()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    await db.delete(slot)
+    await db.commit()
+    return {"status": "deleted"}
 
 @app.post("/generate-timetable/", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def trigger_timetable_generation(request: schemas.TimetableGenerateRequest):

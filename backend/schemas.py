@@ -4,21 +4,26 @@ from uuid import UUID
 from datetime import date, time, datetime
 from models import UserRole, AbsenceStatus, ReliefStatus
 
+
 # Auth Schemas
 class Token(BaseModel):
     access_token: str
     token_type: str
 
+
 class TokenData(BaseModel):
     college_id: Optional[str] = None
+
 
 class UserBase(BaseModel):
     college_id: str
     email: EmailStr
     role: UserRole = UserRole.TEACHER
 
+
 class UserCreate(UserBase):
     password: str
+
 
 class User(UserBase):
     id: UUID
@@ -28,19 +33,23 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+
 # Department Schemas
 class DepartmentBase(BaseModel):
     name: str
     hod_id: Optional[UUID] = None
 
+
 class DepartmentCreate(DepartmentBase):
     pass
 
+
 class Department(DepartmentBase):
     id: UUID
-    
+
     class Config:
         from_attributes = True
+
 
 # Teacher Schemas
 class TeacherBase(BaseModel):
@@ -51,8 +60,10 @@ class TeacherBase(BaseModel):
     max_weekly_hours: int = 30
     blocked_slots: Dict[str, List[int]] = {}
 
+
 class TeacherCreate(TeacherBase):
     user_id: UUID
+
 
 class TeacherUpdate(BaseModel):
     name: Optional[str] = None
@@ -60,6 +71,7 @@ class TeacherUpdate(BaseModel):
     weekly_relief_cap: Optional[int] = None
     max_weekly_hours: Optional[int] = None
     is_active: Optional[bool] = None
+
 
 class Teacher(TeacherBase):
     id: UUID
@@ -71,19 +83,23 @@ class Teacher(TeacherBase):
     class Config:
         from_attributes = True
 
+
 # Subject Schemas
 class SubjectBase(BaseModel):
     name: str
     department_id: UUID
 
+
 class SubjectCreate(SubjectBase):
     pass
+
 
 class Subject(SubjectBase):
     id: UUID
 
     class Config:
         from_attributes = True
+
 
 # Absence Schemas
 class AbsenceCreate(BaseModel):
@@ -95,6 +111,7 @@ class AbsenceCreate(BaseModel):
     reason: Optional[str] = None
     handover_url: Optional[str] = None
 
+
 class Absence(AbsenceCreate):
     id: UUID
     status: AbsenceStatus
@@ -104,10 +121,12 @@ class Absence(AbsenceCreate):
     class Config:
         from_attributes = True
 
+
 # Relief Schemas
 class ReliefResponse(BaseModel):
     status: ReliefStatus
     flag_reason: Optional[str] = None
+
 
 class ReliefAssignmentBase(BaseModel):
     id: UUID
@@ -121,10 +140,12 @@ class ReliefAssignmentBase(BaseModel):
     class Config:
         from_attributes = True
 
+
 # Notification Schemas
 class NotificationBase(BaseModel):
     title: str
     content: str
+
 
 class Notification(NotificationBase):
     id: UUID
@@ -134,14 +155,17 @@ class Notification(NotificationBase):
     class Config:
         from_attributes = True
 
+
 class ReliefCandidate(BaseModel):
     teacher_id: UUID
     name: str
     score: int
     reasons: str
 
+
 class TimetableGenerateRequest(BaseModel):
     school_id: UUID
+
 
 class DashboardSummary(BaseModel):
     timetable: List[Dict]
@@ -150,6 +174,7 @@ class DashboardSummary(BaseModel):
     relief_hours: int
     pending_requests: List[Dict]
 
+
 class HODDashboardSummary(BaseModel):
     department_name: str
     active_absences: int
@@ -157,6 +182,28 @@ class HODDashboardSummary(BaseModel):
     total_staff: int
     pending_approvals_count: int
 
+
 class LeaveApproval(BaseModel):
     status: AbsenceStatus
     resolution_report_url: Optional[str] = None
+
+
+# --- Timetable Slot Schemas (NEW) ---
+class TimetableSlotCreate(BaseModel):
+    version_id: UUID
+    teacher_id: UUID
+    class_id: UUID
+    room_id: UUID
+    day_of_week: int       # 0 = Monday, 6 = Sunday
+    period: int
+    subject: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TimetableSlot(TimetableSlotCreate):
+    id: UUID
+
+    class Config:
+        from_attributes = True
