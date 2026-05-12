@@ -1,19 +1,19 @@
-<<<<<<< HEAD
+
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, status, Request, Response
-=======
+
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, status
->>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-<<<<<<< HEAD
+
 from typing import List, Optional
 from uuid import UUID
 from datetime import timedelta, datetime
 import time
 import collections
-=======
+
 from typing import List
 from uuid import UUID
 from datetime import timedelta
@@ -25,7 +25,7 @@ import schemas
 import relief
 import auth
 from worker import generate_timetable_task
-<<<<<<< HEAD
+
 from pydantic import BaseModel, EmailStr
 
 app = FastAPI(title="SchoolSync API", version="1.0.0")
@@ -90,7 +90,7 @@ async def startup():
 async def root():
     return {"message": "SchoolSync API is running"}
 
-<<<<<<< HEAD
+
 
 # ─── NEW: JSON-body email login (SecureAuth design) ───────────────────────────
 @app.post("/api/auth/login", response_model=schemas.Token)
@@ -359,7 +359,7 @@ async def activate_timetable_version(version_id: UUID, db: AsyncSession = Depend
     await db.commit()
     return {"status": "success", "message": "Timetable version activated"}
 
-<<<<<<< HEAD
+
 # --- Admin Operations ---
 @app.get("/admin/stats", response_model=schemas.AdminDashboardStats, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def get_admin_stats(db: AsyncSession = Depends(get_db)):
@@ -551,7 +551,7 @@ async def mark_absence(absence: schemas.AbsenceCreate, current_user: models.User
     await db.refresh(db_absence)
     
     return db_absence
-<<<<<<< HEAD
+
     
     # Get all teachers for relief ranking
     all_teachers_result = await db.execute(select(models.Teacher))
@@ -583,8 +583,8 @@ async def mark_absence(absence: schemas.AbsenceCreate, current_user: models.User
         "absence_id": db_absence.id,
         "candidates": candidates[:5]
     }
-=======
->>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
+
+
 
 @app.put("/relief-assignments/{assignment_id}/respond", response_model=schemas.ReliefAssignmentBase, dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))])
 async def respond_to_relief(assignment_id: UUID, response: schemas.ReliefResponse, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
@@ -609,15 +609,15 @@ async def respond_to_relief(assignment_id: UUID, response: schemas.ReliefRespons
     elif response.status == models.ReliefStatus.ACCEPTED:
         from datetime import datetime
         assignment.acknowledged_at = datetime.utcnow()
-<<<<<<< HEAD
+
         # In a real system, you would update the timetable slot here to mark it as relief
-=======
->>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
+
+
 
     await db.commit()
     await db.refresh(assignment)
     return assignment
-<<<<<<< HEAD
+
 =======
 # --- Timetable Slots CRUD ---
 
