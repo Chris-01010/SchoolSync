@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+asyncpg
+alembic
+pydantic
+pydantic-settings
+celery
+redis
+ortools
+python-multipart
+passlib[bcrypt]
+pyjwt
+weasyprint
+icalendar

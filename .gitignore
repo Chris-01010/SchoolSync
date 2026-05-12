@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+backend/venv/
+backend/__pycache__/
+backend/schoolsync.db
+
+# Node
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+
+# Env
+.env
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
