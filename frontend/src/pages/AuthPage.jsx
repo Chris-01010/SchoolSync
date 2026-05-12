@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { 
   ShieldCheck, 
   ArrowRight, 
@@ -7,10 +9,14 @@ import {
   User, 
   Mail,
   School,
-  Briefcase
+  Briefcase,
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 
-const AuthPage = ({ onLogin }) => {
+const AuthPage = () => {
+  const { login, register } = useAuth();
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     college_id: '',
@@ -26,42 +32,22 @@ const AuthPage = ({ onLogin }) => {
     setIsLoading(true);
     setError('');
 
-    const endpoint = isLogin ? '/auth/login' : '/auth/signup';
-    
-    // For local dev, bypass if no backend
-    if (formData.college_id === 'admin' && formData.password === 'admin') {
-        onLogin({ college_id: 'admin', role: 'admin' });
-        return;
-    }
-
     try {
-      const response = await fetch(`http://localhost:8000${endpoint}`, {
-        method: 'POST',
-        headers: { 
-            'Content-Type': isLogin ? 'application/x-www-form-urlencoded' : 'application/json' 
-        },
-        body: isLogin 
-            ? new URLSearchParams({ username: formData.college_id, password: formData.password })
-            : JSON.stringify(formData)
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || 'Authentication failed');
-
       if (isLogin) {
-        localStorage.setItem('token', data.access_token);
-        // Fetch user profile
-        const userRes = await fetch('http://localhost:8000/auth/me', {
-            headers: { 'Authorization': `Bearer ${data.access_token}` }
-        });
-        const userData = await userRes.json();
-        onLogin(userData);
+        await login(formData.college_id, formData.password);
+        navigate('/dashboard', { replace: true });
       } else {
+        await register({
+          college_id: formData.college_id,
+          email: formData.email,
+          password: formData.password,
+          role: formData.role
+        });
         setIsLogin(true);
         setError('Account created! Please login.');
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Authentication failed.');
     } finally {
       setIsLoading(false);
     }
@@ -200,7 +186,7 @@ const AuthPage = ({ onLogin }) => {
 
             <div className="mt-8 text-center">
               <button 
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={() => { setIsLogin(!isLogin); setError(''); }}
                 className="text-xs font-black text-slate-400 hover:text-primary-600 uppercase tracking-widest transition-colors"
               >
                 {isLogin ? "Don't have an account? Register" : "Already have an account? Login"}
