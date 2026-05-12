@@ -10,6 +10,7 @@ build/
 venv/
 .venv/
 reports/
+*.log
 
 # Node
 node_modules/

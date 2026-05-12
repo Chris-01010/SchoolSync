@@ -13,6 +13,16 @@ import schemas
 import relief
 import auth
 from worker import generate_timetable_task
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
 
 app = FastAPI(title="SchoolSync API", version="1.0.0")
 
