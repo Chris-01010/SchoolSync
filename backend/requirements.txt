@@ -1,4 +1,5 @@
 fastapi
+<<<<<<< HEAD
 uvicorn[standard]
 sqlalchemy[asyncio]
 asyncpg
@@ -13,3 +14,18 @@ passlib[bcrypt]
 pyjwt
 weasyprint
 icalendar
+=======
+uvicorn
+sqlalchemy[asyncio]
+aiosqlite
+asyncpg
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+pydantic[email]
+ortools
+celery
+redis
+psycopg2-binary
+python-dotenv
+>>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857

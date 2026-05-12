@@ -1,13 +1,23 @@
+<<<<<<< HEAD
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, status, Request, Response
+=======
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, status
+>>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+<<<<<<< HEAD
 from typing import List, Optional
 from uuid import UUID
 from datetime import timedelta, datetime
 import time
 import collections
+=======
+from typing import List
+from uuid import UUID
+from datetime import timedelta
+>>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
 
 from database import engine, Base, get_db
 import models
@@ -15,6 +25,7 @@ import schemas
 import relief
 import auth
 from worker import generate_timetable_task
+<<<<<<< HEAD
 from pydantic import BaseModel, EmailStr
 
 app = FastAPI(title="SchoolSync API", version="1.0.0")
@@ -47,6 +58,21 @@ class EmailLoginRequest(BaseModel):
     email: str
     password: str
 
+=======
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
+
+app = FastAPI(title="SchoolSync API", version="1.0.0")
+
+>>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -64,6 +90,7 @@ async def startup():
 async def root():
     return {"message": "SchoolSync API is running"}
 
+<<<<<<< HEAD
 
 # ─── NEW: JSON-body email login (SecureAuth design) ───────────────────────────
 @app.post("/api/auth/login", response_model=schemas.Token)
@@ -126,6 +153,8 @@ async def social_apple():
         detail="Apple OAuth is not yet configured. Please use email/password login.",
     )
 
+=======
+>>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
 # --- Authentication ---
 @app.post("/auth/login", response_model=schemas.Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
@@ -330,6 +359,7 @@ async def activate_timetable_version(version_id: UUID, db: AsyncSession = Depend
     await db.commit()
     return {"status": "success", "message": "Timetable version activated"}
 
+<<<<<<< HEAD
 # --- Admin Operations ---
 @app.get("/admin/stats", response_model=schemas.AdminDashboardStats, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def get_admin_stats(db: AsyncSession = Depends(get_db)):
@@ -423,6 +453,8 @@ async def update_system_settings(settings: schemas.SystemSettings):
     # In a real app, you'd save this to a Settings table or a config file
     return settings
 
+=======
+>>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
 # --- HOD Operations ---
 @app.get("/hod/dashboard", response_model=schemas.HODDashboardSummary, dependencies=[Depends(auth.check_role([models.UserRole.HOD]))])
 async def get_hod_dashboard(current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
@@ -519,6 +551,7 @@ async def mark_absence(absence: schemas.AbsenceCreate, current_user: models.User
     await db.refresh(db_absence)
     
     return db_absence
+<<<<<<< HEAD
     
     # Get all teachers for relief ranking
     all_teachers_result = await db.execute(select(models.Teacher))
@@ -550,6 +583,8 @@ async def mark_absence(absence: schemas.AbsenceCreate, current_user: models.User
         "absence_id": db_absence.id,
         "candidates": candidates[:5]
     }
+=======
+>>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
 
 @app.put("/relief-assignments/{assignment_id}/respond", response_model=schemas.ReliefAssignmentBase, dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))])
 async def respond_to_relief(assignment_id: UUID, response: schemas.ReliefResponse, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
@@ -574,11 +609,99 @@ async def respond_to_relief(assignment_id: UUID, response: schemas.ReliefRespons
     elif response.status == models.ReliefStatus.ACCEPTED:
         from datetime import datetime
         assignment.acknowledged_at = datetime.utcnow()
+<<<<<<< HEAD
         # In a real system, you would update the timetable slot here to mark it as relief
+=======
+>>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
 
     await db.commit()
     await db.refresh(assignment)
     return assignment
+<<<<<<< HEAD
+=======
+# --- Timetable Slots CRUD ---
+
+@app.post("/timetable/slots", response_model=schemas.TimetableSlot, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
+async def create_timetable_slot(slot: schemas.TimetableSlotCreate, db: AsyncSession = Depends(get_db)):
+    db_slot = models.TimetableSlot(**slot.dict())
+    db.add(db_slot)
+    try:
+        await db.commit()
+        await db.refresh(db_slot)
+        return db_slot
+    except Exception:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Scheduling conflict: teacher, room or class already booked at this slot")
+
+
+@app.get("/timetable/slots", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
+async def list_timetable_slots(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.TimetableSlot))
+    return result.scalars().all()
+
+
+@app.get("/timetable/view")
+async def get_timetable_view(
+    scope: str,  # "teacher", "class", or "room"
+    scope_id: UUID,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # Role-scoped access control
+    if current_user.role == models.UserRole.TEACHER:
+        teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.user_id == current_user.id))
+        teacher = teacher_result.scalar_one_or_none()
+        if not teacher or (scope == "teacher" and teacher.id != scope_id):
+            raise HTTPException(status_code=403, detail="Teachers can only view their own timetable")
+
+    query = select(models.TimetableSlot).join(models.TimetableVersion).where(models.TimetableVersion.is_active == True)
+
+    if scope == "teacher":
+        query = query.where(models.TimetableSlot.teacher_id == scope_id)
+    elif scope == "class":
+        query = query.where(models.TimetableSlot.class_id == scope_id)
+    elif scope == "room":
+        query = query.where(models.TimetableSlot.room_id == scope_id)
+    else:
+        raise HTTPException(status_code=400, detail="scope must be 'teacher', 'class', or 'room'")
+
+    result = await db.execute(query)
+    slots = result.scalars().all()
+
+    # Group by day
+    grouped = {}
+    for slot in slots:
+        day = slot.day_of_week
+        if day not in grouped:
+            grouped[day] = []
+        grouped[day].append(slot)
+
+    return {"scope": scope, "scope_id": str(scope_id), "timetable": grouped}
+
+
+@app.put("/timetable/slots/{slot_id}", response_model=schemas.TimetableSlot, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
+async def update_timetable_slot(slot_id: UUID, slot_update: schemas.TimetableSlotCreate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.TimetableSlot).where(models.TimetableSlot.id == slot_id))
+    slot = result.scalar_one_or_none()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    for key, value in slot_update.dict(exclude_unset=True).items():
+        setattr(slot, key, value)
+    await db.commit()
+    await db.refresh(slot)
+    return slot
+
+
+@app.delete("/timetable/slots/{slot_id}", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
+async def delete_timetable_slot(slot_id: UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.TimetableSlot).where(models.TimetableSlot.id == slot_id))
+    slot = result.scalar_one_or_none()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    await db.delete(slot)
+    await db.commit()
+    return {"status": "deleted"}
+>>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
 
 @app.post("/generate-timetable/", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def trigger_timetable_generation(request: schemas.TimetableGenerateRequest):
