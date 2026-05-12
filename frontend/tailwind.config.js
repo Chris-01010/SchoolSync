@@ -7,15 +7,11 @@ export default {
   theme: {
     extend: {
       colors: {
-<<<<<<< HEAD
         // SecureAuth Design System tokens
         primary: {
           DEFAULT: '#000000',
           foreground: '#ffffff',
           // Legacy blue scale preserved for dashboard components
-=======
-        primary: {
->>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
           50: '#f0f9ff',
           100: '#e0f2fe',
           200: '#bae6fd',
@@ -27,7 +23,6 @@ export default {
           800: '#075985',
           900: '#0c4a6e',
         },
-<<<<<<< HEAD
         secondary: {
           DEFAULT: '#0051d5',
           foreground: '#ffffff',
@@ -68,8 +63,6 @@ export default {
       },
       borderRadius: {
         'xl2': '1rem',
-=======
->>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
       },
     },
   },

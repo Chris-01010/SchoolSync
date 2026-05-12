@@ -1,15 +1,11 @@
 import asyncio
-<<<<<<< HEAD
 import os
-=======
->>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
 from database import AsyncSessionLocal
 import models
 from solver import TimetableSolver
 from sqlalchemy import select
 import json
 from datetime import datetime
-<<<<<<< HEAD
 
 # Gracefully handle missing Celery/Redis for local dev
 try:
@@ -25,19 +21,6 @@ try:
     )
 except Exception:
     celery = None
-=======
-import os
-from celery import Celery
-
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
-
-celery = Celery(
-    "schoolsync_worker",
-    broker=CELERY_BROKER_URL,
-    backend=CELERY_RESULT_BACKEND
-)
->>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
 
 async def _generate_timetable_internal(school_id: str):
     async with AsyncSessionLocal() as db:
@@ -51,19 +34,11 @@ async def _generate_timetable_internal(school_id: str):
         subjects_res = await db.execute(select(models.Subject))
         subjects = subjects_res.scalars().all()
         
-<<<<<<< HEAD
         # For classes, we need their lesson requirements. 
         # In this MVP, we'll assume a simplified requirement for trial.
-        # In a full app, you'd have a ClassLessonRequirement model.
         classes_res = await db.execute(select(models.ClassRoom))
         classes_raw = classes_res.scalars().all()
         
-        # Mock requirements for the trial if none exist
-=======
-        classes_res = await db.execute(select(models.ClassRoom))
-        classes_raw = classes_res.scalars().all()
-        
->>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
         classes = []
         for c in classes_raw:
             classes.append({
@@ -118,7 +93,6 @@ async def _generate_timetable_internal(school_id: str):
         else:
             return {"status": "failed", "error": result.get("error")}
 
-<<<<<<< HEAD
 if celery:
     @celery.task
     def generate_timetable_task(school_id: str):
@@ -131,8 +105,3 @@ else:
                 id = "local-stub"
             return _Result()
     generate_timetable_task = _FakeTask()
-=======
-@celery.task
-def generate_timetable_task(school_id: str):
-    return asyncio.run(_generate_timetable_internal(school_id))
->>>>>>> e3f1e661e693b176bb45382c83f511b9e415f857
