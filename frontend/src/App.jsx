@@ -3,15 +3,15 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { PublicRoute, PrivateRoute } from './components/auth/RouteGuards';
 
-// ── Lazy-loaded pages (code-split for performance) ────────────────────────────
-const LoginPage           = lazy(() => import('./pages/LoginPage'));
-const SignupPage          = lazy(() => import('./pages/SignupPage'));
+// Lazy-loaded pages (code-split for performance)
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const SignupPage = lazy(() => import('./pages/SignupPage'));
 const DashboardPlaceholder = lazy(() => import('./pages/DashboardPlaceholder'));
 
-// ── Legacy authenticated dashboard (role-based, unchanged) ───────────────────
+// Legacy authenticated dashboard (role-based, unchanged)
 const LegacyApp = lazy(() => import('./LegacyApp'));
 
-// ── Full-page loader used while lazy chunks download ─────────────────────────
+// Full-page loader used while lazy chunks download
 const PageLoader = () => (
   <div className="min-h-screen bg-[#f8f9ff] flex items-center justify-center">
     <svg
@@ -28,7 +28,6 @@ const PageLoader = () => (
   </div>
 );
 
-// ── 404 page ──────────────────────────────────────────────────────────────────
 const NotFound = () => (
   <div className="min-h-screen bg-[#f8f9ff] flex flex-col items-center justify-center gap-4 p-6 text-center font-sans">
     <span
@@ -40,26 +39,20 @@ const NotFound = () => (
     </span>
     <h1 className="text-[32px] font-bold text-[#1b1b1f]">Page not found</h1>
     <p className="text-[#74747e] text-body-md">The page you're looking for doesn't exist.</p>
-    <a
-      href="/login"
-      className="mt-2 text-[#0051d5] font-semibold hover:text-[#003fa6] transition-colors"
-    >
+    <a href="/login" className="mt-2 text-[#0051d5] font-semibold hover:text-[#003fa6] transition-colors">
       ← Back to Sign in
     </a>
   </div>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            {/* Root → redirect to /login */}
             <Route path="/" element={<Navigate to="/login" replace />} />
 
-            {/* Public routes (redirects to /dashboard if authenticated) */}
             <Route
               path="/login"
               element={
@@ -77,7 +70,6 @@ export default function App() {
               }
             />
 
-            {/* Private routes */}
             <Route
               path="/dashboard"
               element={
@@ -95,7 +87,6 @@ export default function App() {
               }
             />
 
-            {/* 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
@@ -103,3 +94,4 @@ export default function App() {
     </BrowserRouter>
   );
 }
+

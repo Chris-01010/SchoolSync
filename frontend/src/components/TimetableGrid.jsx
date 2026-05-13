@@ -1,59 +1,114 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { AlertTriangle } from 'lucide-react';
 
-const TimetableGrid = ({ data = [] }) => {
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-  const periods = [1, 2, 3, 4, 5, 6, 7, 8];
+const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const periods = [1, 2, 3, 4, 5, 6, 7, 8];
+
+function cellFor(timetable, day, period) {
+  return timetable?.[day]?.[period] ?? null;
+}
+
+export default function TimetableGrid({ timetable }) {
+  const normalized = useMemo(() => {
+    return days.map((day) => ({
+      day,
+      periods: periods.map((p) => ({
+        period: p,
+        cell: cellFor(timetable, day, p)
+      }))
+    }));
+  }, [timetable]);
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
-        <thead>
-          <tr>
-            <th className="p-4 text-left border-b border-slate-100"></th>
-            {periods.map((p) => (
-              <th key={p} className="p-4 text-center border-b border-slate-100">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period {p}</span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {days.map((day, dIdx) => (
-            <tr key={day} className="group">
-              <td className="p-4 font-black text-slate-900 border-b border-slate-100 bg-slate-50/50">{day}</td>
-              {periods.map((period) => {
-                const slot = data.find((s) => s.day === dIdx && s.period === period);
-                return (
-                  <td key={period} className="p-2 border-b border-slate-100 min-w-[140px]">
-                    {slot ? (
-                      <motion.div
-                        initial={{ scale: 0.95, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md hover:border-primary-300 transition-all cursor-pointer"
-                      >
-                        <p className="text-[10px] font-black text-primary-600 mb-1">{slot.subject}</p>
-                        <p className="text-xs font-bold text-slate-900">{slot.class}</p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-[9px] font-medium text-slate-500">{slot.teacher}</span>
-                          <span className="text-[9px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded uppercase">{slot.room}</span>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <div className="h-20 bg-slate-50/30 rounded-2xl border border-dashed border-slate-200 flex items-center justify-center">
-                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Free</span>
+      {/* Mobile: ensure horizontal scroll */}
+      <div className="min-w-[800px]">
+        <div className="grid grid-cols-9 gap-3">
+          {/* header spacer */}
+          <div />
+          {periods.map((p) => (
+            <div key={p} className="text-center">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Period</div>
+              <div className="text-[14px] font-bold text-slate-900 bg-surface-container-lowest border border-outline-variant rounded-lg py-2">
+                {p}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 space-y-3">
+          {normalized.map(({ day, periods: pArr }) => (
+            <div key={day} className="grid grid-cols-9 gap-3 items-stretch">
+              <div className="flex items-center">
+                <div className="text-[16px] font-bold text-slate-900">{day}</div>
+              </div>
+
+              {pArr.map(({ period, cell }) => {
+                if (!cell) {
+                  return (
+                    <div
+                      key={`${day}-${period}`}
+                      className="border-2 border-dashed border-outline-variant/80 rounded-xl min-h-[92px] flex items-center justify-center opacity-60"
+                    >
+                      <span className="text-[14px] font-semibold text-slate-600">Free</span>
+                    </div>
+                  );
+                }
+
+                if (cell.type === 'regular') {
+                  return (
+                    <motion.div
+                      key={`${day}-${period}`}
+                      whileHover={{ y: -2, scale: 1.01, zIndex: 10 }}
+                      className="relative rounded-xl border border-outline-variant min-h-[92px] bg-surface-container-low"
+                      style={{ borderLeftWidth: 4 }}
+                    >
+                      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-secondary rounded-l-xl" />
+                      <div className="p-3 pl-4 flex flex-col h-full">
+                        <div className="text-[12px] font-bold text-slate-900">{cell.subject}</div>
+                        <div className="text-[12px] font-semibold text-slate-600 mt-1">{cell.class} · Room {cell.room}</div>
+                        <div className="mt-auto text-[12px] font-bold text-slate-500">{cell.teacher ?? ''}</div>
                       </div>
-                    )}
-                  </td>
+                    </motion.div>
+                  );
+                }
+
+                if (cell.type === 'relief') {
+                  return (
+                    <motion.div
+                      key={`${day}-${period}`}
+                      whileHover={{ y: -2, scale: 1.01, zIndex: 10 }}
+                      className="relative rounded-xl border border-secondary min-h-[92px] bg-secondary-fixed"
+                    >
+                      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-secondary rounded-l-xl" />
+                      <div className="p-3 pl-4 flex flex-col h-full">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-[12px] font-bold text-slate-900">{cell.subject}</div>
+                          <AlertTriangle size={16} className="text-secondary" />
+                        </div>
+                        <div className="text-[12px] font-semibold text-slate-700 mt-1">{cell.class} · {cell.room}</div>
+                        <div className="mt-auto text-[12px] font-bold text-secondary">Relief Duty</div>
+                      </div>
+                    </motion.div>
+                  );
+                }
+
+                // free / planning
+                return (
+                  <div
+                    key={`${day}-${period}`}
+                    className="rounded-xl border-2 border-dashed border-outline-variant/80 min-h-[92px] flex items-center justify-center opacity-60"
+                  >
+                    <span className="text-[14px] font-semibold text-slate-600">{period % 2 === 0 ? 'Planning' : 'Free'}</span>
+                  </div>
                 );
               })}
-            </tr>
+            </div>
           ))}
-        </tbody>
-      </table>
+        </div>
+      </div>
     </div>
   );
-};
-
-export default TimetableGrid;
+}
 

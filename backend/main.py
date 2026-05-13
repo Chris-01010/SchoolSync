@@ -440,3 +440,29 @@ async def delete_timetable_slot(slot_id: UUID, db: AsyncSession = Depends(get_db
 async def trigger_timetable_generation(request: schemas.TimetableGenerateRequest):
     task = generate_timetable_task.delay(str(request.school_id))
     return {"task_id": task.id, "status": "pending"}
+@app.put("/absences/{absence_id}/reject", response_model=schemas.Absence, dependencies=[Depends(auth.check_role([models.UserRole.HOD]))])
+async def reject_leave(absence_id: UUID, approval: schemas.LeaveApproval, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.Absence).where(models.Absence.id == absence_id))
+    absence = result.scalar_one_or_none()
+    if not absence:
+        raise HTTPException(status_code=404, detail="Absence not found")
+    if absence.status != models.AbsenceStatus.PENDING:
+        raise HTTPException(status_code=400, detail="Only PENDING requests can be rejected")
+    absence.status = models.AbsenceStatus.REJECTED
+    if approval.resolution_report_url:
+        absence.resolution_report_url = approval.resolution_report_url
+    await db.commit()
+    await db.refresh(absence)
+    return absence
+
+@app.put("/absences/{absence_id}/clarification", response_model=schemas.Absence, dependencies=[Depends(auth.check_role([models.UserRole.HOD]))])
+async def request_clarification(absence_id: UUID, approval: schemas.LeaveApproval, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.Absence).where(models.Absence.id == absence_id))
+    absence = result.scalar_one_or_none()
+    if not absence:
+        raise HTTPException(status_code=404, detail="Absence not found")
+    if absence.status != models.AbsenceStatus.PENDING:
+        raise HTTPException(status_code=400, detail="Only PENDING requests can be clarified")
+    await db.commit()
+    await db.refresh(absence)
+    return absence
