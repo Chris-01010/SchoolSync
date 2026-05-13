@@ -28,6 +28,8 @@ logging.basicConfig(
     ]
 )
 
+logger = logging.getLogger(__name__)
+
 # ─── Rate Limiter ──────────────────────────────────────────────────────────────
 _RATE_LIMIT_WINDOW = 15 * 60
 _RATE_LIMIT_MAX    = 5
@@ -79,15 +81,94 @@ async def login_json(payload: EmailLoginRequest, response: Response, db: AsyncSe
     user = result.scalars().first()
     if not user or not auth.verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
+
+    # Create access token
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
-        data={"sub": user.college_id, "role": user.role}, expires_delta=access_token_expires
+        data={"sub": user.college_id, "role": user.role},
+        expires_delta=access_token_expires,
     )
+
+    # Create refresh token and store in DB
+    refresh_token = auth.create_refresh_token()
+    user.refresh_token = refresh_token
+    user.refresh_token_expires_at = datetime.utcnow() + timedelta(days=auth.REFRESH_TOKEN_EXPIRE_DAYS)
+    await db.commit()
+
+    # Set refresh token as HttpOnly cookie (never visible to JS)
     response.set_cookie(
-        key="access_token", value=access_token, httponly=True,
-        samesite="lax", max_age=int(access_token_expires.total_seconds())
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        samesite="lax",
+        max_age=int(timedelta(days=auth.REFRESH_TOKEN_EXPIRE_DAYS).total_seconds())
     )
+
+    # Set access token cookie too
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        max_age=int(access_token_expires.total_seconds())
+    )
+
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/auth/refresh", response_model=schemas.Token)
+async def refresh_access_token(request: Request, db: AsyncSession = Depends(get_db)):
+    """
+    Takes the refresh token from the HttpOnly cookie,
+    validates it, and returns a new access token.
+    """
+    refresh_token = request.cookies.get("refresh_token")
+
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token missing.")
+
+    # Find user with this refresh token
+    result = await db.execute(
+        select(models.User).filter(models.User.refresh_token == refresh_token)
+    )
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid refresh token.")
+
+    # Check expiry
+    if user.refresh_token_expires_at < datetime.utcnow():
+        user.refresh_token = None
+        user.refresh_token_expires_at = None
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Refresh token expired. Please log in again.")
+
+    # Issue new access token
+    new_access_token = auth.create_access_token({
+        "sub": user.college_id,
+        "role": user.role
+    })
+
+    logger.info(f"Access token refreshed for user {user.college_id}")
+
+    return {"access_token": new_access_token, "token_type": "bearer"}
+
+@app.post("/auth/logout")
+async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    """Invalidate refresh token on logout."""
+    refresh_token = request.cookies.get("refresh_token")
+    if refresh_token:
+        result = await db.execute(
+            select(models.User).filter(models.User.refresh_token == refresh_token)
+        )
+        user = result.scalars().first()
+        if user:
+            user.refresh_token = None
+            user.refresh_token_expires_at = None
+            await db.commit()
+
+    response.delete_cookie("refresh_token")
+    response.delete_cookie("access_token")
+    return {"message": "Logged out successfully."}
 
 # ─── Form login (used by Postman / OAuth2 standard) ───────────────────────────
 @app.post("/auth/login", response_model=schemas.Token)
