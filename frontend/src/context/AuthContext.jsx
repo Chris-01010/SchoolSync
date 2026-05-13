@@ -25,15 +25,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    // Build form-data body (FastAPI OAuth2PasswordRequestForm requires this)
-    const formData = new URLSearchParams();
-    formData.append('username', email);
-    formData.append('password', password);
-
-    const response = await fetch('http://localhost:8000/auth/login', {
+    const response = await fetch('http://localhost:8000/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData.toString(),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
     });
 
     if (!response.ok) {
@@ -42,14 +37,13 @@ export function AuthProvider({ children }) {
     }
 
     const data = await response.json();
-    // data = { access_token: "...", token_type: "bearer" }
 
-    // Decode the JWT payload to get user info (no library needed)
+    // Decode JWT payload to get user info
     const payload = JSON.parse(atob(data.access_token.split('.')[1]));
     const userData = {
-      email:     payload.sub,   // college_id stored as 'sub'
-      role:      payload.role,
-      token:     data.access_token,
+      email:  email,
+      role:   payload.role,
+      token:  data.access_token,
     };
 
     localStorage.setItem(TOKEN_KEY, data.access_token);
