@@ -11,6 +11,7 @@ from sqlalchemy import select
 from database import get_db
 import models
 from models import UserRole
+import secrets
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
 logger = logging.getLogger(__name__)
@@ -18,7 +19,8 @@ logger = logging.getLogger(__name__)
 # ─── Configuration ─────────────────────────────────────────────────────────────
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-for-development")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 15       # 15 minutes
+REFRESH_TOKEN_EXPIRE_DAYS = 7          # 7 days
 
 # ─── Password Hashing ──────────────────────────────────────────────────────────
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
@@ -40,6 +42,17 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def create_refresh_token() -> str:
+    """Generate a secure random refresh token."""
+    return secrets.token_urlsafe(64)
+
+def create_access_token_from_refresh(user) -> str:
+    """Create a new access token from a valid user object."""
+    return create_access_token({
+        "sub": user.college_id,
+        "role": user.role
+    })
 
 # ─── Get Current User (Bearer token → User object) ─────────────────────────────
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
