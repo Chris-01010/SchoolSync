@@ -244,10 +244,16 @@ class HODDashboardSummary(BaseModel):
     pending_approvals_count: int
 
 
+class AbsenceDecision(BaseModel):
+    # Matches AbsenceStatus enum values in DB: approved / rejected
+    status: AbsenceStatus
+
+
 class LeaveApproval(BaseModel):
     # Deprecated: use LeaveRequestStatusUpdate for leave request approval flow.
     status: LeaveStatus
     clarification_note: Optional[str] = None
+
 
 class AdminDashboardStats(BaseModel):
     active_absences: int

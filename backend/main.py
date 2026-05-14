@@ -391,7 +391,8 @@ async def mark_absence(
         leave_type=absence.leave_type,
         reason=absence.reason,
         handover_url=absence.handover_url,
-        status=models.AbsenceStatus.PENDING
+        status=models.AbsenceStatus.PENDING,
+        resolved=False,
     )
     db.add(db_absence)
     await db.flush()  # gets the id before commit
@@ -401,7 +402,8 @@ async def mark_absence(
         user_id=current_user.id,
         notification_type="LEAVE_SUBMITTED",
         title="Leave Request Submitted",
-        content=f"Your {absence.leave_type} leave on {absence.date} is pending HOD approval."
+        content=f"Your {absence.leave_type} leave on {absence.date} is pending HOD approval.",
+        is_read=False,
     ))
 
     # 5. Notify the HOD
@@ -421,7 +423,8 @@ async def mark_absence(
                     user_id=hod_teacher.user_id,
                     notification_type="LEAVE_PENDING_APPROVAL",
                     title="New Leave Request",
-                    content=f"{teacher.name} has applied for {absence.leave_type} leave on {absence.date}."
+                    content=f"Teacher X has applied for {absence.leave_type} leave on {absence.date}.",
+                    is_read=False,
                 ))
 
     await db.commit()
@@ -434,7 +437,7 @@ async def mark_absence(
 )
 async def approve_leave(
     absence_id: UUID,
-    approval: schemas.LeaveApproval,
+    approval: schemas.AbsenceDecision,
     current_user: models.User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -461,12 +464,21 @@ async def approve_leave(
     )
     teacher = teacher_result.scalar_one_or_none()
     if teacher:
-        decision_word = "approved" if approval.status == models.AbsenceStatus.APPROVED else "rejected"
+        if approval.status == models.AbsenceStatus.APPROVED:
+            notification_type = "LEAVE_APPROVED"
+            title = "Leave Request Approved"
+            content = f"Your leave on {absence.date} has been approved."
+        else:
+            notification_type = "LEAVE_REJECTED"
+            title = "Leave Request Rejected"
+            content = f"Your leave on {absence.date} has been rejected."
+
         db.add(models.Notification(
             user_id=teacher.user_id,
-            notification_type=f"LEAVE_{approval.status.upper()}",
-            title=f"Leave Request {decision_word.title()}",
-            content=f"Your leave on {absence.date} has been {decision_word}."
+            notification_type=notification_type,
+            title=title,
+            content=content,
+            is_read=False,
         ))
 
     await db.commit()
