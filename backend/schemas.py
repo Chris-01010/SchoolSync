@@ -1,7 +1,9 @@
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional, Dict
 from uuid import UUID
-from datetime import date, time, datetime
+from datetime import date, datetime
+from enum import Enum
+
 from models import UserRole, AbsenceStatus, ReliefStatus
 
 
@@ -51,7 +53,6 @@ class TeacherBase(BaseModel):
     department_id: Optional[UUID] = None
     weekly_relief_cap: int = 3
     max_weekly_hours: int = 30
-    blocked_slots: Dict[str, List[int]] = {}
 
 class TeacherCreate(TeacherBase):
     user_id: UUID
@@ -91,8 +92,8 @@ class Subject(SubjectBase):
 
 
 # Absence Schemas
+# FIXED — teacher_id removed from body, comes from JWT in the endpoint
 class AbsenceCreate(BaseModel):
-    teacher_id: UUID
     date: date
     period_start: int
     period_end: int
@@ -100,6 +101,21 @@ class AbsenceCreate(BaseModel):
     reason: Optional[str] = None
     handover_url: Optional[str] = None
 
+# Also add this new schema for the "view my leaves" response
+class AbsenceOut(BaseModel):
+    id: UUID
+    teacher_id: UUID
+    date: date
+    period_start: int
+    period_end: int
+    leave_type: str
+    reason: Optional[str]
+    handover_url: Optional[str]
+    status: AbsenceStatus
+    resolved: bool
+
+    class Config:
+        from_attributes = True
 
 class Absence(AbsenceCreate):
     id: UUID
@@ -109,6 +125,64 @@ class Absence(AbsenceCreate):
 
     class Config:
         from_attributes = True
+
+
+# --- Leave Request Schemas (HOD workflow) ---
+class LeaveType(str, Enum):
+    SICK = "sick"
+    CASUAL = "casual"
+    OTHER = "other"
+    BEREAVEMENT = "bereavement"
+    PROFESSIONAL = "professional"
+
+
+class LeaveStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    CLARIFICATION_REQUESTED = "CLARIFICATION_REQUESTED"
+
+
+class LeaveRequestCreate(BaseModel):
+    leave_type: LeaveType
+    start_date: date
+    end_date: date
+    reason: str
+    is_full_day: bool = True
+    # required if is_full_day=False
+    period_ids: Optional[List[int]] = None
+    # document_url comes from separate file upload endpoint
+
+
+class LeaveRequestOut(BaseModel):
+    leave_request_id: int
+    teacher_id: UUID
+    hod_teacher_id: Optional[UUID]
+
+    leave_type: str
+    start_date: date
+    end_date: date
+    reason: str
+
+    is_full_day: bool
+    document_url: Optional[str]
+    status: LeaveStatus
+    clarification_note: Optional[str]
+    decision_at: Optional[datetime]
+    created_at: datetime
+
+    # UI joins (may be None depending on query)
+    period_ids: Optional[List[int]]
+    relief_teacher_name: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
+class LeaveRequestStatusUpdate(BaseModel):
+    # HOD uses this to approve/reject (and optionally ask for clarification)
+    status: LeaveStatus
+    clarification_note: Optional[str] = None
 
 
 # Relief Schemas
@@ -171,8 +245,9 @@ class HODDashboardSummary(BaseModel):
 
 
 class LeaveApproval(BaseModel):
-    status: AbsenceStatus
-    resolution_report_url: Optional[str] = None
+    # Deprecated: use LeaveRequestStatusUpdate for leave request approval flow.
+    status: LeaveStatus
+    clarification_note: Optional[str] = None
 
 class AdminDashboardStats(BaseModel):
     active_absences: int
