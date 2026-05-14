@@ -80,11 +80,11 @@ const LeaveApplicationForm = ({ isOpen, onClose, onSubmit }) => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">From Period</label>
-                  <input type="number" min={1} max={8} value={formData.period_start} onChange={(e) => setFormData({...formData, period_start: parseInt(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                  <input type="number" min={1} max={8} value={formData.period_start} onChange={(e) => setFormData({...formData, period_start: parseInt(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-2xl p-3 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
                 </div>
                 <div>
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">To Period</label>
-                  <input type="number" min={1} max={8} value={formData.period_end} onChange={(e) => setFormData({...formData, period_end: parseInt(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                  <input type="number" min={1} max={8} value={formData.period_end} onChange={(e) => setFormData({...formData, period_end: parseInt(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-2xl p-3 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
                 </div>
               </div>
 
