@@ -1,9 +1,13 @@
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+import os
+
 
 # Fallback to SQLite for local development if PostgreSQL is not available
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./schoolsync.db")
+print("CWD:", os.getcwd())
+print("DB URL:", DATABASE_URL)
 
 # SQLite needs different arguments
 if DATABASE_URL.startswith("sqlite"):

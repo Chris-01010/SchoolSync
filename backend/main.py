@@ -2,7 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, status, Re
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select,func
+from sqlalchemy import text
 from typing import List, Optional
 from uuid import UUID
 from datetime import timedelta, datetime
@@ -70,6 +71,18 @@ async def startup():
 @app.get("/")
 async def root():
     return {"message": "SchoolSync API is running"}
+@app.get("/debug/teachers")
+async def debug_teachers(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.Teacher))
+    teachers = result.scalars().all()
+    return [
+        {
+            "id": str(t.id),
+            "name": t.name,
+            "email": t.email
+        }
+        for t in teachers
+    ]
 
 # ─── JSON email login (used by frontend LoginPage) ─────────────────────────────
 @app.post("/api/auth/login", response_model=schemas.Token)
@@ -373,20 +386,56 @@ async def respond_to_relief(assignment_id: UUID, response: schemas.ReliefRespons
 # ─── Timetable Slots CRUD ──────────────────────────────────────────────────────
 @app.post("/timetable/slots", response_model=schemas.TimetableSlot, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def create_timetable_slot(slot: schemas.TimetableSlotCreate, db: AsyncSession = Depends(get_db)):
-    db_slot = models.TimetableSlot(**slot.dict())
+    db_slot = models.TimetableSlot(
+        timetable_version_id=slot.version_id,
+        teacher_id=slot.teacher_id,
+        class_id=slot.class_id,
+        room_id=slot.room_id,
+        day_of_week=slot.day_of_week,
+        period=slot.period
+    )
     db.add(db_slot)
     try:
         await db.commit()
         await db.refresh(db_slot)
-        return db_slot
+        return schemas.TimetableSlot(
+            id=db_slot.id,
+            version_id=db_slot.timetable_version_id,
+            teacher_id=db_slot.teacher_id,
+            class_id=db_slot.class_id,
+            room_id=db_slot.room_id,
+            day_of_week=db_slot.day_of_week,
+            period=db_slot.period,
+            subject=None
+        )
     except Exception:
         await db.rollback()
         raise HTTPException(status_code=409, detail="Scheduling conflict: teacher, room or class already booked at this slot")
 
-@app.get("/timetable/slots", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
-async def list_timetable_slots(db: AsyncSession = Depends(get_db)):
+from sqlalchemy import select
+
+@app.get(
+    "/timetable/slots",
+    response_model=list[schemas.TimetableSlot],
+    dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))]
+)
+async def get_timetable_slots(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.TimetableSlot))
-    return result.scalars().all()
+    db_slots = result.scalars().all()
+
+    return [
+        schemas.TimetableSlot(
+            id=slot.id,
+            version_id=slot.timetable_version_id,
+            teacher_id=slot.teacher_id,
+            class_id=slot.class_id,
+            room_id=slot.room_id,
+            day_of_week=slot.day_of_week,
+            period=slot.period,
+            subject=None
+        )
+        for slot in db_slots
+    ]
 
 @app.get("/timetable/view")
 async def get_timetable_view(scope: str, scope_id: UUID, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
@@ -414,17 +463,54 @@ async def get_timetable_view(scope: str, scope_id: UUID, current_user: models.Us
         grouped[day].append(slot)
     return {"scope": scope, "scope_id": str(scope_id), "timetable": grouped}
 
+
+@app.get("/debug/db")
+async def debug_db(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(text("SELECT current_database(), current_user"))
+    row = result.first()
+
+    result2 = await db.execute(text("SELECT * FROM timetable_slot"))
+    rows = result2.mappings().all()
+
+    return {
+        "database": row[0] if row else None,
+        "user": row[1] if row else None,
+        "rows": [dict(r) for r in rows]
+    }
+
 @app.put("/timetable/slots/{slot_id}", response_model=schemas.TimetableSlot, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def update_timetable_slot(slot_id: UUID, slot_update: schemas.TimetableSlotCreate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.TimetableSlot).where(models.TimetableSlot.id == slot_id))
     slot = result.scalar_one_or_none()
     if not slot:
         raise HTTPException(status_code=404, detail="Slot not found")
-    for key, value in slot_update.dict(exclude_unset=True).items():
-        setattr(slot, key, value)
-    await db.commit()
-    await db.refresh(slot)
-    return slot
+    slot.timetable_version_id = slot_update.version_id
+    slot.teacher_id = slot_update.teacher_id
+    slot.class_id = slot_update.class_id
+    slot.room_id = slot_update.room_id
+    slot.day_of_week = slot_update.day_of_week
+    slot.period = slot_update.period
+
+    try:
+        await db.commit()
+        await db.refresh(slot)
+        return schemas.TimetableSlot(
+            id=slot.id,
+            version_id=slot.timetable_version_id,
+            teacher_id=slot.teacher_id,
+            class_id=slot.class_id,
+            room_id=slot.room_id,
+            day_of_week=slot.day_of_week,
+            period=slot.period,
+            subject=None
+        )
+    except Exception:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Scheduling conflict: teacher, room or class already booked at this slot"
+        )
+
 
 @app.delete("/timetable/slots/{slot_id}", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def delete_timetable_slot(slot_id: UUID, db: AsyncSession = Depends(get_db)):
