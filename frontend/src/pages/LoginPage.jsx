@@ -7,7 +7,6 @@ import {
   GoogleLogo, MicrosoftLogo, AppleLogo,
 } from '../components/auth/AuthComponents';
 
-// ─── Validation ───────────────────────────────────────────────────────────────
 function validate(email, password) {
   const errs = {};
   if (!email) {
@@ -21,28 +20,24 @@ function validate(email, password) {
   return errs;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // ── State ──
-  const [email, setEmail]           = useState('');
-  const [password, setPassword]     = useState('');
-  const [showPw, setShowPw]         = useState(false);
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [showPw, setShowPw]           = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [apiError, setApiError]     = useState('');
-  const [loading, setLoading]       = useState(false);
-  const [toast, setToast]           = useState('');
+  const [apiError, setApiError]       = useState('');
+  const [loading, setLoading]         = useState(false);
+  const [toast, setToast]             = useState('');
   const [verifiedBanner, setVerifiedBanner] = useState(false);
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) navigate('/dashboard', { replace: true });
   }, [isAuthenticated, navigate]);
 
-  // ?verified=1 banner
   useEffect(() => {
     if (searchParams.get('verified') === '1') {
       setVerifiedBanner(true);
@@ -56,7 +51,6 @@ export default function LoginPage() {
     setTimeout(() => setToast(''), 3500);
   }, []);
 
-  // ── Submit ──
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate(email, password);
@@ -94,7 +88,6 @@ export default function LoginPage() {
         subtitle="Please enter your details to sign in."
       />
 
-      {/* Verified email banner */}
       {verifiedBanner && (
         <div className="mb-5">
           <SuccessBanner
@@ -105,14 +98,31 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* API error banner */}
       {apiError && (
         <div className="mb-5">
           <ErrorBanner message={apiError} />
+          {apiError.includes('not verified') && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await fetch(
+                    `http://localhost:8000/auth/resend-verification?email=${encodeURIComponent(email)}`,
+                    { method: 'POST' }
+                  );
+                  setApiError('Verification email sent! Check your inbox.');
+                } catch {
+                  setApiError('Could not resend. Please try again.');
+                }
+              }}
+              className="mt-2 w-full text-sm text-[#0051d5] font-semibold hover:text-[#003fa6] text-center"
+            >
+              Resend verification email
+            </button>
+          )}
         </div>
       )}
 
-      {/* Form */}
       <form onSubmit={handleSubmit} noValidate aria-label="Sign in form">
         <div className="flex flex-col gap-stack-md">
           <InputField
@@ -134,13 +144,12 @@ export default function LoginPage() {
               <label htmlFor="login-password" className="text-[#1b1b1f] text-label-md font-medium">
                 Password
               </label>
-              <button
-                type="button"
-                onClick={() => showToast('Password reset is coming soon.')}
+              <Link
+                to="/forgot-password"
                 className="text-label-md font-medium text-[#0051d5] hover:text-[#003fa6] transition-colors focus-visible:underline"
               >
                 Forgot password?
-              </button>
+              </Link>
             </div>
             <InputField
               id="login-password"
@@ -171,14 +180,12 @@ export default function LoginPage() {
         <Divider />
       </div>
 
-      {/* Social buttons */}
       <div className="flex flex-col gap-3">
         <SocialButton icon={<GoogleLogo />}    providerName="Google"    onClick={() => handleSocial('Google')} />
         <SocialButton icon={<MicrosoftLogo />} providerName="Microsoft" onClick={() => handleSocial('Microsoft')} />
         <SocialButton icon={<AppleLogo />}     providerName="Apple"     onClick={() => handleSocial('Apple')} />
       </div>
 
-      {/* Footer */}
       <p className="text-center text-label-md text-[#74747e] mt-7">
         Don't have an account?{' '}
         <Link to="/signup" className="text-[#0051d5] font-medium hover:text-[#003fa6] transition-colors">
@@ -186,7 +193,6 @@ export default function LoginPage() {
         </Link>
       </p>
 
-      {/* Toast */}
       {toast && <Toast message={toast} onClose={() => setToast('')} />}
     </AuthCard>
   );

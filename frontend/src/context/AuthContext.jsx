@@ -34,7 +34,12 @@ export function AuthProvider({ children }) {
 
     if (!response.ok) {
       const err = await response.json();
-      throw new Error(err.detail || 'Login failed.');
+      const message = typeof err.detail === 'string' 
+        ? err.detail 
+        : Array.isArray(err.detail)
+        ? err.detail[0]?.msg || 'Login failed.'
+        : 'Login failed.';
+      throw new Error(message);
     }
 
     const data = await response.json();
@@ -54,17 +59,24 @@ export function AuthProvider({ children }) {
   }, []);
 
   const register = useCallback(async (data) => {
-    const response = await fetch('http://localhost:8000/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.detail || 'Registration failed.');
-    }
-    return response.json();
-  }, []);
+      const response = await fetch('http://localhost:8000/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          college_id: data.email.split('@')[0].toUpperCase(),
+          email: data.email,
+          password: data.password,
+          role: 'teacher',
+          name: data.name,
+          department: data.department
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(typeof err.detail === 'string' ? err.detail : 'Registration failed.');
+      }
+      return response.json();
+    }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
