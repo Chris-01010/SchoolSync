@@ -2,10 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
   CheckCircle,
-  Warning,
-  Logout,
-  KeyboardArrowDown,
-  WarningAmber
+  AlertTriangle,
+  LogOut,
+  ChevronDown,
 } from 'lucide-react';
 
 import TimetableGrid from './TimetableGrid';

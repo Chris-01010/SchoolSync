@@ -68,13 +68,13 @@ const MOCK_TIMETABLE = [
 ];
 
 export default function LegacyApp() {
-  const { user, logout } = useAuth();
+  const { user, LogOut } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isAbsenceModalOpen, setAbsenceModalOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogOut = () => {
+    LogOut();
     navigate('/login', { replace: true });
   };
 
@@ -136,11 +136,11 @@ export default function LegacyApp() {
 
           <div className="mt-auto pt-8">
             <button
-              onClick={handleLogout}
+              onClick={handleLogOut}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-all duration-300 group"
             >
               <LogOut size={20} className="text-red-400 group-hover:text-red-600" />
-              <span className="font-semibold text-sm tracking-tight">Logout</span>
+              <span className="font-semibold text-sm tracking-tight">LogOut</span>
             </button>
           </div>
         </nav>
