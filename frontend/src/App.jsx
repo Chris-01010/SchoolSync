@@ -25,31 +25,32 @@ const TimetableGrid = lazy(() => import('./components/TimetableGrid'));
 const LeaveManagement = lazy(() => import('./pages/LeaveManagement'));
 const ReliefManagement = lazy(() => import('./pages/ReliefManagement'));
 
-// ─── Placeholder for Analytics (not yet built) ───────────────────────────────
-const AnalyticsPlaceholder = () => (
-  <div className="flex flex-col items-center justify-center h-64 gap-3">
-    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-      <svg
-        width="20"
-        height="20"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        className="text-blue-600"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-        />
+// ─── Admin dashboard layout + pages ──────────────────────────────────────────
+const AdminLayout            = lazy(() => import('./components/layout/AdminLayout'));
+const AdminHome              = lazy(() => import('./pages/AdminHome'));
+const TimetablePage          = lazy(() => import('./pages/TimetablePage'));
+const ReliefManagementPage   = lazy(() => import('./pages/ReliefManagementPage'));
+const LeaveOversightPage     = lazy(() => import('./pages/LeaveOversightPage'));
+const UserManagementPage     = lazy(() => import('./pages/UserManagementPage'));
+const WorkloadAnalyticsPage  = lazy(() => import('./pages/WorkloadAnalyticsPage'));
+const DepartmentsPage        = lazy(() => import('./pages/DepartmentsPage'));
+const RoomsResourcesPage     = lazy(() => import('./pages/RoomsResourcesPage'));
+const ReportsPage            = lazy(() => import('./pages/ReportsPage'));
+
+// ─── Placeholder for Unbuilt Admin Pages ───────────────────────────────────
+const PlaceholderPage = ({ title }) => (
+  <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-3">
+    <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+      <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
       </svg>
     </div>
-    <p className="text-[13px] font-semibold text-gray-500">
-      Analytics coming soon
-    </p>
+    <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+    <p className="text-[14px] font-medium text-gray-500">Coming soon</p>
   </div>
 );
+
+const AnalyticsPlaceholder = () => <PlaceholderPage title="HOD Analytics" />;
 
 // ─── Page loader ──────────────────────────────────────────────────────────────
 const PageLoader = () => (
@@ -93,8 +94,20 @@ export default function App() {
         <Suspense fallback={<PageLoader />}>
           <Routes>
 
-            {/* Root redirect */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            {/* ── Admin Dashboard (Root) ── */}
+            <Route path="/" element={<AdminLayout />}>
+              <Route index element={<AdminHome />} />
+              <Route path="timetables" element={<TimetablePage />} />
+              <Route path="relief" element={<ReliefManagementPage />} />
+              <Route path="leave" element={<LeaveOversightPage />} />
+              <Route path="users" element={<UserManagementPage />} />
+              <Route path="departments" element={<DepartmentsPage />} />
+              <Route path="rooms" element={<RoomsResourcesPage />} />
+              <Route path="analytics" element={<WorkloadAnalyticsPage />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="announcements" element={<PlaceholderPage title="Announcements" />} />
+              <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+            </Route>
 
             {/* Auth routes */}
             <Route
