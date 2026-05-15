@@ -36,11 +36,11 @@ const HODDashboard = ({ user }) => {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
 
-        const statsRes = await fetch('http://localhost:8000/hod/dashboard', { headers });
+        const statsRes = await fetch('http://http://127.0.0.1:8000/hod/dashboard', { headers });
         const statsData = await statsRes.json();
         setStats(statsData);
 
-        const leavesRes = await fetch('http://localhost:8000/hod/leaves/pending', { headers });
+        const leavesRes = await fetch('http://http://127.0.0.1:8000/hod/leaves/pending', { headers });
         const leavesData = await leavesRes.json();
         setPendingLeaves(leavesData);
       } catch (err) {
@@ -56,7 +56,7 @@ const HODDashboard = ({ user }) => {
   const handleApprove = async (id, status) => {
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:8000/absences/${id}/approve`, {
+      await fetch(`http://http://127.0.0.1:8000/absences/${id}/approve`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -71,7 +71,7 @@ const HODDashboard = ({ user }) => {
       try {
         const token2 = localStorage.getItem('token');
         const headers2 = { Authorization: `Bearer ${token2}` };
-        const statsRes = await fetch('http://localhost:8000/hod/dashboard', { headers: headers2 });
+        const statsRes = await fetch('http://http://127.0.0.1:8000/hod/dashboard', { headers: headers2 });
         const statsData = await statsRes.json();
         setStats(statsData);
       } catch {

@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    const response = await fetch('http://localhost:8000/api/auth/login', {
+    const response = await fetch('http://http://127.0.0.1:8000/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const register = useCallback(async (data) => {
-    const response = await fetch('http://localhost:8000/auth/signup', {
+    const response = await fetch('http://http://127.0.0.1:8000/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -73,7 +73,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const refreshAccessToken = useCallback(async () => {
-    const response = await fetch('http://localhost:8000/auth/refresh', {
+    const response = await fetch('http://http://127.0.0.1:8000/auth/refresh', {
       method: 'POST',
       credentials: 'include',  // sends the HttpOnly cookie automatically
     });
