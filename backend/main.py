@@ -20,6 +20,7 @@ import schemas
 import relief
 import auth
 from worker import generate_timetable_task
+from crud import router as master_router
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -71,6 +72,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── CRUD Router ───────────────────────────────────────────────────────────────
+app.include_router(master_router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def startup():
