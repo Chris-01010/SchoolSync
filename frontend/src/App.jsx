@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { PublicRoute, PrivateRoute } from './components/auth/RouteGuards';
+import { useAuth } from './context/AuthContext';
 
 // ─── Auth pages ───────────────────────────────────────────────────────────────
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -77,6 +78,13 @@ const NotFound = () => (
   </div>
 );
 
+function RoleBasedDashboard() {
+  const { user } = useAuth();
+  if (user?.role === 'hod') return <Navigate to="/hod" replace />;
+  if (user?.role === 'admin') return <Navigate to="/app" replace />;
+  return <TeacherDashboard />;
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
@@ -146,12 +154,12 @@ export default function App() {
               <Route path="analytics" element={<AnalyticsPlaceholder />} />
             </Route>
 
-            {/* Teacher dashboard */}
+            {/* Role-based dashboard */}
             <Route
               path="/dashboard/*"
               element={
                 <PrivateRoute>
-                  <TeacherDashboard />
+                  <RoleBasedDashboard />
                 </PrivateRoute>
               }
             />
