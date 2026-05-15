@@ -253,7 +253,7 @@ class AbsenceDecision(BaseModel):
 
 class LeaveApproval(BaseModel):
     # Deprecated: use LeaveRequestStatusUpdate for leave request approval flow.
-    status: LeaveStatus
+    status: AbsenceStatus
     clarification_note: Optional[str] = None
 
 
