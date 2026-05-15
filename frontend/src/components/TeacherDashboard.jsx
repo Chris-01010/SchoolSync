@@ -1,260 +1,332 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, Clock, AlertCircle, CheckCircle, ChevronRight, Calendar, BookOpen, MapPin, Users, Check } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Bell,
+  CheckCircle,
+  AlertTriangle,
+  LogOut,
+  ChevronDown,
+} from 'lucide-react';
+
+import TimetableGrid from './TimetableGrid';
 import ReliefRequestCard from './ReliefRequestCard';
 import LeaveApplicationForm from './LeaveApplicationForm';
 
-const TeacherDashboard = ({ user }) => {
-  const [isLeaveFormOpen, setLeaveFormOpen] = useState(false);
-  const [dashboardData, setDashboardData] = useState({
-    timetable: [],
-    relief_duties: [],
-    total_hours: 0,
-    relief_hours: 0,
-    pending_requests: []
-  });
-  const [isLoading, setIsLoading] = useState(true);
+import {
+  teacher as mockTeacher,
+  timetable as mockTimetable,
+  pendingRequests as mockPendingRequests,
+  confirmedReliefs as mockConfirmedReliefs,
+  flagReasons as mockFlagReasons
+} from '../mockData';
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:8000/teachers/me/dashboard', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        setDashboardData(data);
-      } catch (err) {
-        console.error('Failed to fetch dashboard', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDashboard();
-  }, []);
+const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
-  const refreshDashboard = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8000/teachers/me/dashboard', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setDashboardData(data);
-    } catch (err) {
-      console.error('Failed to refresh dashboard', err);
-    }
-  };
-
-  const handleRespondToRelief = async (id, status, flagReason) => {
-    try {
-      const token = localStorage.getItem('token');
-      await fetch(`http://localhost:8000/relief-assignments/${id}/respond`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status, flag_reason: flagReason })
-      });
-      await refreshDashboard();
-    } catch (err) {
-      console.error('Failed to respond to relief', err);
-    }
-  };
-
-  const handleApplyLeave = async (formData) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8000/absences/', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (!res.ok) {
-        console.error(await res.text());
-        return;
-      }
-
-      const newAbsence = await res.json();
-      setDashboardData((prev) => ({
-        ...prev,
-        pending_requests: [
-          ...prev.pending_requests,
-          { id: newAbsence.id, type: 'leave_application', message: 'Leave application pending', date: newAbsence.date }
-        ]
-      }));
-      setLeaveFormOpen(false);
-    } catch (err) {
-      console.error('Failed to apply for leave', err);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="p-8 flex justify-center items-center h-full">
-        <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
+const ProgressBar = ({ value, total, fillClassName }) => {
+  const pct = total === 0 ? 0 : (value / total) * 100;
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-1">
-            Welcome back, {user?.college_id || user?.email || 'Teacher'}
-          </h1>
-          <p className="text-slate-500 font-medium">Your schedule and duties for today</p>
-        </div>
-        <button
-          onClick={() => setLeaveFormOpen(true)}
-          className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-2xl flex items-center gap-2 transition-all shadow-lg shadow-primary-600/20 font-bold"
-          type="button"
-        >
-          <Plus size={20} />
-          <span>Apply Leave</span>
-        </button>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-              <Clock size={24} />
-            </div>
-            <div>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Teaching Hours</p>
-              <p className="text-2xl font-black text-slate-900">{dashboardData.total_hours}h / 30h</p>
-            </div>
-          </div>
-          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-            <div
-              className="bg-blue-500 h-full rounded-full"
-              style={{ width: `${(dashboardData.total_hours / 30) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl">
-              <AlertCircle size={24} />
-            </div>
-            <div>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Relief Load</p>
-              <p className="text-2xl font-black text-slate-900">{dashboardData.relief_hours} / 3 cap</p>
-            </div>
-          </div>
-          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-            <div
-              className="bg-purple-500 h-full rounded-full"
-              style={{ width: `${(dashboardData.relief_hours / 3) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-green-50 text-green-600 rounded-2xl">
-              <CheckCircle size={24} />
-            </div>
-            <div>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Next Session</p>
-              <p className="text-2xl font-black text-slate-900">Period 5</p>
-            </div>
-          </div>
-          <p className="text-xs font-bold text-slate-400">Grade 10B - Lab 2</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Today's Schedule */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-black text-slate-900 tracking-tight">Today's Schedule</h3>
-            <span className="text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">Monday</span>
-          </div>
-
-          <div className="space-y-4">
-            {dashboardData.timetable.map((slot, i) => (
-              <div
-                key={i}
-                className="bg-white border border-slate-200 rounded-3xl p-5 flex items-center justify-between group hover:border-primary-200 transition-all"
-              >
-                <div className="flex items-center gap-5">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center group-hover:bg-primary-50 transition-colors">
-                    <span className="text-[10px] font-black text-slate-400 uppercase">P{slot.period}</span>
-                    <span className="text-lg font-black text-slate-900">09:00</span>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-black rounded uppercase tracking-wider">Core Class</span>
-                      <h4 className="font-black text-slate-900 tracking-tight">{slot.subject}</h4>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-slate-500 font-bold">
-                      <span className="flex items-center gap-1"><Users size={14} /> {slot.class}</span>
-                      <span className="flex items-center gap-1"><MapPin size={14} /> {slot.room}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <button className="p-3 text-slate-300 hover:text-primary-500 hover:bg-primary-50 rounded-2xl transition-all" type="button">
-                  <ChevronRight size={20} />
-                </button>
-              </div>
-            ))}
-
-            {dashboardData.timetable.length === 0 && (
-              <div className="p-12 text-center bg-slate-50 border border-dashed border-slate-200 rounded-3xl">
-                <BookOpen className="mx-auto text-slate-300 mb-4" size={48} />
-                <p className="text-slate-400 font-bold">No classes scheduled for today</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Notifications & Action Items */}
-        <div className="space-y-6">
-          <h3 className="text-xl font-black text-slate-900 tracking-tight">Active Requests</h3>
-          <div className="space-y-4">
-            {dashboardData.pending_requests.map((req) =>
-              req.type === 'relief_request' ? (
-                <ReliefRequestCard key={req.id} request={req} onRespond={handleRespondToRelief} />
-              ) : (
-                <div key={req.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-start gap-3">
-                  <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
-                    <Calendar size={18} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">{req.message}</p>
-                    <p className="text-[10px] text-slate-500 font-medium uppercase mt-1">{req.date}</p>
-                  </div>
-                </div>
-              )
-            )}
-
-            {dashboardData.pending_requests.length === 0 && (
-              <div className="p-8 text-center bg-white border border-slate-100 rounded-3xl">
-                <p className="text-slate-400 text-sm font-bold italic">All caught up!</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <LeaveApplicationForm
-        isOpen={isLeaveFormOpen}
-        onClose={() => setLeaveFormOpen(false)}
-        onSubmit={handleApplyLeave}
-      />
+    <div className="h-2 rounded-full bg-slate-100 overflow-hidden" aria-label={`Progress ${pct.toFixed(1)}%`}>
+      <div className={`h-full ${fillClassName}`} style={{ width: `${pct}%` }} />
     </div>
   );
 };
 
-export default TeacherDashboard;
+const StatCard = ({ title, value, unit, total, fillClassName }) => {
+  const completed = value;
+  const pct = total === 0 ? 0 : (completed / total) * 100;
+  return (
+    <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <p className="text-[12px] font-black text-slate-600 uppercase tracking-wide">{title}</p>
+      <div className="mt-1 flex items-end justify-between gap-3">
+        <p className="text-[32px] font-bold text-slate-900 tracking-tight leading-none">{completed}</p>
+        <p className="text-[14px] font-semibold text-slate-600">/{total}</p>
+      </div>
+      <div className="mt-3">
+        <ProgressBar value={completed} total={total} fillClassName={fillClassName} />
+        <p className="mt-2 text-[12px] font-semibold text-slate-500">{pct.toFixed(1)}%</p>
+      </div>
+      {unit ? <p className="sr-only">{unit}</p> : null}
+    </section>
+  );
+};
+
+export default function TeacherDashboard() {
+  const [pending, setPending] = useState(mockPendingRequests);
+  const [confirmed, setConfirmed] = useState(mockConfirmedReliefs);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const applyBtnRef = useRef(null);
+  const modalFirstFieldRef = useRef(null);
+
+  const [activeFlagId, setActiveFlagId] = useState(null);
+  const [leaveFormResetKey, setLeaveFormResetKey] = useState(0);
+
+  // Escape/Focus trap
+  useEffect(() => {
+    if (!isModalOpen) return;
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsModalOpen(false);
+      }
+      if (e.key === 'Tab') {
+        // Minimal focus trap: keep focus inside modal
+        const focusables = document.querySelectorAll(
+          '[data-leave-modal="true"] button, [data-leave-modal="true"] select, [data-leave-modal="true"] textarea, [data-leave-modal="true"] input'
+        );
+        const arr = Array.from(focusables).filter((el) => !el.disabled && el.tabIndex !== -1);
+        if (arr.length === 0) return;
+        const first = arr[0];
+        const last = arr[arr.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      // focus first field
+      setTimeout(() => modalFirstFieldRef.current?.focus?.(), 0);
+    } else {
+      applyBtnRef.current?.focus?.();
+    }
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    // close flag dropdown on outside click
+    const onDocClick = (e) => {
+      const el = e.target;
+      if (typeof el?.closest === 'function' && el.closest('[data-flag-dropdown="true"]')) return;
+      setActiveFlagId(null);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  const teachingCompleted = mockTeacher.teachingHours.completed;
+  const teachingTotal = mockTeacher.teachingHours.total;
+  const reliefCompleted = mockTeacher.reliefHours.completed;
+  const reliefTotal = mockTeacher.reliefHours.total;
+  const remainingTotal = mockTeacher.teachingHours.total;
+  const remainingCompleted = mockTeacher.remainingCap;
+
+  const handleRespond = (id, status, reason) => {
+    if (status === 'accepted') {
+      const req = pending.find((p) => p.id === id);
+      if (!req) return;
+
+      setPending((prev) => prev.filter((r) => r.id !== id));
+      setConfirmed((prev) => [
+        {
+          id: `c_${Date.now()}`,
+          subject: req.subject,
+          class: req.class,
+          day: req.day,
+          period: req.period,
+          originalTeacher: req.absentTeacher
+        },
+        ...prev
+      ]);
+
+      setActiveFlagId(null);
+      return;
+    }
+
+    if (status === 'rejected') {
+      setPending((prev) => prev.filter((r) => r.id !== id));
+      setActiveFlagId(null);
+      return;
+    }
+
+    if (status === 'flagged') {
+      console.log(`Flagged request ${id} with reason: ${reason}`);
+      setPending((prev) => prev.filter((r) => r.id !== id));
+      setActiveFlagId(null);
+    }
+  };
+
+  const leaveSubmit = (formData) => {
+    console.log('Leave Request Submitted:', formData);
+    setIsModalOpen(false);
+    setLeaveFormResetKey((k) => k + 1);
+  };
+
+  const confirmedSorted = useMemo(() => {
+    return [...confirmed].sort((a, b) => {
+      const da = dayOrder.indexOf(a.day);
+      const db = dayOrder.indexOf(b.day);
+      if (da !== db) return da - db;
+      return a.period - b.period;
+    });
+  }, [confirmed]);
+
+  return (
+    <div className="bg-surface-container-lowest min-h-screen">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-200">
+        <div className="px-4 py-3 max-w-7xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center border border-outline-variant">
+              <span className="material-symbols-outlined text-primary">schedule</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[20px] font-bold text-primary-900 truncate">Springfield Public School</p>
+              <p className="text-[12px] font-semibold text-slate-500 truncate">
+                {mockTeacher.name} · {mockTeacher.department}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              className="relative p-2 rounded-lg border border-outline-variant bg-surface-container-low"
+              aria-label="Notifications"
+            >
+              <Bell size={20} className="text-primary-600" />
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-secondary text-white text-[12px] font-bold flex items-center justify-center">
+                2
+              </span>
+            </button>
+
+            <button
+              ref={applyBtnRef}
+              onClick={() => setIsModalOpen(true)}
+              className="bg-secondary hover:opacity-95 text-white rounded-lg px-4 py-2 text-[14px] font-semibold shadow-sm"
+            >
+              Apply for Leave
+            </button>
+
+            <div className="w-10 h-10 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center text-slate-700 font-bold">
+              {mockTeacher.name.split(' ').map((s) => s[0]).slice(0, 2).join('')}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Stats */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatCard title="Teaching Hours" value={teachingCompleted} total={teachingTotal} fillClassName="bg-secondary" />
+          <StatCard title="Relief Hours" value={reliefCompleted} total={reliefTotal} fillClassName="bg-secondary-container" />
+          <StatCard title="Remaining Capacity" value={remainingCompleted} total={remainingTotal} fillClassName="bg-primary-container" />
+        </section>
+
+        {/* Weekly Timetable + Pending */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            <h2 className="text-[24px] font-bold text-slate-900">Weekly Timetable</h2>
+            <p className="text-[14px] font-medium text-slate-500 mt-1">Mon–Fri · Periods 1–8</p>
+            <div className="mt-4">
+              <TimetableGrid timetable={mockTimetable} />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[18px] font-bold text-slate-900">Pending Relief Requests</h2>
+                <span className="text-[12px] font-bold text-slate-500">{pending.length}</span>
+              </div>
+
+              {pending.length === 0 ? (
+                <div className="mt-6 flex items-center justify-center text-center py-10">
+                  <p className="text-[14px] font-semibold text-slate-500">No pending requests</p>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {pending.map((req) => (
+                    <ReliefRequestCard
+                      key={req.id}
+                      request={req}
+                      flagReasons={mockFlagReasons}
+                      isFlagOpen={activeFlagId === req.id}
+                      onToggleFlag={() => setActiveFlagId((prev) => (prev === req.id ? null : req.id))}
+                      onRespond={handleRespond}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[18px] font-bold text-slate-900">Confirmed Relief Duties</h2>
+                <span className="text-[12px] font-bold text-slate-500">{confirmed.length}</span>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {confirmedSorted.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-[14px] font-semibold text-slate-500">No confirmed duties yet</p>
+                  </div>
+                ) : (
+                  confirmedSorted.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex items-start gap-3 bg-surface-container-low border border-outline-variant rounded-lg p-3"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-secondary-fixed border border-secondary flex items-center justify-center">
+                        <CheckCircle size={20} className="text-secondary" />
+                      </div>
+                      <div>
+                        <p className="text-[14px] font-bold text-slate-900">
+                          {d.subject} · {d.class}
+                        </p>
+                        <p className="text-[12px] font-semibold text-slate-600">
+                          {d.day} · Period {d.period}
+                        </p>
+                        <p className="text-[12px] font-semibold text-slate-500">
+                          Original Teacher: {d.originalTeacher}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50">
+        <div className="grid grid-cols-5">
+          {['Home', 'Schedule', 'Relief', 'Profile'].map((label, idx) => (
+            <button
+              key={label}
+              className={`py-3 flex flex-col items-center justify-center gap-1 ${idx === 0 ? 'bg-secondary-container/10 text-secondary font-bold' : 'text-slate-500'}`}
+              aria-label={label}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>
+                {idx === 0 ? 'home' : idx === 1 ? 'schedule' : idx === 2 ? 'group' : 'person'}
+              </span>
+              <span className="text-[11px] font-bold">{idx === 0 ? 'Home' : label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <LeaveApplicationForm
+        key={leaveFormResetKey}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={leaveSubmit}
+        firstFieldRef={modalFirstFieldRef}
+      />
+    </div>
+  );
+}
 

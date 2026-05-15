@@ -1,135 +1,159 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, FileText, Link as LinkIcon, Send } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 
-const LeaveApplicationForm = ({ isOpen, onClose, onSubmit }) => {
-  const [formData, setFormData] = useState({
-    leave_type: 'personal',
-    date: '',
-    period_start: 1,
-    period_end: 8,
+const leaveTypeOptions = ['Sick Leave', 'Casual Leave', 'Emergency Leave'];
+
+export default function LeaveApplicationForm({
+  isOpen,
+  onClose,
+  onSubmit,
+  firstFieldRef
+}) {
+  const [leaveForm, setLeaveForm] = useState({
+    leaveType: '',
+    startDate: '',
+    endDate: '',
     reason: '',
-    handover_url: ''
+    document: null
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    // reset on open for consistent UX
+    setLeaveForm({ leaveType: '', startDate: '', endDate: '', reason: '', document: null });
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
-    onClose();
+
+    const payload = {
+      ...leaveForm,
+      document: leaveForm.document ? leaveForm.document.name : null
+    };
+
+    if (leaveForm.endDate && leaveForm.startDate && leaveForm.endDate < leaveForm.startDate) {
+      return;
+    }
+
+    onSubmit(payload);
   };
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        />
-        
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.9, opacity: 0, y: 20 }}
-          className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden"
-        >
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+      <button
+        type="button"
+        aria-label="Close"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <div
+        className="relative w-full h-full flex items-center justify-center p-4"
+        data-leave-modal="true"
+      >
+        <div className="w-full max-w-[440px] bg-white border border-outline-variant rounded-xl shadow-2xl overflow-hidden">
+          <div className="p-5 border-b border-outline-variant flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Apply for Leave</h2>
-              <p className="text-xs text-slate-500 font-medium">Submit your leave request and handover details</p>
+              <h2 className="text-[24px] font-bold text-slate-900">Apply for Leave</h2>
+              <p className="text-[14px] font-semibold text-slate-500">Submit your request</p>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 transition-all">
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-slate-50 text-slate-500"
+            >
               <X size={20} />
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="p-5 space-y-5" aria-label="Leave application form">
+            <div>
+              <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-2">Leave Type</label>
+              <select
+                ref={firstFieldRef}
+                required
+                value={leaveForm.leaveType}
+                onChange={(e) => setLeaveForm((p) => ({ ...p, leaveType: e.target.value }))}
+                className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-secondary/20 focus:border-secondary font-semibold"
+              >
+                <option value="" disabled>
+                  Select Leave Type
+                </option>
+                {leaveTypeOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Leave Type</label>
-                <select 
+                <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-2">Start Date</label>
+                <input
                   required
-                  value={formData.leave_type}
-                  onChange={(e) => setFormData({...formData, leave_type: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-bold text-slate-900"
-                >
-                  <option value="personal">Personal Leave</option>
-                  <option value="medical">Medical Leave</option>
-                  <option value="official">Official Duty</option>
-                </select>
+                  type="date"
+                  value={leaveForm.startDate}
+                  onChange={(e) => setLeaveForm((p) => ({ ...p, startDate: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-secondary/20 focus:border-secondary font-semibold"
+                />
               </div>
-
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Date</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input 
-                    required
-                    type="date" 
-                    value={formData.date}
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 pl-10 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-bold text-slate-900"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">From Period</label>
-                  <input type="number" min={1} max={8} value={formData.period_start} onChange={(e) => setFormData({...formData, period_start: parseInt(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">To Period</label>
-                  <input type="number" min={1} max={8} value={formData.period_end} onChange={(e) => setFormData({...formData, period_end: parseInt(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Reason</label>
-                <div className="relative">
-                  <FileText className="absolute left-3 top-3 text-slate-400" size={18} />
-                  <textarea 
-                    required
-                    rows="2"
-                    value={formData.reason}
-                    onChange={(e) => setFormData({...formData, reason: e.target.value})}
-                    placeholder="Briefly explain the reason for your leave..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 pl-10 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-medium text-slate-900"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Digital Handover (Optional)</label>
-                <div className="relative">
-                  <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input 
-                    type="url"
-                    value={formData.handover_url}
-                    onChange={(e) => setFormData({...formData, handover_url: e.target.value})}
-                    placeholder="Link to lesson plan/materials (e.g., Google Drive)"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 pl-10 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-medium text-slate-900"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-500 mt-2 ml-1">Provide a link to ensure academic continuity while you are away.</p>
+                <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-2">End Date</label>
+                <input
+                  required
+                  type="date"
+                  min={leaveForm.startDate || undefined}
+                  value={leaveForm.endDate}
+                  onChange={(e) => setLeaveForm((p) => ({ ...p, endDate: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-secondary/20 focus:border-secondary font-semibold"
+                />
               </div>
             </div>
 
-            <div className="pt-4 flex gap-3">
-              <button type="button" onClick={onClose} className="flex-1 bg-slate-100 text-slate-600 font-black py-4 rounded-2xl hover:bg-slate-200 transition-colors uppercase tracking-widest text-xs">Cancel</button>
-              <button type="submit" className="flex-1 bg-primary-600 text-white font-black py-4 rounded-2xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-600/20 uppercase tracking-widest text-xs flex items-center justify-center gap-2">
-                Submit Request <Send size={16} />
+            <div>
+              <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-2">Reason</label>
+              <textarea
+                required
+                rows={3}
+                value={leaveForm.reason}
+                onChange={(e) => setLeaveForm((p) => ({ ...p, reason: e.target.value }))}
+                placeholder="Provide a brief explanation…"
+                className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-secondary/20 focus:border-secondary font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-2">Supporting Document</label>
+              <input
+                type="file"
+                onChange={(e) => setLeaveForm((p) => ({ ...p, document: e.target.files?.[0] || null }))}
+                className="w-full text-slate-700"
+              />
+              <p className="text-[12px] font-semibold text-slate-500 mt-1">Optional</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-3 rounded-lg bg-surface-container-low border border-outline-variant text-slate-700 font-bold uppercase tracking-wider hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-3 rounded-lg bg-secondary text-white font-bold uppercase tracking-wider hover:opacity-95"
+              >
+                Submit
               </button>
             </div>
           </form>
-        </motion.div>
+        </div>
       </div>
-    </AnimatePresence>
+    </div>
   );
-};
+}
 
-export default LeaveApplicationForm;

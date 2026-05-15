@@ -9,13 +9,13 @@ const ROLE_LABELS = {
 };
 
 export default function DashboardPlaceholder() {
-  const { user, logout } = useAuth();
+  const { user, LogOut } = useAuth();
   const navigate = useNavigate();
 
   const roleInfo = ROLE_LABELS[user?.role] ?? ROLE_LABELS.teacher;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogOut = () => {
+    LogOut();
     navigate('/login', { replace: true });
   };
 
@@ -57,13 +57,13 @@ export default function DashboardPlaceholder() {
           This is a placeholder dashboard. Full dashboard coming soon.
         </p>
 
-        {/* Logout */}
+        {/* LogOut */}
         <button
-          onClick={handleLogout}
+          onClick={handleLogOut}
           className="w-full h-12 rounded-xl border border-[#c6c6cd] text-[15px] text-[#ba1a1a] font-semibold
             flex items-center justify-center gap-2 hover:bg-[#fff0ee] transition-all duration-150"
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '20px' }} aria-hidden="true">logout</span>
+          <span className="material-symbols-outlined" style={{ fontSize: '20px' }} aria-hidden="true">LogOut</span>
           Sign Out
         </button>
       </div>
