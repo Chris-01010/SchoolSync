@@ -66,7 +66,7 @@ export function AuthProvider({ children }) {
     return response.json();
   }, []);
 
-  const logout = useCallback(() => {
+  const LogOut = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setUser(null);
@@ -79,8 +79,8 @@ export function AuthProvider({ children }) {
     });
 
     if (!response.ok) {
-      // Refresh failed — force logout
-      logout();
+      // Refresh failed — force LogOut
+      LogOut();
       return null;
     }
 
@@ -96,7 +96,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     setUser(userData);
     return data.access_token;
-  }, [logout]);
+  }, [LogOut]);
 
   const value = {
     user,
@@ -104,7 +104,7 @@ export function AuthProvider({ children }) {
     isLoading,
     login,
     register,
-    logout,
+    LogOut,
     refreshAccessToken,
   };
 

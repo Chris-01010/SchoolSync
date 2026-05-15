@@ -18,7 +18,7 @@ const MOCK_STATS = {
   department_name: 'Science',
   pending_approvals_count: 3,
   missing_reliefs: 1,
-  teacher_workload_warning: true,
+  teacher_workload_AlertTriangle: true,
   active_conflicts: 0,
 };
 
@@ -135,9 +135,9 @@ const HODDashboard = ({ user }) => {
       borderColor: 'border-red-200',
     },
     {
-      value: stats.teacher_workload_warning ? '⚠' : '✓',
+      value: stats.teacher_workload_AlertTriangle ? '⚠' : '✓',
       label: 'Teacher Workload',
-      badge: 'WARNING',
+      badge: 'AlertTriangle',
       badgeColor: 'bg-amber-100 text-amber-600',
       borderColor: 'border-amber-200',
     },

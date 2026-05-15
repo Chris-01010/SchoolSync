@@ -38,10 +38,15 @@ export default function LoginPage() {
   const [verifiedBanner, setVerifiedBanner] = useState(false);
 
   // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) navigate('/dashboard', { replace: true });
-  }, [isAuthenticated, navigate]);
-
+  // ✅ Replace with
+useEffect(() => {
+  if (isAuthenticated) {
+    const role = JSON.parse(localStorage.getItem('schoolsync_user') || '{}').role;
+    if (role === 'hod') navigate('/hod', { replace: true });
+    else if (role === 'admin') navigate('/app', { replace: true });
+    else navigate('/dashboard', { replace: true });
+  }
+}, [isAuthenticated, navigate]);
   // ?verified=1 banner
   useEffect(() => {
     if (searchParams.get('verified') === '1') {
@@ -65,8 +70,10 @@ export default function LoginPage() {
     setApiError('');
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/dashboard', { replace: true });
+      const userData = await login(email, password);
+      if (userData.role === 'hod') navigate('/hod', { replace: true });
+      else if (userData.role === 'admin') navigate('/app', { replace: true });
+      else navigate('/dashboard', { replace: true });
     } catch (err) {
       if (err.name === 'TypeError') {
         setApiError('Unable to connect. Please check your internet connection.');
