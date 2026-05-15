@@ -3,6 +3,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { PublicRoute, PrivateRoute } from './components/auth/RouteGuards';
 
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+
 // Lazy-loaded pages (code-split for performance)
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
@@ -69,7 +73,18 @@ export default function App() {
                 </PublicRoute>
               }
             />
-
+            <Route 
+              path="/verify-email" 
+              element={<VerifyEmailPage />} 
+            />
+            <Route 
+              path="/forgot-password" 
+              element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} 
+            />
+            <Route 
+              path="/reset-password" 
+              element={<PublicRoute><ResetPasswordPage /></PublicRoute>} 
+            />
             <Route
               path="/dashboard"
               element={

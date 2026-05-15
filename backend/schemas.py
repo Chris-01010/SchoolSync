@@ -22,6 +22,8 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    name: Optional[str] = None
+    department: Optional[str] = None
 
 class User(UserBase):
     id: UUID

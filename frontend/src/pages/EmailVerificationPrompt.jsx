@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Toast } from '../components/auth/AuthComponents';
-import { mockResendVerification } from '../services/authService';
 
 export default function EmailVerificationPrompt({ email }) {
   const [resending, setResending] = useState(false);
@@ -15,7 +14,11 @@ export default function EmailVerificationPrompt({ email }) {
   const handleResend = async () => {
     setResending(true);
     try {
-      await mockResendVerification(email);
+      const response = await fetch(
+        `http://localhost:8000/auth/resend-verification?email=${encodeURIComponent(email)}`,
+        { method: 'POST' }
+      );
+      if (!response.ok) throw new Error();
       showToast('Verification email resent! Check your inbox.');
     } catch {
       showToast('Could not resend. Please try again shortly.');
@@ -26,7 +29,6 @@ export default function EmailVerificationPrompt({ email }) {
 
   return (
     <div className="flex flex-col items-center text-center gap-6">
-      {/* Success icon */}
       <div
         className="w-20 h-20 rounded-full flex items-center justify-center"
         style={{ backgroundColor: '#d3f0d9' }}
@@ -56,7 +58,6 @@ export default function EmailVerificationPrompt({ email }) {
         <Button onClick={handleResend} loading={resending} variant="secondary">
           Resend verification email
         </Button>
-
         <Link
           to="/login"
           className="w-full h-12 rounded-xl border border-transparent text-[15px] text-[#0051d5] font-semibold
@@ -67,7 +68,6 @@ export default function EmailVerificationPrompt({ email }) {
       </div>
 
       {toast && (
-        // inline toast for this state since it's standalone
         <div
           role="status"
           aria-live="polite"
