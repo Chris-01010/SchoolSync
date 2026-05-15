@@ -33,7 +33,7 @@ const HODDashboard = ({ user }) => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('schoolsync_token');
         const headers = { Authorization: `Bearer ${token}` };
 
         const statsRes = await fetch('http://localhost:8000/hod/dashboard', { headers });
@@ -42,7 +42,8 @@ const HODDashboard = ({ user }) => {
 
         const leavesRes = await fetch('http://localhost:8000/hod/leaves/pending', { headers });
         const leavesData = await leavesRes.json();
-        setPendingLeaves(leavesData);
+        setPendingLeaves(leavesData.data || []);
+        
       } catch (err) {
         console.error('Failed to fetch HOD data', err);
       } finally {
@@ -55,7 +56,7 @@ const HODDashboard = ({ user }) => {
 
   const handleApprove = async (id, status) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('schoolsync_token');
       await fetch(`http://localhost:8000/absences/${id}/approve`, {
         method: 'PUT',
         headers: {
@@ -69,7 +70,7 @@ const HODDashboard = ({ user }) => {
 
       // Refresh stats silently
       try {
-        const token2 = localStorage.getItem('token');
+        const token2 = localStorage.getItem('schoolsync_token');
         const headers2 = { Authorization: `Bearer ${token2}` };
         const statsRes = await fetch('http://localhost:8000/hod/dashboard', { headers: headers2 });
         const statsData = await statsRes.json();

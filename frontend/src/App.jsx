@@ -9,6 +9,7 @@ const SignupPage = lazy(() => import('./pages/SignupPage'));
 const DashboardPlaceholder = lazy(() => import('./pages/DashboardPlaceholder'));
 
 // Legacy authenticated dashboard (role-based, unchanged)
+const HODDashboard = lazy(() => import('./components/HODDashboard'));
 const LegacyApp = lazy(() => import('./LegacyApp'));
 
 // Full-page loader used while lazy chunks download
@@ -83,6 +84,14 @@ export default function App() {
               element={
                 <PrivateRoute>
                   <LegacyApp />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hod-dashboard"
+              element={
+                <PrivateRoute>
+                  <HODDashboard />
                 </PrivateRoute>
               }
             />

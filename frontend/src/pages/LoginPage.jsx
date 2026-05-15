@@ -65,8 +65,16 @@ export default function LoginPage() {
     setApiError('');
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/dashboard', { replace: true });
+      const user = await login(email, password);
+      if (user?.role === 'hod') {
+        navigate('/hod-dashboard', { replace: true });
+      } else if (user?.role === 'teacher') {
+        navigate('/teacher-dashboard', { replace: true });
+      } else if (user?.role === 'admin') {
+        navigate('/admin-dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       if (err.name === 'TypeError') {
         setApiError('Unable to connect. Please check your internet connection.');
