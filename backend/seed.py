@@ -12,19 +12,20 @@ async def seed_data():
         await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as db:
+        from sqlalchemy import select
+
         # 1. Create Admin User
         admin_email = "admin@schoolsync.com"
         admin_pass = "admin123"
         
-        # Check if exists
-        from sqlalchemy import select
         result = await db.execute(select(models.User).filter(models.User.email == admin_email))
         if not result.scalars().first():
             admin_user = models.User(
                 college_id="ADM001",
                 email=admin_email,
                 password_hash=auth.get_password_hash(admin_pass),
-                role=models.UserRole.ADMIN
+                role=models.UserRole.ADMIN,
+                is_verified=True
             )
             db.add(admin_user)
             print(f"Created Admin: {admin_email} / {admin_pass}")
@@ -51,7 +52,8 @@ async def seed_data():
                 college_id="TCH001",
                 email=teacher_email,
                 password_hash=auth.get_password_hash(teacher_pass),
-                role=models.UserRole.TEACHER
+                role=models.UserRole.TEACHER,
+                is_verified=True
             )
             db.add(teacher_user)
             await db.commit()
@@ -78,7 +80,8 @@ async def seed_data():
                 college_id="HOD001",
                 email=hod_email,
                 password_hash=auth.get_password_hash(hod_pass),
-                role=models.UserRole.HOD
+                role=models.UserRole.HOD,
+                is_verified=True
             )
             db.add(hod_user)
             await db.commit()

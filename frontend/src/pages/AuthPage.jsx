@@ -38,7 +38,7 @@ const AuthPage = ({ onLogin }) => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000${endpoint}`, {
+      const response = await fetch(`http://http://127.0.0.1:8000${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': isLogin ? 'application/x-www-form-urlencoded' : 'application/json'
@@ -53,7 +53,7 @@ const AuthPage = ({ onLogin }) => {
 
       if (isLogin) {
         localStorage.setItem('token', data.access_token);
-        const userRes = await fetch('http://localhost:8000/auth/me', {
+        const userRes = await fetch('http://http://127.0.0.1:8000/auth/me', {
           headers: { Authorization: `Bearer ${data.access_token}` }
         });
         const userData = await userRes.json();

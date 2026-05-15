@@ -34,12 +34,16 @@ export function AuthProvider({ children }) {
 
     if (!response.ok) {
       const err = await response.json();
-      throw new Error(err.detail || 'Login failed.');
+      const message = typeof err.detail === 'string'
+        ? err.detail
+        : Array.isArray(err.detail)
+        ? err.detail[0]?.msg || 'Login failed.'
+        : 'Login failed.';
+      throw new Error(message);
     }
 
     const data = await response.json();
 
-    // Decode JWT payload to get user info
     const payload = JSON.parse(atob(data.access_token.split('.')[1]));
     const userData = {
       email:  email,
@@ -57,16 +61,31 @@ export function AuthProvider({ children }) {
     const response = await fetch('http://localhost:8000/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        college_id: data.email.split('@')[0].toUpperCase(),
+        email: data.email,
+        password: data.password,
+        role: 'teacher',
+        name: data.name,
+        department: data.department
+      }),
     });
     if (!response.ok) {
       const err = await response.json();
-      throw new Error(err.detail || 'Registration failed.');
+      throw new Error(typeof err.detail === 'string' ? err.detail : 'Registration failed.');
     }
     return response.json();
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await fetch('http://localhost:8000/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // ignore
+    }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setUser(null);
@@ -75,11 +94,10 @@ export function AuthProvider({ children }) {
   const refreshAccessToken = useCallback(async () => {
     const response = await fetch('http://localhost:8000/auth/refresh', {
       method: 'POST',
-      credentials: 'include',  // sends the HttpOnly cookie automatically
+      credentials: 'include',
     });
 
     if (!response.ok) {
-      // Refresh failed — force logout
       logout();
       return null;
     }

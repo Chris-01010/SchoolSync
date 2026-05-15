@@ -71,7 +71,12 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     refresh_token = Column(String, nullable=True)
     refresh_token_expires_at = Column(DateTime(timezone=True), nullable=True)
-    
+    is_verified = Column(Boolean, default=False)
+    verification_token = Column(String, nullable=True)
+    verification_token_expires_at = Column(DateTime(timezone=True), nullable=True)
+    reset_token = Column(String, nullable=True)
+    reset_token_expires_at = Column(DateTime(timezone=True), nullable=True)
+
     teacher_profile = relationship("Teacher", back_populates="user", uselist=False)
     notifications = relationship("Notification", back_populates="user")
 

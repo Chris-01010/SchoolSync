@@ -48,9 +48,9 @@ const AdminDashboard = ({ user }) => {
       const headers = { 'Authorization': `Bearer ${token}` };
 
       const [statsRes, activeRes, flaggedRes] = await Promise.all([
-        fetch('http://localhost:8000/admin/stats', { headers }),
-        fetch('http://localhost:8000/admin/relief/active', { headers }),
-        fetch('http://localhost:8000/admin/relief/flagged', { headers })
+        fetch('http://http://127.0.0.1:8000/admin/stats', { headers }),
+        fetch('http://http://127.0.0.1:8000/admin/relief/active', { headers }),
+        fetch('http://http://127.0.0.1:8000/admin/relief/flagged', { headers })
       ]);
 
       if (statsRes.ok && activeRes.ok && flaggedRes.ok) {
