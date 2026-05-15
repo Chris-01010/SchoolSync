@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, status, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
@@ -10,6 +12,7 @@ import time
 import collections
 import logging
 from pydantic import BaseModel
+from email_service import send_verification_email, send_password_reset_email
 
 from database import engine, Base, get_db
 import models
@@ -79,6 +82,14 @@ async def login_json(payload: EmailLoginRequest, response: Response, db: AsyncSe
     user = result.scalars().first()
     if not user or not auth.verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
+    
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Email not verified. Please check your inbox or request a new verification email."
+        )
+
+    # Create access token
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
         data={"sub": user.college_id, "role": user.role}, expires_delta=access_token_expires
@@ -99,6 +110,11 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Email not verified. Please check your inbox or request a new verification email."
         )
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
@@ -139,12 +155,107 @@ async def signup(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(db_user)
     if db_user.role == models.UserRole.TEACHER:
         teacher_profile = models.Teacher(
-            user_id=db_user.id, name=db_user.college_id, email=db_user.email,
-            current_relief_hours=0, total_hours_worked=0, is_active=True
+            user_id=db_user.id,
+            name=user.name or db_user.college_id,  # use provided name or fall back to college_id
+            email=db_user.email,
+            current_relief_hours=0,
+            total_hours_worked=0,
+            is_active=True
         )
         db.add(teacher_profile)
         await db.commit()
+    
+    # Generate verification token and send email
+    token = secrets.token_urlsafe(32)
+    db_user.verification_token = token
+    db_user.verification_token_expires_at = datetime.utcnow() + timedelta(hours=24)
+    await db.commit()
+    send_verification_email(db_user.email, db_user.college_id, token)
     return db_user
+
+# ─── Email Verification ────────────────────────────────────────────────────────
+@app.get("/verify-email")
+async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(models.User).filter(models.User.verification_token == token)
+    )
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid verification token.")
+
+    if user.verification_token_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Verification token expired. Please request a new one.")
+
+    user.is_verified = True
+    user.verification_token = None
+    user.verification_token_expires_at = None
+    await db.commit()
+
+    logger.info(f"Email verified for user {user.college_id}")
+    return {"message": "Email verified successfully. You can now log in."}
+
+
+@app.post("/auth/resend-verification")
+async def resend_verification(email: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.User).filter(models.User.email == email))
+    user = result.scalars().first()
+
+    if not user:
+        # Don't reveal if email exists
+        return {"message": "If that email exists, a verification link has been sent."}
+
+    if user.is_verified:
+        raise HTTPException(status_code=400, detail="Account already verified.")
+
+    token = secrets.token_urlsafe(32)
+    user.verification_token = token
+    user.verification_token_expires_at = datetime.utcnow() + timedelta(hours=24)
+    await db.commit()
+
+    send_verification_email(user.email, user.college_id, token)
+    return {"message": "If that email exists, a verification link has been sent."}
+
+
+# ─── Forgot Password ───────────────────────────────────────────────────────────
+@app.post("/auth/forgot-password")
+async def forgot_password(email: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(models.User).filter(models.User.email == email))
+    user = result.scalars().first()
+
+    if not user:
+        return {"message": "If that email exists, a reset link has been sent."}
+
+    token = secrets.token_urlsafe(32)
+    user.reset_token = token
+    user.reset_token_expires_at = datetime.utcnow() + timedelta(hours=1)
+    await db.commit()
+
+    send_password_reset_email(user.email, user.college_id, token)
+    logger.info(f"Password reset requested for {user.email}")
+    return {"message": "If that email exists, a reset link has been sent."}
+
+
+@app.post("/auth/reset-password")
+async def reset_password(token: str, new_password: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(models.User).filter(models.User.reset_token == token)
+    )
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid reset token.")
+
+    if user.reset_token_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Reset token expired. Please request a new one.")
+
+    user.password_hash = auth.get_password_hash(new_password)
+    user.reset_token = None
+    user.reset_token_expires_at = None
+    await db.commit()
+
+    logger.info(f"Password reset successful for {user.college_id}")
+    return {"message": "Password reset successfully. You can now log in."}
 
 @app.get("/auth/me", response_model=schemas.User)
 async def get_me(current_user: models.User = Depends(auth.get_current_user)):
@@ -319,35 +430,171 @@ async def get_pending_department_leaves(current_user: models.User = Depends(auth
     result = await db.execute(select(models.Absence).join(models.Teacher).where(models.Teacher.department_id == hod.department_id, models.Absence.status == models.AbsenceStatus.PENDING))
     return result.scalars().all()
 
-@app.put("/absences/{absence_id}/approve", response_model=schemas.Absence, dependencies=[Depends(auth.check_role([models.UserRole.HOD]))])
-async def approve_leave(absence_id: UUID, approval: schemas.LeaveApproval, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.Absence).where(models.Absence.id == absence_id))
-    absence = result.scalar_one_or_none()
-    if not absence:
-        raise HTTPException(status_code=404, detail="Absence not found")
-    absence.status = approval.status
-    if approval.resolution_report_url:
-        absence.resolution_report_url = approval.resolution_report_url
-    await db.commit()
-    await db.refresh(absence)
-    return absence
+
+
+
 
 # ─── Absence & Relief ──────────────────────────────────────────────────────────
-@app.post("/absences/", response_model=schemas.Absence, dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))])
-async def mark_absence(absence: schemas.AbsenceCreate, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
-    teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.user_id == current_user.id))
+@app.get(
+    "/absences/my",
+    response_model=List[schemas.AbsenceOut],
+    dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))]
+)
+async def get_my_absences(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    FR-1: Teacher views all their own leave requests.
+    Powers the pending_requests section of the teacher dashboard.
+    """
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
     teacher = teacher_result.scalar_one_or_none()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher profile not found")
+
+    result = await db.execute(
+        select(models.Absence)
+        .where(models.Absence.teacher_id == teacher.id)
+        .order_by(models.Absence.date.desc())
+    )
+    return result.scalars().all()
+@app.post(
+    "/absences/",
+    response_model=schemas.AbsenceOut,
+    dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))]
+)
+async def mark_absence(
+    absence: schemas.AbsenceCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # 1. Get teacher from JWT (not from body — this is the security fix)
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found")
+
+    # 2. Overlap check — can't have two pending/approved leaves on same date
+    overlap_result = await db.execute(
+        select(models.Absence).where(
+            models.Absence.teacher_id == teacher.id,
+            models.Absence.date == absence.date,
+            models.Absence.status != models.AbsenceStatus.REJECTED
+        )
+    )
+    if overlap_result.scalars().first():
+        raise HTTPException(
+            status_code=409,
+            detail="You already have a leave request for this date."
+        )
+
+    # 3. Create the absence
     db_absence = models.Absence(
-        teacher_id=teacher.id, date=absence.date, period_start=absence.period_start,
-        period_end=absence.period_end, leave_type=absence.leave_type, reason=absence.reason,
-        handover_url=absence.handover_url, status=models.AbsenceStatus.PENDING
+        teacher_id=teacher.id,
+        date=absence.date,
+        period_start=absence.period_start,
+        period_end=absence.period_end,
+        leave_type=absence.leave_type,
+        reason=absence.reason,
+        handover_url=absence.handover_url,
+        status=models.AbsenceStatus.PENDING,
+        resolved=False,
     )
     db.add(db_absence)
+    await db.flush()  # gets the id before commit
+
+    # 4. Notify the teacher (confirmation)
+    db.add(models.Notification(
+        user_id=current_user.id,
+        notification_type="LEAVE_SUBMITTED",
+        title="Leave Request Submitted",
+        content=f"Your {absence.leave_type} leave on {absence.date} is pending HOD approval.",
+        is_read=False,
+    ))
+
+    # 5. Notify the HOD
+    if teacher.department_id:
+        dept_result = await db.execute(
+            select(models.Department).where(models.Department.id == teacher.department_id)
+        )
+        dept = dept_result.scalar_one_or_none()
+        if dept and dept.hod_id:
+            # hod_id on Department is a teacher.id — get that teacher's user_id
+            hod_teacher_result = await db.execute(
+                select(models.Teacher).where(models.Teacher.id == dept.hod_id)
+            )
+            hod_teacher = hod_teacher_result.scalar_one_or_none()
+            if hod_teacher:
+                db.add(models.Notification(
+                    user_id=hod_teacher.user_id,
+                    notification_type="LEAVE_PENDING_APPROVAL",
+                    title="New Leave Request",
+                    content=f"Teacher X has applied for {absence.leave_type} leave on {absence.date}.",
+                    is_read=False,
+                ))
+
     await db.commit()
     await db.refresh(db_absence)
     return db_absence
+@app.put(
+    "/absences/{absence_id}/approve",
+    response_model=schemas.AbsenceOut,
+    dependencies=[Depends(auth.check_role([models.UserRole.HOD]))]
+)
+async def approve_leave(
+    absence_id: UUID,
+    approval: schemas.AbsenceDecision,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(models.Absence).where(models.Absence.id == absence_id)
+    )
+    absence = result.scalar_one_or_none()
+    if not absence:
+        raise HTTPException(status_code=404, detail="Absence not found")
+
+    if absence.status != models.AbsenceStatus.PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot update a leave that is already {absence.status}."
+        )
+
+    absence.status = approval.status
+    if approval.resolution_report_url:
+        absence.resolution_report_url = approval.resolution_report_url
+
+    # Notify the teacher of the HOD's decision
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if teacher:
+        if approval.status == models.AbsenceStatus.APPROVED:
+            notification_type = "LEAVE_APPROVED"
+            title = "Leave Request Approved"
+            content = f"Your leave on {absence.date} has been approved."
+        else:
+            notification_type = "LEAVE_REJECTED"
+            title = "Leave Request Rejected"
+            content = f"Your leave on {absence.date} has been rejected."
+
+        db.add(models.Notification(
+            user_id=teacher.user_id,
+            notification_type=notification_type,
+            title=title,
+            content=content,
+            is_read=False,
+        ))
+
+    await db.commit()
+    await db.refresh(absence)
+    return absence
 
 @app.put("/relief-assignments/{assignment_id}/respond", response_model=schemas.ReliefAssignmentBase, dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))])
 async def respond_to_relief(assignment_id: UUID, response: schemas.ReliefResponse, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
