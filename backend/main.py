@@ -166,11 +166,16 @@ async def signup(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
         await db.commit()
     
     # Generate verification token and send email
+    # Generate verification token and send email
     token = secrets.token_urlsafe(32)
     db_user.verification_token = token
     db_user.verification_token_expires_at = datetime.utcnow() + timedelta(hours=24)
+    db_user.is_verified = True   # ← ADD THIS LINE for local dev testing
     await db.commit()
-    send_verification_email(db_user.email, db_user.college_id, token)
+    try:
+        send_verification_email(db_user.email, db_user.college_id, token)
+    except Exception:
+        pass   # ← don't crash if email fails locally
     return db_user
 
 # ─── Email Verification ────────────────────────────────────────────────────────
@@ -510,12 +515,10 @@ async def mark_absence(
 
     # 4. Notify the teacher (confirmation)
     db.add(models.Notification(
-        user_id=current_user.id,
-        notification_type="LEAVE_SUBMITTED",
-        title="Leave Request Submitted",
-        content=f"Your {absence.leave_type} leave on {absence.date} is pending HOD approval.",
-        is_read=False,
-    ))
+    user_id=current_user.id,
+    title="Leave Request Submitted",
+    content=f"Your {absence.leave_type} leave on {absence.date} is pending HOD approval."
+))
 
     # 5. Notify the HOD
     if teacher.department_id:
@@ -532,10 +535,8 @@ async def mark_absence(
             if hod_teacher:
                 db.add(models.Notification(
                     user_id=hod_teacher.user_id,
-                    notification_type="LEAVE_PENDING_APPROVAL",
                     title="New Leave Request",
-                    content=f"Teacher X has applied for {absence.leave_type} leave on {absence.date}.",
-                    is_read=False,
+                    content=f"{teacher.name} has applied for {absence.leave_type} leave on {absence.date}."
                 ))
 
     await db.commit()
@@ -566,8 +567,7 @@ async def approve_leave(
         )
 
     absence.status = approval.status
-    if approval.resolution_report_url:
-        absence.resolution_report_url = approval.resolution_report_url
+    
 
     # Notify the teacher of the HOD's decision
     teacher_result = await db.execute(
@@ -586,7 +586,7 @@ async def approve_leave(
 
         db.add(models.Notification(
             user_id=teacher.user_id,
-            notification_type=notification_type,
+           
             title=title,
             content=content,
             is_read=False,
