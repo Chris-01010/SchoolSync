@@ -186,3 +186,71 @@ async def delete_subject(subject_id: UUID, db: AsyncSession = Depends(get_db), _
 
     await db.delete(subject)
     await db.commit()
+
+# ══════════════════════════════════════════════
+# USER MANAGEMENT ENDPOINTS (Admin Only)
+# ══════════════════════════════════════════════
+
+from schemas import UserAdminView
+from pydantic import BaseModel
+from datetime import datetime
+
+class ResetPasswordPayload(BaseModel):
+    new_password: str
+
+class StatusPayload(BaseModel):
+    is_active: bool
+
+@router.get("/users/admin-view", response_model=List[UserAdminView], tags=["Users"], summary="List all users for Admin Dashboard")
+async def list_users_admin_view(db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
+    # Simple join between User and Teacher to get department names
+    result = await db.execute(select(User))
+    users = result.scalars().all()
+    
+    admin_views = []
+    for user in users:
+        dept_name = None
+        if user.role in [UserRole.TEACHER, UserRole.HOD]:
+            teacher_res = await db.execute(select(Teacher).where(Teacher.user_id == user.id))
+            teacher = teacher_res.scalar_one_or_none()
+            if teacher and teacher.department_id:
+                dept_res = await db.execute(select(Department).where(Department.id == teacher.department_id))
+                dept = dept_res.scalar_one_or_none()
+                if dept:
+                    dept_name = dept.name
+                    
+        admin_views.append(UserAdminView(
+            id=user.id,
+            college_id=user.college_id,
+            name=user.college_id, # Fallback name
+            email=user.email,
+            role=user.role.value.upper(),
+            department=dept_name,
+            is_active=user.is_active,
+            status="Active" if user.is_active else "Disabled",
+            last_active="Just now" # Mocked for now
+        ))
+        
+    return admin_views
+
+@router.put("/users/{user_id}/reset-password", status_code=status.HTTP_200_OK, tags=["Users"])
+async def admin_reset_password(user_id: UUID, payload: ResetPasswordPayload, db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user.password_hash = auth.get_password_hash(payload.new_password)
+    await db.commit()
+    return {"status": "success", "message": "Password reset successfully"}
+
+@router.put("/users/{user_id}/status", status_code=status.HTTP_200_OK, tags=["Users"])
+async def admin_change_status(user_id: UUID, payload: StatusPayload, db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user.is_active = payload.is_active
+    await db.commit()
+    return {"status": "success", "message": "User status updated"}

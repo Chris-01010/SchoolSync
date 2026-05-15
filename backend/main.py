@@ -21,6 +21,8 @@ import relief
 import auth
 from worker import generate_timetable_task
 from crud import router as master_router
+from admin_dashboard import router as admin_dashboard_router
+from rooms import router as rooms_router
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -73,6 +75,8 @@ app.add_middleware(
 
 # ─── CRUD Router ───────────────────────────────────────────────────────────────
 app.include_router(master_router, prefix="/api/v1")
+app.include_router(admin_dashboard_router, prefix="/api/v1")
+app.include_router(rooms_router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def startup():
