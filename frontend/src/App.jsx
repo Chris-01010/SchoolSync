@@ -1,26 +1,42 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { PublicRoute, PrivateRoute } from './components/auth/RouteGuards';
+import { AuthProvider, useAuth } from './context/AuthContext';  // ← add useAuth
+import { PublicRoute, PrivateRoute, RoleRoute } from './components/auth/RouteGuards';  // ← add RoleRoute
+
+// ─── Role redirect ────────────────────────────────────────────────────────────
+function RoleRedirect() {
+  const { role } = useAuth();
+  if (role === 'hod')   return <Navigate to="/hod"       replace />;
+  if (role === 'admin') return <Navigate to="/admin"     replace />;
+  return                       <Navigate to="/dashboard" replace />;
+}
 
 // ─── Auth pages ───────────────────────────────────────────────────────────────
-const LoginPage        = lazy(() => import('./pages/LoginPage'));
-const SignupPage       = lazy(() => import('./pages/SignupPage'));
-
-// ─── Teacher dashboard (existing, untouched) ─────────────────────────────────
-const TeacherDashboard = lazy(() => import('./components/TeacherDashboard'));
-
-// ─── Legacy app (existing, untouched) ────────────────────────────────────────
-const LegacyApp        = lazy(() => import('./LegacyApp'));
+const LoginPage  = lazy(() => import('./pages/LoginPage'));
+const SignupPage = lazy(() => import('./pages/SignupPage'));
 
 // ─── HOD layout + pages ──────────────────────────────────────────────────────
-const HODLayout          = lazy(() => import('./components/layout/HODLayout'));
-const HODDashboard       = lazy(() => import('./components/HODDashboard'));
-const TimetableGrid      = lazy(() => import('./components/TimetableGrid'));
-const LeaveManagement    = lazy(() => import('./pages/LeaveManagement'));
-const ReliefManagement   = lazy(() => import('./pages/ReliefManagement'));
+const HODLayout        = lazy(() => import('./components/layout/HODLayout'));
+const HODDashboard     = lazy(() => import('./components/HODDashboard'));
+const TimetableGrid    = lazy(() => import('./components/TimetableGrid'));
+const LeaveManagement  = lazy(() => import('./pages/LeaveManagement'));
+const ReliefManagement = lazy(() => import('./pages/ReliefManagement'));
 
-// ─── Placeholder for Analytics (not yet built) ───────────────────────────────
+// ─── Teacher layout + pages ──────────────────────────────────────────────────
+const TeacherLayout        = lazy(() => import('./components/layout/TeacherLayout'));
+const TeacherHome          = lazy(() => import('./pages/teacher/TeacherHome'));
+const MyTimetable          = lazy(() => import('./pages/teacher/MyTimetable'));
+const ReliefTimetable      = lazy(() => import('./pages/teacher/ReliefTimetable'));
+const MyLeaves             = lazy(() => import('./pages/teacher/MyLeaves'));
+const MyReliefDuties       = lazy(() => import('./pages/teacher/MyReliefDuties'));
+const MyWorkload           = lazy(() => import('./pages/teacher/MyWorkload'));
+const TeacherNotifications = lazy(() => import('./pages/teacher/TeacherNotifications'));
+const TeacherProfile       = lazy(() => import('./pages/teacher/TeacherProfile'));
+
+// ─── Legacy app ───────────────────────────────────────────────────────────────
+const LegacyApp = lazy(() => import('./LegacyApp'));
+
+// ─── Placeholders ─────────────────────────────────────────────────────────────
 const AnalyticsPlaceholder = () => (
   <div className="flex flex-col items-center justify-center h-64 gap-3">
     <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
@@ -33,14 +49,13 @@ const AnalyticsPlaceholder = () => (
   </div>
 );
 
-// ─── Page loader ──────────────────────────────────────────────────────────────
+// ─── Loaders / 404 ────────────────────────────────────────────────────────────
 const PageLoader = () => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center">
     <div className="w-7 h-7 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
   </div>
 );
 
-// ─── 404 ──────────────────────────────────────────────────────────────────────
 const NotFound = () => (
   <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4 p-6 text-center">
     <h1 className="text-[32px] font-bold text-gray-900">Page not found</h1>
@@ -58,71 +73,50 @@ export default function App() {
       <AuthProvider>
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            {/* Root redirect */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
 
-            {/* Auth routes */}
-            <Route
-              path="/login"
-              element={<PublicRoute><LoginPage /></PublicRoute>}
-            />
-            <Route
-              path="/signup"
-              element={<PublicRoute><SignupPage /></PublicRoute>}
-            />
+            {/* Root → role-based redirect */}
+            <Route path="/" element={<PrivateRoute><RoleRedirect /></PrivateRoute>} />
 
-            {/* ── HOD Portal (/hod/*) ── */}
+            {/* Auth */}
+            <Route path="/login"  element={<PublicRoute><LoginPage /></PublicRoute>} />
+            <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
+
+            {/* ── HOD Portal — HOD role only ── */}
             <Route
               path="/hod"
-              element={
-                <PrivateRoute>
-                  <HODLayout />
-                </PrivateRoute>
-              }
+              element={<RoleRoute allowedRoles={['hod']}><HODLayout /></RoleRoute>}
             >
-              {/* Index → Department Overview */}
-              <Route index element={<HODDashboard />} />
-
-              {/* Timetables */}
+              <Route index          element={<HODDashboard />} />
               <Route path="timetables" element={<TimetableGrid />} />
-
-              {/* Leave Approvals */}
-              <Route path="leave" element={<LeaveManagement />} />
-
-              {/* Relief Management */}
-              <Route path="relief" element={<ReliefManagement />} />
-
-              {/* Analytics */}
-              <Route path="analytics" element={<AnalyticsPlaceholder />} />
+              <Route path="leave"      element={<LeaveManagement />} />
+              <Route path="relief"     element={<ReliefManagement />} />
+              <Route path="analytics"  element={<AnalyticsPlaceholder />} />
             </Route>
 
-            {/* Teacher dashboard (existing) */}
+            {/* ── Teacher Portal — teacher role only ── */}
             <Route
-              path="/dashboard/*"
-              element={
-                <PrivateRoute>
-                  <TeacherDashboard />
-                </PrivateRoute>
-              }
-            />
+              path="/dashboard"
+              element={<RoleRoute allowedRoles={['teacher']}><TeacherLayout /></RoleRoute>}
+            >
+              <Route index                   element={<TeacherHome />} />
+              <Route path="timetable"        element={<MyTimetable />} />
+              <Route path="relief-timetable" element={<ReliefTimetable />} />
+              <Route path="leaves"           element={<MyLeaves />} />
+              <Route path="relief-duties"    element={<MyReliefDuties />} />
+              <Route path="workload"         element={<MyWorkload />} />
+              <Route path="notifications"    element={<TeacherNotifications />} />
+              <Route path="profile"          element={<TeacherProfile />} />
+            </Route>
 
-            {/* Legacy app (existing) */}
-            <Route
-              path="/app/*"
-              element={
-                <PrivateRoute>
-                  <LegacyApp />
-                </PrivateRoute>
-              }
-            />
+            {/* Legacy */}
+            <Route path="/app/*" element={<PrivateRoute><LegacyApp /></PrivateRoute>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
+
           </Routes>
         </Suspense>
       </AuthProvider>
     </BrowserRouter>
   );
 }
-
-
