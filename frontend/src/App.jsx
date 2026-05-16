@@ -36,6 +36,8 @@ const WorkloadAnalyticsPage  = lazy(() => import('./pages/WorkloadAnalyticsPage'
 const DepartmentsPage        = lazy(() => import('./pages/DepartmentsPage'));
 const RoomsResourcesPage     = lazy(() => import('./pages/RoomsResourcesPage'));
 const ReportsPage            = lazy(() => import('./pages/ReportsPage'));
+const AnnouncementsPage      = lazy(() => import('./pages/AnnouncementsPage'));
+const SettingsPage           = lazy(() => import('./pages/SettingsPage'));
 
 // ─── Placeholder for Unbuilt Admin Pages ───────────────────────────────────
 const PlaceholderPage = ({ title }) => (
@@ -105,8 +107,8 @@ export default function App() {
               <Route path="rooms" element={<RoomsResourcesPage />} />
               <Route path="analytics" element={<WorkloadAnalyticsPage />} />
               <Route path="reports" element={<ReportsPage />} />
-              <Route path="announcements" element={<PlaceholderPage title="Announcements" />} />
-              <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+              <Route path="announcements" element={<AnnouncementsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
             </Route>
 
             {/* Auth routes */}
