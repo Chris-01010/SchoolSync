@@ -1,3 +1,4 @@
+import { useAuth } from '../../context/AuthContext';
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
@@ -22,9 +23,10 @@ const NAV_ITEMS = [
 
 const Sidebar = ({ open, onClose, user }) => {
   const navigate = useNavigate();
+  const { logout } = useAuth();  // ← add this
 
   const handleLogOut = () => {
-    localStorage.removeItem('token');
+    logout();              // ← clears both keys + sets user to null
     navigate('/login');
   };
 

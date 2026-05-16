@@ -60,10 +60,12 @@ app = FastAPI(title="SchoolSync API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-],
-    allow_credentials=False,
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -156,9 +158,9 @@ async def refresh_access_token(request: Request, db: AsyncSession = Depends(get_
 
     return {"access_token": new_access_token, "token_type": "bearer"}
 
-@app.post("/auth/logout")
-async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
-    """Invalidate refresh token on logout."""
+@app.post("/auth/LogOut")
+async def LogOut(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    """Invalidate refresh token on LogOut."""
     refresh_token = request.cookies.get("refresh_token")
     if refresh_token:
         result = await db.execute(
