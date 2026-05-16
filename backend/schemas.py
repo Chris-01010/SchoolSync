@@ -1,7 +1,9 @@
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional, Dict
 from uuid import UUID
-from datetime import date, time, datetime
+from datetime import date, datetime
+from enum import Enum
+
 from models import UserRole, AbsenceStatus, ReliefStatus
 
 
@@ -20,6 +22,8 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    name: Optional[str] = None
+    department: Optional[str] = None
 
 class User(UserBase):
     id: UUID
@@ -51,7 +55,6 @@ class TeacherBase(BaseModel):
     department_id: Optional[UUID] = None
     weekly_relief_cap: int = 3
     max_weekly_hours: int = 30
-    blocked_slots: Dict[str, List[int]] = {}
 
 class TeacherCreate(TeacherBase):
     user_id: UUID
@@ -91,8 +94,8 @@ class Subject(SubjectBase):
 
 
 # Absence Schemas
+# FIXED — teacher_id removed from body, comes from JWT in the endpoint
 class AbsenceCreate(BaseModel):
-    teacher_id: UUID
     date: date
     period_start: int
     period_end: int
@@ -100,6 +103,21 @@ class AbsenceCreate(BaseModel):
     reason: Optional[str] = None
     handover_url: Optional[str] = None
 
+# Also add this new schema for the "view my leaves" response
+class AbsenceOut(BaseModel):
+    id: UUID
+    teacher_id: UUID
+    date: date
+    period_start: int
+    period_end: int
+    leave_type: str
+    reason: Optional[str]
+    handover_url: Optional[str]
+    status: AbsenceStatus
+    resolved: bool
+
+    class Config:
+        from_attributes = True
 
 class Absence(AbsenceCreate):
     id: UUID
@@ -109,6 +127,64 @@ class Absence(AbsenceCreate):
 
     class Config:
         from_attributes = True
+
+
+# --- Leave Request Schemas (HOD workflow) ---
+class LeaveType(str, Enum):
+    SICK = "sick"
+    CASUAL = "casual"
+    OTHER = "other"
+    BEREAVEMENT = "bereavement"
+    PROFESSIONAL = "professional"
+
+
+class LeaveStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    CLARIFICATION_REQUESTED = "CLARIFICATION_REQUESTED"
+
+
+class LeaveRequestCreate(BaseModel):
+    leave_type: LeaveType
+    start_date: date
+    end_date: date
+    reason: str
+    is_full_day: bool = True
+    # required if is_full_day=False
+    period_ids: Optional[List[int]] = None
+    # document_url comes from separate file upload endpoint
+
+
+class LeaveRequestOut(BaseModel):
+    leave_request_id: int
+    teacher_id: UUID
+    hod_teacher_id: Optional[UUID]
+
+    leave_type: str
+    start_date: date
+    end_date: date
+    reason: str
+
+    is_full_day: bool
+    document_url: Optional[str]
+    status: LeaveStatus
+    clarification_note: Optional[str]
+    decision_at: Optional[datetime]
+    created_at: datetime
+
+    # UI joins (may be None depending on query)
+    period_ids: Optional[List[int]]
+    relief_teacher_name: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
+class LeaveRequestStatusUpdate(BaseModel):
+    # HOD uses this to approve/reject (and optionally ask for clarification)
+    status: LeaveStatus
+    clarification_note: Optional[str] = None
 
 
 # Relief Schemas
@@ -170,9 +246,16 @@ class HODDashboardSummary(BaseModel):
     pending_approvals_count: int
 
 
-class LeaveApproval(BaseModel):
+class AbsenceDecision(BaseModel):
+    # Matches AbsenceStatus enum values in DB: approved / rejected
     status: AbsenceStatus
-    resolution_report_url: Optional[str] = None
+
+
+class LeaveApproval(BaseModel):
+    # Deprecated: use LeaveRequestStatusUpdate for leave request approval flow.
+    status: AbsenceStatus
+    clarification_note: Optional[str] = None
+
 
 class AdminDashboardStats(BaseModel):
     active_absences: int
@@ -209,3 +292,88 @@ class TimetableSlot(TimetableSlotCreate):
     class Config:
         from_attributes = True
 
+# --- Admin Dashboard Home Schemas ---
+class DashboardHomeStats(BaseModel):
+    total_departments: int
+    total_teachers: int
+    total_classes: int
+    teachers_on_leave: int
+    pending_leave_requests: int
+    total_relief_duties: int
+    unassigned_relief_periods: int
+    timetable_conflict_count: int
+    active_timetable_updates: int
+
+class AlertType(str, Enum):
+    CONFLICT = "conflict"
+    WARNING = "warning"
+    INFO = "info"
+
+class AdminAlert(BaseModel):
+    id: str
+    type: AlertType
+    title: str
+    message: str
+    time_ago: str
+
+class ConflictDetail(BaseModel):
+    id: str
+    type: str
+    affected_entities: str
+    time_slot: str
+
+# --- Analytics Schemas ---
+class DepartmentWorkload(BaseModel):
+    department_name: str
+    avg_teaching_hours: float
+    avg_relief_hours: float
+    total_leave_days: int
+    load_capacity_percent: int
+    status: str
+
+class TeacherWorkload(BaseModel):
+    teacher_id: UUID
+    teacher_name: str
+    department: str
+    load_percent: int
+
+class ReliefDistribution(BaseModel):
+    internal_percent: int
+    casual_percent: int
+    total_hours: int
+
+class LeaveTrend(BaseModel):
+    week: str
+    count: int
+
+# --- Room Schemas ---
+class RoomBase(BaseModel):
+    name: str
+    capacity: Optional[int] = None
+    room_type: Optional[str] = None
+
+class RoomCreate(RoomBase):
+    pass
+
+class RoomUpdate(RoomBase):
+    name: Optional[str] = None
+    capacity: Optional[int] = None
+    room_type: Optional[str] = None
+
+class Room(RoomBase):
+    id: UUID
+
+    class Config:
+        from_attributes = True
+
+# --- User Management (Admin View) ---
+class UserAdminView(BaseModel):
+    id: UUID
+    college_id: str
+    name: str
+    email: str
+    role: str
+    department: Optional[str] = None
+    is_active: bool
+    status: str
+    last_active: str

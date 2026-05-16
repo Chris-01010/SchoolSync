@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    const response = await fetch('http://127.0.0.1:8000/api/auth/login', {
+    const response = await fetch('http://localhost:8000/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -34,17 +34,21 @@ export function AuthProvider({ children }) {
 
     if (!response.ok) {
       const err = await response.json();
-      throw new Error(err.detail || 'Login failed.');
+      const message = typeof err.detail === 'string'
+        ? err.detail
+        : Array.isArray(err.detail)
+        ? err.detail[0]?.msg || 'Login failed.'
+        : 'Login failed.';
+      throw new Error(message);
     }
 
     const data = await response.json();
 
-    // Decode JWT payload to get user info
     const payload = JSON.parse(atob(data.access_token.split('.')[1]));
     const userData = {
-      email:  email,
-      role:   payload.role,
-      token:  data.access_token,
+      email: email,
+      role:  payload.role,
+      token: data.access_token,
     };
 
     localStorage.setItem(TOKEN_KEY, data.access_token);
@@ -54,33 +58,47 @@ export function AuthProvider({ children }) {
   }, []);
 
   const register = useCallback(async (data) => {
-    const response = await fetch('http://127.0.0.1:8000/auth/signup', {
+    const response = await fetch('http://localhost:8000/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        college_id: data.email.split('@')[0].toUpperCase(),
+        email: data.email,
+        password: data.password,
+        role: 'teacher',
+        name: data.name,
+        department: data.department,
+      }),
     });
     if (!response.ok) {
       const err = await response.json();
-      throw new Error(err.detail || 'Registration failed.');
+      throw new Error(typeof err.detail === 'string' ? err.detail : 'Registration failed.');
     }
     return response.json();
   }, []);
 
-  const LogOut = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await fetch('http://localhost:8000/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // ignore
+    }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setUser(null);
   }, []);
 
   const refreshAccessToken = useCallback(async () => {
-    const response = await fetch('http://127.0.0.1:8000/auth/refresh', {
+    const response = await fetch('http://localhost:8000/auth/refresh', {
       method: 'POST',
-      credentials: 'include',  // sends the HttpOnly cookie automatically
+      credentials: 'include',
     });
 
     if (!response.ok) {
-      // Refresh failed — force LogOut
-      LogOut();
+      logout();
       return null;
     }
 
@@ -96,18 +114,18 @@ export function AuthProvider({ children }) {
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     setUser(userData);
     return data.access_token;
-  }, [LogOut]);
+  }, [logout]);
 
   const value = {
-  user,
-  isAuthenticated: !!user,
-  role: user?.role ?? null,
-  isLoading,
-  login,
-  register,
-  logout: LogOut,
-  refreshAccessToken,
-};
+    user,
+    isAuthenticated: !!user,
+    role: user?.role ?? null,   // convenience shortcut — used by Teacher/HOD/Admin portals
+    isLoading,
+    login,
+    register,
+    logout,
+    refreshAccessToken,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
