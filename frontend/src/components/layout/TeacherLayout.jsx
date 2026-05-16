@@ -6,7 +6,7 @@ import TeacherNavbar from './TeacherNavbar';
 
 const TeacherLayout = () => {
   const { user } = useAuth();
-  const [sidebarOpen, setSidebarOpen]   = useState(false);
+  const [sidebarOpen, setSidebarOpen]       = useState(false);
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
 
   return (
@@ -27,8 +27,9 @@ const TeacherLayout = () => {
         onApplyLeave={() => setLeaveModalOpen(true)}
       />
 
-      {/* Main content */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      {/* Main content — no overflow-hidden here so the clip rect
+          doesn't eat the first pixels of page content */}
+      <div className="flex flex-col flex-1 min-w-0">
         <TeacherNavbar
           onMenuClick={() => setSidebarOpen(true)}
           user={user}
@@ -37,7 +38,6 @@ const TeacherLayout = () => {
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="p-5">
-            {/* Pass leaveModalOpen + setter down via Outlet context */}
             <Outlet context={{ user, leaveModalOpen, setLeaveModalOpen }} />
           </div>
         </main>
