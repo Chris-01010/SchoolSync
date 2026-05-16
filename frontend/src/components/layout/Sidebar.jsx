@@ -34,49 +34,49 @@ const HOD_NAV = [
 ];
 
 const TEACHER_NAV = [
-  { label: 'Home',              icon: Home,         to: '/dashboard',         end: true },
-  { label: 'My Timetable',      icon: CalendarDays, to: '/dashboard/timetable' },
-  { label: 'Relief Timetable',  icon: Repeat2,      to: '/dashboard/relief-timetable' },
-  { label: 'My Leaves',         icon: FileText,     to: '/dashboard/leaves' },
-  { label: 'My Relief Duties',  icon: Clock,        to: '/dashboard/relief-duties' },
-  { label: 'My Workload',       icon: LineChart,    to: '/dashboard/workload' },
-  { label: 'Notifications',     icon: Bell,         to: '/dashboard/notifications' },
-  { label: 'Profile',           icon: User,         to: '/dashboard/profile' },
+  { label: 'Home',             icon: Home,         to: '/dashboard',                  end: true },
+  { label: 'My Timetable',     icon: CalendarDays, to: '/dashboard/timetable' },
+  { label: 'Relief Timetable', icon: Repeat2,      to: '/dashboard/relief-timetable' },
+  { label: 'My Leaves',        icon: FileText,     to: '/dashboard/leaves' },
+  { label: 'My Relief Duties', icon: Clock,        to: '/dashboard/relief-duties' },
+  { label: 'My Workload',      icon: LineChart,    to: '/dashboard/workload' },
+  { label: 'Notifications',    icon: Bell,         to: '/dashboard/notifications' },
+  { label: 'Profile',          icon: User,         to: '/dashboard/profile' },
 ];
 
 const ADMIN_NAV = [
-  { label: 'Overview',          icon: LayoutDashboard, to: '/admin' },
-  { label: 'User Management',   icon: Users,           to: '/admin/users' },
-  { label: 'Timetables',        icon: CalendarDays,    to: '/admin/timetables' },
-  { label: 'Leave Oversight',   icon: ShieldCheck,     to: '/admin/leave' },
-  { label: 'Analytics',         icon: BarChart3,       to: '/admin/analytics' },
-  { label: 'Settings',          icon: Settings,        to: '/admin/settings' },
+  { label: 'Overview',        icon: LayoutDashboard, to: '/admin' },
+  { label: 'User Management', icon: Users,           to: '/admin/users' },
+  { label: 'Timetables',      icon: CalendarDays,    to: '/admin/timetables' },
+  { label: 'Leave Oversight', icon: ShieldCheck,     to: '/admin/leave' },
+  { label: 'Analytics',       icon: BarChart3,       to: '/admin/analytics' },
+  { label: 'Settings',        icon: Settings,        to: '/admin/settings' },
 ];
 
 // ─── Brand config per role ────────────────────────────────────────────────────
 
 const BRAND = {
-  teacher: { label: 'Teacher Portal',  sub: 'Mathematics Dept' },
-  hod:     { label: 'Science Dept',    sub: 'HOD Portal' },
-  admin:   { label: 'Admin Portal',    sub: 'Institution-Wide' },
+  teacher: { label: 'Teacher Portal', sub: 'Mathematics Dept' },
+  hod:     { label: 'Science Dept',   sub: 'HOD Portal' },
+  admin:   { label: 'Admin Portal',   sub: 'Institution-Wide' },
 };
 
 const CTA = {
-  teacher: { label: 'Apply Leave',       action: 'apply-leave' },
+  teacher: { label: 'Apply Leave',          action: 'apply-leave' },
   hod:     { label: 'View School Calendar', action: null },
-  admin:   { label: 'System Settings',   action: null },
+  admin:   { label: 'System Settings',      action: null },
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const Sidebar = ({ open, onClose, user, onApplyLeave }) => {
-  const navigate  = useNavigate();
+  const navigate   = useNavigate();
   const { logout } = useAuth();
 
-  const role   = user?.role ?? 'teacher';
+  const role     = user?.role ?? 'teacher';
   const navItems = role === 'hod' ? HOD_NAV : role === 'admin' ? ADMIN_NAV : TEACHER_NAV;
-  const brand  = BRAND[role] ?? BRAND.teacher;
-  const cta    = CTA[role]   ?? CTA.teacher;
+  const brand    = BRAND[role] ?? BRAND.teacher;
+  const cta      = CTA[role]   ?? CTA.teacher;
 
   const handleLogOut = () => {
     logout();
@@ -92,13 +92,17 @@ const Sidebar = ({ open, onClose, user, onApplyLeave }) => {
 
   return (
     <>
-      {/* ── Sidebar shell ── */}
+      {/* ── Sidebar shell ──
+          Mobile:  fixed drawer, slides in/out via translate
+          Desktop: static flex item — lg:!relative forces position out of
+                   fixed stacking context; lg:shrink-0 locks the w-52 width
+      ── */}
       <aside
         className={`
           fixed top-0 left-0 z-30 h-full w-52 bg-white border-r border-gray-100
           flex flex-col transition-transform duration-200 ease-in-out
           ${open ? 'translate-x-0' : '-translate-x-full'}
-          lg:relative lg:translate-x-0 lg:flex lg:z-auto
+          lg:!relative lg:translate-x-0 lg:z-auto lg:shrink-0
         `}
       >
         {/* Brand */}
@@ -212,4 +216,3 @@ const Sidebar = ({ open, onClose, user, onApplyLeave }) => {
 };
 
 export default Sidebar;
-
