@@ -112,42 +112,44 @@ const TypeBadge = ({ type, color }) => (
 );
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-const LeaveManagement = ({ user }) => {
-  const [pendingLeaves, setPendingLeaves] = useState(MOCK_PENDING);
-  const [processed, setProcessed] = useState(MOCK_PROCESSED);
-  const [showBanner, setShowBanner] = useState(true);
-  const [actionLoading, setActionLoading] = useState(null);
+  const ReliefManagement = ({ user }) => {
+  const [reliefRequests, setReliefRequests] = useState(() => {
+  const assignedIds = JSON.parse(localStorage.getItem('assignedReliefs') || '[]');
+  return MOCK_PENDING.filter((r) => !assignedIds.includes(r.id));
+});
+const [processed, setProcessed] = useState(MOCK_PROCESSED);
+const [showBanner, setShowBanner] = useState(true);
+const AVAILABLE_RELIEF_TEACHERS = [
+  'Ms. Julia Lee',
+  'Mr. David Smith',
+  'Ms. Sarah Oh',
+];
 
-  const handleAction = async (id, action) => {
-    setActionLoading(`${id}-${action}`);
-    try {
-      const token = localStorage.getItem('token');
-      await fetch(`http://localhost:8000/absences/${id}/approve`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: action }),
-      });
-    } catch {
-      // fallback: just update UI
-    }
+const handleAssign = (id) => {
+  const assignedIds = JSON.parse(localStorage.getItem('assignedReliefs') || '[]');
+  localStorage.setItem('assignedReliefs', JSON.stringify([...assignedIds, id]));
+  const assigned = reliefRequests.find((r) => r.id === id);
 
-    const moved = pendingLeaves.find((l) => l.id === id);
-    if (moved) {
-      setPendingLeaves((prev) => prev.filter((l) => l.id !== id));
-      setProcessed((prev) => [
-        {
-          ...moved,
-          status: action === 'approved' ? 'approved' : 'rejected',
-          meta: `${action === 'approved' ? 'Approved' : 'Rejected'} just now`,
-        },
-        ...prev,
-      ]);
-    }
-    setActionLoading(null);
-  };
+  if (assigned) {
+    setReliefRequests((prev) =>
+      prev.filter((r) => r.id !== id)
+    );
+    const selectedTeacher = AVAILABLE_RELIEF_TEACHERS[0];
+    setProcessed((prev) => [
+      {
+        ...assigned,
+        status: 'assigned',
+        availableRelief: selectedTeacher,
+        meta: `Relief assigned to ${selectedTeacher} just now`,
+      },
+      ...prev,
+    ]);
+  }
+};
+    
+
+    
+
 
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
@@ -155,9 +157,9 @@ const LeaveManagement = ({ user }) => {
       {/* Page header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-[20px] font-bold text-gray-900">Leave Approvals</h1>
+          <h1 className="text-[20px] font-bold text-gray-900">Relief Management</h1>
           <p className="text-[12px] text-gray-400 mt-0.5">
-            Manage department staff absences and relief planning.
+            Assign and manage relief teachers for approved absences.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -175,7 +177,7 @@ const LeaveManagement = ({ user }) => {
         {/* KPI cards */}
         <div className="lg:col-span-3 flex gap-3">
           <KPICard
-            label="Total Leave Days Used"
+            label="Total Relief Requests"
             value={MOCK_KPI.totalLeaveDays}
             icon={Users}
             color="bg-blue-50 text-blue-600"
@@ -183,7 +185,7 @@ const LeaveManagement = ({ user }) => {
             barValue={60}
           />
           <KPICard
-            label="Pending Decisions"
+            label="Pending Assignments"
             value={`0${MOCK_KPI.pendingDecisions}`}
             icon={Clock}
             color="bg-amber-50 text-amber-600"
@@ -191,7 +193,7 @@ const LeaveManagement = ({ user }) => {
             barValue={40}
           />
           <KPICard
-            label="Available Capacity"
+            label="Available Teachers"
             value={MOCK_KPI.availableCapacity}
             icon={CheckSquare}
             color="bg-green-50 text-green-600"
@@ -200,7 +202,7 @@ const LeaveManagement = ({ user }) => {
           />
         </div>
 
-        {/* Leave Impact */}
+        {/* Relief Impact */}
         <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[12px] font-semibold text-gray-800">Leave Impact</p>
@@ -255,7 +257,10 @@ const LeaveManagement = ({ user }) => {
       </div>
 
       {/* Pending Requests */}
-      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+        <div
+        id="create-relief"
+        className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden"
+        >
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <h3 className="text-[13px] font-semibold text-gray-800">Pending Requests</h3>
           <button className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700 font-medium">
@@ -266,18 +271,18 @@ const LeaveManagement = ({ user }) => {
         {/* Table header */}
         <div className="grid px-5 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-semibold text-gray-400 uppercase tracking-wide"
           style={{ gridTemplateColumns: '2fr 1fr 1.2fr 2fr 1fr 1.5fr' }}>
-          <span>Teacher</span>
-          <span>Type</span>
-          <span>Dates</span>
-          <span>Reason</span>
-          <span>Docs</span>
-          <span className="text-right">Action</span>
-        </div>
+          <span>Absent Teacher</span>
+          <span>Subject</span>
+          <span>Period</span>
+          <span>Available Relief</span>
+          <span>Status</span>
+          <span className="text-right">Assign</span>
+          </div>
 
         {/* Table rows */}
         <div className="divide-y divide-gray-50">
           <AnimatePresence>
-            {pendingLeaves.map((leave) => (
+            {reliefRequests.map((leave) => (
               <motion.div
                 key={leave.id}
                 layout
@@ -330,32 +335,19 @@ const LeaveManagement = ({ user }) => {
                 {/* Actions */}
                 <div className="flex items-center gap-1.5 justify-end">
                   <button
-                    onClick={() => handleAction(leave.id, 'rejected')}
-                    disabled={!!actionLoading}
-                    className="px-2.5 py-1 border border-gray-200 rounded-lg text-[10px] font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-50"
-                  >
-                    Reject
-                  </button>
-                  <button
-                    onClick={() => handleAction(leave.id, 'approved')}
-                    disabled={!!actionLoading}
-                    className="px-2.5 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {actionLoading === `${leave.id}-approved` ? (
-                      <span className="flex items-center gap-1">
-                        <div className="w-2.5 h-2.5 border border-white border-t-transparent rounded-full animate-spin" />
-                        ...
-                      </span>
-                    ) : (
-                      'Approve'
-                    )}
+                  onClick={() => {
+                    
+                    handleAssign(leave.id);
+                  }}
+                  className="px-3 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-semibold hover:bg-blue-700"
+                  >  Assign Relief
                   </button>
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
 
-          {pendingLeaves.length === 0 && (
+          {reliefRequests.length === 0 && (
             <div className="px-5 py-8 text-center">
               <CheckCircle size={24} className="text-green-400 mx-auto mb-2" />
               <p className="text-[12px] text-gray-400 font-medium">All requests processed</p>
@@ -364,10 +356,10 @@ const LeaveManagement = ({ user }) => {
         </div>
       </div>
 
-      {/* Recently Processed */}
+      {/* Recent Relief Assignments */}
       <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h3 className="text-[13px] font-semibold text-gray-800">Recently Processed</h3>
+          <h3 className="text-[13px] font-semibold text-gray-800">Recent Relief Assignments</h3>
           <button className="p-1 rounded text-gray-400 hover:text-gray-600">
             <MoreHorizontal size={14} />
           </button>
@@ -406,7 +398,7 @@ const LeaveManagement = ({ user }) => {
 
       {/* Bottom notification banner */}
       <AnimatePresence>
-        {showBanner && (
+        {showBanner && reliefRequests.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -420,9 +412,16 @@ const LeaveManagement = ({ user }) => {
                 3 approved absences lack assigned relief teachers for Tuesday.
               </p>
             </div>
-            <button className="text-[10px] font-bold text-blue-400 hover:text-blue-300 whitespace-nowrap flex-shrink-0">
+            <button
+            onClick={() => {
+              if (reliefRequests.length > 0) {
+                handleAssign(reliefRequests[0].id);
+              }
+            }}
+            className="text-[10px] font-bold text-blue-400 hover:text-blue-300 whitespace-nowrap flex-shrink-0"
+            >
               Fix Now
-            </button>
+              </button>
             <button
               onClick={() => setShowBanner(false)}
               className="ml-1 p-0.5 text-gray-500 hover:text-gray-300 flex-shrink-0"
@@ -433,7 +432,8 @@ const LeaveManagement = ({ user }) => {
         )}
       </AnimatePresence>
     </div>
-  );
+  )
 };
 
-export default LeaveManagement;
+
+export default ReliefManagement;

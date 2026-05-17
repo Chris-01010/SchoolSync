@@ -139,6 +139,22 @@ export default function App() {
 
             {/* ── Teacher Portal — teacher role only ──────────────────────── */}
             <Route
+              path="/app/*"
+              element={
+                <PrivateRoute>
+                  <LegacyApp />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hod-dashboard"
+              element={
+                <PrivateRoute>
+                  <HODDashboard />
+                </PrivateRoute>
+              }
+            />
+              <Route
               path="/dashboard"
               element={<RoleRoute allowedRoles={['teacher']}><TeacherLayout /></RoleRoute>}
             >

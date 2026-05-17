@@ -1,6 +1,5 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard,
   CalendarDays,
@@ -71,18 +70,19 @@ const CTA = {
 
 const Sidebar = ({ open, onClose, user, onApplyLeave }) => {
   const navigate   = useNavigate();
-  const { logout } = useAuth();
+  
 
   const role     = user?.role ?? 'teacher';
   const navItems = role === 'hod' ? HOD_NAV : role === 'admin' ? ADMIN_NAV : TEACHER_NAV;
   const brand    = BRAND[role] ?? BRAND.teacher;
   const cta      = CTA[role]   ?? CTA.teacher;
 
-  const handleLogOut = () => {
-    logout();
-    navigate('/login');
-  };
-
+  const handleLogout = () => {
+  localStorage.clear();
+  sessionStorage.clear();
+  window.location.href = "/login";
+};
+  
   const handleCta = () => {
     if (cta.action === 'apply-leave' && onApplyLeave) {
       onApplyLeave();
@@ -202,7 +202,7 @@ const Sidebar = ({ open, onClose, user, onApplyLeave }) => {
             <span>Help Center</span>
           </button>
           <button
-            onClick={handleLogOut}
+            onClick={handleLogout}
             className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-[12px]
                        font-medium text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
           >

@@ -11,17 +11,16 @@ import time
 import collections
 import logging
 from pydantic import BaseModel
-from email_service import send_verification_email, send_password_reset_email
+from .email_service import send_verification_email, send_password_reset_email
 
-from database import engine, Base, get_db
-import models
-import schemas
-import relief
-import auth
-from worker import generate_timetable_task
-from crud import router as master_router
-from admin_dashboard import router as admin_dashboard_router
-from rooms import router as rooms_router
+from .database import engine, Base, get_db
+from . import models, schemas, relief, auth
+from .worker import generate_timetable_task
+from . import leave_api
+
+from .crud import router as master_router
+from .admin_dashboard import router as admin_dashboard_router
+from .rooms import router as rooms_router
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -67,6 +66,8 @@ app.add_middleware(
         "http://localhost:5174",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
+        "http://localhost:5175",
+        "http://127.0.0.1:5175",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -729,3 +730,4 @@ async def delete_timetable_slot(slot_id: UUID, db: AsyncSession = Depends(get_db
 async def trigger_timetable_generation(request: schemas.TimetableGenerateRequest):
     task = generate_timetable_task.delay(str(request.school_id))
     return {"task_id": task.id, "status": "pending"}
+app.include_router(leave_api.router, prefix="/leaves", tags=["leaves"])

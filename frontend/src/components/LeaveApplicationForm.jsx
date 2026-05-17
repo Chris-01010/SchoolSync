@@ -25,7 +25,7 @@ export default function LeaveApplicationForm({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const payload = {
@@ -37,7 +37,29 @@ export default function LeaveApplicationForm({
       return;
     }
 
-    onSubmit(payload);
+    const token =
+  localStorage.getItem("schoolsync_token") || localStorage.getItem("token");
+console.log("TOKEN USED:", token);
+
+const response = await fetch("http://localhost:8000/leaves/apply", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+  body: JSON.stringify({
+    date: leaveForm.startDate,
+    period_start: 1,
+    period_end: 2,
+    leave_type: leaveForm.leaveType === "Sick Leave" ? "sick" : leaveForm.leaveType === "Casual Leave" ? "casual" : "other",
+    reason: leaveForm.reason,
+    handover_url: null,
+  }),
+});
+
+console.log(await response.json());
+
+onSubmit(payload);
   };
 
   return (

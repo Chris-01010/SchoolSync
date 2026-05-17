@@ -8,9 +8,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from database import get_db
-import models
-from models import UserRole
+from .database import get_db
+from . import models
+from .models import UserRole
 import secrets
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
             logger.AlertTriangle("Token received but 'sub' claim is missing.")
             raise credentials_exception
     except JWTError:
-        logger.AlertTriangle("Invalid or expired JWT token received.")
+        logger.warning("Invalid or expired JWT token received.")
         raise credentials_exception
 
     result = await db.execute(select(models.User).filter(models.User.college_id == college_id))

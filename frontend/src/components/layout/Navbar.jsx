@@ -38,16 +38,16 @@ const Navbar = ({ onMenuClick, user }) => {
 
       {/* Right actions */}
       <div className="flex items-center gap-1.5">
-        <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-[11px] font-semibold rounded-lg hover:bg-blue-700 transition-colors">
-          <Plus size={12} />
-          Create Relief
-        </button>
-
-        <button className="relative p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
-          <Bell size={16} />
-          <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full" />
-        </button>
-
+        
+          
+          <button
+          onClick={() => {window.location.href = '/hod/relief#create-relief';
+            
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            + Create Relief
+            </button>
         <button className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
           <Settings size={16} />
         </button>

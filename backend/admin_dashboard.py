@@ -5,13 +5,13 @@ from typing import List
 from datetime import date, timedelta, datetime
 import uuid
 
-from database import get_db
-from models import (
+from .database import get_db
+from .models import (
     User, UserRole, Teacher, Department, ClassRoom, Absence,
     ReliefAssignment, AbsenceStatus, ReliefStatus, TimetableVersion, TimetableSlot
 )
-import auth
-from schemas import (
+from . import auth
+from .schemas import (
     DashboardHomeStats, AdminAlert, AlertType, ConflictDetail,
     DepartmentWorkload, TeacherWorkload, ReliefDistribution, LeaveTrend,
     AbsenceOut, ReliefAssignmentBase
