@@ -1,3 +1,4 @@
+import os
 import secrets
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, status, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -234,7 +235,9 @@ async def signup(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
     token = secrets.token_urlsafe(32)
     db_user.verification_token = token
     db_user.verification_token_expires_at = datetime.utcnow() + timedelta(hours=24)
-    db_user.is_verified = True   # ← local dev: skip email verification gate
+   # Local-dev escape hatch: skip email verification gate when DEV_AUTO_VERIFY=true
+    if os.getenv("DEV_AUTO_VERIFY", "").lower() == "true":
+        db_user.is_verified = True
     await db.commit()
     try:
         send_verification_email(db_user.email, db_user.college_id, token)
