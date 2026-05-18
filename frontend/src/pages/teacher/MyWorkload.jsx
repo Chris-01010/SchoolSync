@@ -1,18 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie,
 } from 'recharts';
-import { TrendingDown, TrendingUp, ExternalLink } from 'lucide-react';
-import { workloadStats } from '../../mockData';
+import { ExternalLink } from 'lucide-react';
+import { useTeacherTimetable, useTeacherProfile } from '../../hooks/useTeacherData';
+
+const DAY_KEYS    = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const DAY_LABELS  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const PERIODS_PER_DAY = 6; // matches backend seed (P1..P6)
+
+// ─── Derive workload stats from timetable ────────────────────────────────────
+// timetable shape: { Monday: { 1: {type, subject, class, room}, 2: {...}, ... }, ... }
+// We count one "hour" per scheduled period. Backend hours model is 1 period = 1 hour.
+function deriveWorkload(timetable, profile) {
+  // Per-day breakdown (only non-free, non-relief = "teaching")
+  const dailyHours = DAY_KEYS.map((dayKey, i) => {
+    const day = timetable?.[dayKey] ?? {};
+    let teaching = 0;
+    let relief = 0;
+    for (let p = 1; p <= PERIODS_PER_DAY; p++) {
+      const cell = day[p];
+      if (!cell) continue;
+      if (cell.type === 'relief') relief += 1;
+      else if (cell.type !== 'free') teaching += 1;
+    }
+    return { day: DAY_LABELS[i], dayKey, hours: teaching, relief };
+  });
+
+  const totalTeaching = dailyHours.reduce((sum, d) => sum + d.hours, 0);
+  const totalRelief   = dailyHours.reduce((sum, d) => sum + d.relief, 0);
+  const totalCap      = profile?.teachingHours?.total ?? 30;
+  const free          = Math.max(0, totalCap - totalTeaching - totalRelief);
+
+  return {
+    teachingHours: { current: totalTeaching, total: totalCap },
+    weeklyBreakdown: { teaching: totalTeaching, relief: totalRelief, free },
+    deptName: profile?.department ?? 'Department',
+    dailyHours,
+  };
+}
 
 // ─── Donut chart (Teaching Hours) ────────────────────────────────────────────
 const DonutChart = ({ current, total }) => {
-  const pct = Math.round((current / total) * 100);
+  const safeTotal = total > 0 ? total : 1;
   const data = [
     { name: 'Done', value: current },
-    { name: 'Left', value: total - current },
+    { name: 'Left', value: Math.max(0, safeTotal - current) },
   ];
   return (
     <div className="relative w-[140px] h-[140px] mx-auto">
@@ -46,6 +81,16 @@ const DonutChart = ({ current, total }) => {
 // ─── Stacked workload bar ─────────────────────────────────────────────────────
 const WorkloadBar = ({ teaching, relief, free }) => {
   const total = teaching + relief + free;
+  // Guard against an all-zero state during initial load
+  if (total === 0) {
+    return (
+      <div className="space-y-2">
+        <div className="flex h-6 rounded-full overflow-hidden bg-gray-100" />
+        <p className="text-[10px] text-gray-400">No scheduled hours yet.</p>
+      </div>
+    );
+  }
+
   const t_pct = (teaching / total) * 100;
   const r_pct = (relief / total) * 100;
   const f_pct = (free / total) * 100;
@@ -104,9 +149,26 @@ const TIME_FILTERS = ['This Week', 'This Month', 'This Term'];
 
 export default function MyWorkload() {
   const [timeFilter, setTimeFilter] = useState(0);
-  const s = workloadStats;
 
-  const isDown = s.changeFromLastWeek < 0;
+  // ── Real data from API ────────────────────────────────────────────────────
+  const { data: timetableData, loading: timetableLoading } = useTeacherTimetable();
+  const { data: profile, loading: profileLoading } = useTeacherProfile();
+
+  const isLoading = timetableLoading || profileLoading;
+
+  // Derive workload from the timetable. Memoized so it doesn't recompute on every
+  // re-render (e.g. time-filter clicks) — only when the underlying data changes.
+  const s = useMemo(
+    () => deriveWorkload(timetableData ?? {}, profile),
+    [timetableData, profile]
+  );
+
+  // Find the busiest day so we can highlight it on the bar chart
+  const busiestDayIndex = useMemo(() => {
+    let max = -1, idx = -1;
+    s.dailyHours.forEach((d, i) => { if (d.hours > max) { max = d.hours; idx = i; } });
+    return idx;
+  }, [s.dailyHours]);
 
   return (
     <div className="max-w-[1100px] space-y-5">
@@ -118,11 +180,13 @@ export default function MyWorkload() {
             <button
               key={f}
               onClick={() => setTimeFilter(i)}
+              disabled={i !== 0}
               className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all ${
                 timeFilter === i
                   ? 'bg-white text-blue-700 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  : 'text-gray-400 cursor-not-allowed'
               }`}
+              title={i !== 0 ? 'Coming soon' : ''}
             >
               {f}
             </button>
@@ -130,96 +194,103 @@ export default function MyWorkload() {
         </div>
       </div>
 
-      {/* Top row: Donut + Stacked bar */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Teaching Hours donut */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="bg-white border border-gray-100 rounded-xl shadow-sm p-5"
-        >
-          <h3 className="text-[12px] font-bold text-gray-700 mb-4">Teaching Hours</h3>
-          <DonutChart current={s.teachingHours.current} total={s.teachingHours.total} />
-
-          <div className="mt-4 flex items-center justify-center">
-            <span
-              className={`inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-full ${
-                isDown
-                  ? 'bg-red-50 text-red-600'
-                  : 'bg-emerald-50 text-emerald-600'
-              }`}
+      {isLoading ? (
+        <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-12 text-center text-[12px] text-gray-400">
+          Loading workload stats…
+        </div>
+      ) : (
+        <>
+          {/* Top row: Donut + Stacked bar */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Teaching Hours donut */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="bg-white border border-gray-100 rounded-xl shadow-sm p-5"
             >
-              {isDown ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
-              {isDown ? '' : '+'}{s.changeFromLastWeek}h from last week
-            </span>
+              <h3 className="text-[12px] font-bold text-gray-700 mb-1">Teaching Hours</h3>
+              <p className="text-[10px] text-gray-400 mb-4">Scheduled hours this week</p>
+              <DonutChart current={s.teachingHours.current} total={s.teachingHours.total} />
+
+              <div className="mt-4 flex items-center justify-center">
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 px-3 py-1 rounded-full bg-gray-50">
+                  {s.teachingHours.total - s.teachingHours.current}h remaining under cap
+                </span>
+              </div>
+            </motion.div>
+
+            {/* Weekly Load Breakdown */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white border border-gray-100 rounded-xl shadow-sm p-5"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[12px] font-bold text-gray-700">Weekly Load Breakdown</h3>
+                <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">
+                  {s.deptName}
+                </span>
+              </div>
+
+              <WorkloadBar
+                teaching={s.weeklyBreakdown.teaching}
+                relief={s.weeklyBreakdown.relief}
+                free={s.weeklyBreakdown.free}
+              />
+
+              {/* Summary callout — replaces the fake dept-benchmark card */}
+              <div className="mt-5 bg-blue-600 rounded-xl p-4 text-white">
+                <p className="text-[10px] font-bold text-blue-200 uppercase tracking-wider mb-1">
+                  Total Scheduled
+                </p>
+                <p className="text-[28px] font-bold leading-none">
+                  {s.weeklyBreakdown.teaching + s.weeklyBreakdown.relief}h
+                </p>
+                <p className="text-[10px] text-blue-200 mt-1">
+                  {s.weeklyBreakdown.teaching}h teaching + {s.weeklyBreakdown.relief}h relief
+                </p>
+                <button className="mt-3 text-[10px] font-bold text-white underline underline-offset-2
+                                   hover:text-blue-200 transition-colors flex items-center gap-1">
+                  Request Review <ExternalLink size={10} />
+                </button>
+              </div>
+            </motion.div>
           </div>
-        </motion.div>
 
-        {/* Weekly Load Breakdown */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white border border-gray-100 rounded-xl shadow-sm p-5"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[12px] font-bold text-gray-700">Weekly Load Breakdown</h3>
-            <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">
-              {s.deptName}
-            </span>
-          </div>
-
-          <WorkloadBar
-            teaching={s.weeklyBreakdown.teaching}
-            relief={s.weeklyBreakdown.relief}
-            free={s.weeklyBreakdown.free}
-          />
-
-          {/* Dept benchmark */}
-          <div className="mt-5 bg-blue-600 rounded-xl p-4 text-white">
-            <p className="text-[10px] font-bold text-blue-200 uppercase tracking-wider mb-1">
-              Dept Benchmark
-            </p>
-            <p className="text-[28px] font-bold leading-none">{s.deptBenchmarkDelta}</p>
-            <p className="text-[10px] text-blue-200 mt-1">{s.deptBenchmarkLabel}</p>
-            <button className="mt-3 text-[10px] font-bold text-white underline underline-offset-2
-                               hover:text-blue-200 transition-colors flex items-center gap-1">
-              Request Review <ExternalLink size={10} />
-            </button>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Daily Teaching Hours bar chart */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="bg-white border border-gray-100 rounded-xl shadow-sm p-5"
-      >
-        <h3 className="text-[12px] font-bold text-gray-700 mb-4">Daily Teaching Hours</h3>
-        <ResponsiveContainer width="100%" height={160}>
-          <BarChart data={s.dailyHours} barSize={28}>
-            <XAxis
-              dataKey="day"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 11, fill: '#9ca3af', fontWeight: 600 }}
-            />
-            <YAxis hide />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f3f4f6', radius: 6 }} />
-            <Bar dataKey="hours" radius={[6, 6, 0, 0]}>
-              {s.dailyHours.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={index === 2 ? '#3b82f6' : '#bfdbfe'}
+          {/* Daily Teaching Hours bar chart */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="bg-white border border-gray-100 rounded-xl shadow-sm p-5"
+          >
+            <h3 className="text-[12px] font-bold text-gray-700 mb-1">Daily Teaching Hours</h3>
+            <p className="text-[10px] text-gray-400 mb-4">From your scheduled timetable</p>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={s.dailyHours} barSize={28}>
+                <XAxis
+                  dataKey="day"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#9ca3af', fontWeight: 600 }}
                 />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </motion.div>
+                <YAxis hide />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f3f4f6', radius: 6 }} />
+                <Bar dataKey="hours" radius={[6, 6, 0, 0]}>
+                  {s.dailyHours.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={index === busiestDayIndex ? '#3b82f6' : '#bfdbfe'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </motion.div>
+        </>
+      )}
     </div>
   );
 }

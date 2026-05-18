@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, FileText, Eye, Pencil, X as XIcon, Clock, CheckCircle2, XCircle, MessageSquare, MinusCircle } from 'lucide-react';
-import { leaveRequests } from '../../mockData';
+import { useTeacherLeaves } from '../../hooks/useTeacherData';
 import ApplyLeaveModal from '../../components/teacher/ApplyLeaveModal';
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -139,11 +139,21 @@ const CancelConfirm = ({ onConfirm, onDismiss }) => (
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function MyLeaves() {
-  const [requests, setRequests] = useState(leaveRequests);
+  // ── Real data from API ────────────────────────────────────────────────────
+  const { data: fetchedLeaves, loading } = useTeacherLeaves();
+
+  const [requests, setRequests] = useState([]);
   const [activeTab, setActiveTab]   = useState(0);
   const [applyOpen, setApplyOpen]   = useState(false);
   const [cancelId, setCancelId]     = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
+
+  // Sync server data into local state. Local state is needed because the user
+  // can cancel a request or submit a new one and we want immediate UI feedback
+  // without a refetch round-trip.
+  useEffect(() => {
+    if (fetchedLeaves.length > 0) setRequests(fetchedLeaves);
+  }, [fetchedLeaves]);
 
   const handleCancel = (id) => setCancelId(id);
   const confirmCancel = () => {
@@ -197,7 +207,15 @@ export default function MyLeaves() {
       {/* Cards */}
       <div className="space-y-3">
         <AnimatePresence mode="popLayout">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-16 text-gray-400"
+            >
+              <p className="text-[12px]">Loading your leave requests…</p>
+            </motion.div>
+          ) : filtered.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
