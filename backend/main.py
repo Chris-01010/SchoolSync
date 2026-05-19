@@ -12,7 +12,10 @@ import collections
 import logging
 from pydantic import BaseModel
 from .email_service import send_verification_email, send_password_reset_email
-
+from dotenv import load_dotenv
+load_dotenv()
+env_path = "C:/Users/Joseph/Documents/Project/SchoolSync/backend/.env"
+load_dotenv(dotenv_path=env_path)
 from .database import engine, Base, get_db
 from . import models, schemas, relief, auth
 from .worker import generate_timetable_task
@@ -68,6 +71,10 @@ app.add_middleware(
         "http://127.0.0.1:5174",
         "http://localhost:5175",
         "http://127.0.0.1:5175",
+        "http://localhost:5177",
+        "http://127.0.0.1:5177",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
