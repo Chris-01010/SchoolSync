@@ -333,6 +333,351 @@ async def reset_password(token: str, new_password: str, db: AsyncSession = Depen
 async def get_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
 
+# ─── Teacher Dashboard API ─────────────────────────────────────────────────────
+
+@app.get("/teacher/me/profile")
+async def get_teacher_profile(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found")
+
+    dept_name = None
+    if teacher.department_id:
+        dept_result = await db.execute(
+            select(models.Department).where(models.Department.id == teacher.department_id)
+        )
+        dept = dept_result.scalar_one_or_none()
+        dept_name = dept.name if dept else None
+
+    return {
+        "name": teacher.name,
+        "department": dept_name or "Unassigned",
+        "teachingHours": {
+            "completed": teacher.total_hours_worked,
+            "total": teacher.max_weekly_hours
+        },
+        "reliefHours": {
+            "completed": teacher.current_relief_hours,
+            "total": teacher.weekly_relief_cap
+        },
+        "remainingCap": max(0, teacher.max_weekly_hours - teacher.total_hours_worked - teacher.current_relief_hours)
+    }
+
+
+@app.get("/teacher/me/timetable")
+async def get_teacher_timetable(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found")
+
+    slots_result = await db.execute(
+        select(models.TimetableSlot)
+        .join(models.TimetableVersion)
+        .where(
+            models.TimetableSlot.teacher_id == teacher.id,
+            models.TimetableVersion.is_active == True
+        )
+    )
+    slots = slots_result.scalars().all()
+
+    day_names = {0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday", 4: "Friday"}
+    timetable = {day: {} for day in day_names.values()}
+
+    for slot in slots:
+        day = day_names.get(slot.day_of_week)
+        if not day:
+            continue
+
+        # Get subject name
+        subject_name = str(slot.subject_id)
+        if slot.subject_id:
+            subj_result = await db.execute(
+                select(models.Subject).where(models.Subject.id == slot.subject_id)
+            )
+            subj = subj_result.scalar_one_or_none()
+            if subj:
+                subject_name = subj.name
+
+        # Get class name
+        class_name = str(slot.class_id)
+        if slot.class_id:
+            cls_result = await db.execute(
+                select(models.ClassRoom).where(models.ClassRoom.id == slot.class_id)
+            )
+            cls = cls_result.scalar_one_or_none()
+            if cls:
+                class_name = cls.name
+
+        # Get room name
+        room_name = None
+        if slot.room_id:
+            room_result = await db.execute(
+                select(models.Room).where(models.Room.id == slot.room_id)
+            )
+            room = room_result.scalar_one_or_none()
+            if room:
+                room_name = room.name
+
+        timetable[day][slot.period] = {
+            "type": "relief" if slot.is_relief else "regular",
+            "subject": subject_name,
+            "class": class_name,
+            "room": room_name,
+        }
+
+    # Fill empty periods as free
+    for day in timetable:
+        for period in range(1, 7):
+            if period not in timetable[day]:
+                timetable[day][period] = {"type": "free"}
+
+    return timetable
+
+
+@app.get("/teacher/me/relief/pending")
+async def get_pending_relief_requests(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found")
+
+    relief_result = await db.execute(
+        select(models.ReliefAssignment).where(
+            models.ReliefAssignment.relief_teacher_id == teacher.id,
+            models.ReliefAssignment.status == models.ReliefStatus.PENDING
+        )
+    )
+    assignments = relief_result.scalars().all()
+
+    day_names = {0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday", 4: "Friday"}
+    pending = []
+
+    for assignment in assignments:
+        absence_result = await db.execute(
+            select(models.Absence).where(models.Absence.id == assignment.absence_id)
+        )
+        absence = absence_result.scalar_one_or_none()
+        if not absence:
+            continue
+
+        absent_teacher_result = await db.execute(
+            select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+        )
+        absent_teacher = absent_teacher_result.scalar_one_or_none()
+
+        # Get slot info if available
+        subject_name = "Unknown"
+        class_name = "Unknown"
+        period = 0
+        day = "Unknown"
+
+        if assignment.slot_id:
+            slot_result = await db.execute(
+                select(models.TimetableSlot).where(models.TimetableSlot.id == assignment.slot_id)
+            )
+            slot = slot_result.scalar_one_or_none()
+            if slot:
+                period = slot.period
+                day = day_names.get(slot.day_of_week, "Unknown")
+                if slot.subject_id:
+                    subj_result = await db.execute(
+                        select(models.Subject).where(models.Subject.id == slot.subject_id)
+                    )
+                    subj = subj_result.scalar_one_or_none()
+                    subject_name = subj.name if subj else subject_name
+                if slot.class_id:
+                    cls_result = await db.execute(
+                        select(models.ClassRoom).where(models.ClassRoom.id == slot.class_id)
+                    )
+                    cls = cls_result.scalar_one_or_none()
+                    class_name = cls.name if cls else class_name
+        else:
+            # No slot linked — use absence period info
+            period = absence.period_start
+            day = absence.date.strftime("%A")
+
+        pending.append({
+            "id": str(assignment.id),
+            "absentTeacher": absent_teacher.name if absent_teacher else "Unknown",
+            "subject": subject_name,
+            "class": class_name,
+            "period": period,
+            "day": day,
+            "deadline": "45 mins",
+            "urgency": "high"
+        })
+
+    return pending
+
+
+@app.get("/teacher/me/relief/confirmed")
+async def get_confirmed_relief_duties(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found")
+
+    relief_result = await db.execute(
+        select(models.ReliefAssignment).where(
+            models.ReliefAssignment.relief_teacher_id == teacher.id,
+            models.ReliefAssignment.status == models.ReliefStatus.ACCEPTED
+        )
+    )
+    assignments = relief_result.scalars().all()
+
+    day_names = {0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday", 4: "Friday"}
+    confirmed = []
+
+    for assignment in assignments:
+        absence_result = await db.execute(
+            select(models.Absence).where(models.Absence.id == assignment.absence_id)
+        )
+        absence = absence_result.scalar_one_or_none()
+        if not absence:
+            continue
+
+        absent_teacher_result = await db.execute(
+            select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+        )
+        absent_teacher = absent_teacher_result.scalar_one_or_none()
+
+        subject_name = "Unknown"
+        class_name = "Unknown"
+        period = absence.period_start
+        day = absence.date.strftime("%A")
+
+        if assignment.slot_id:
+            slot_result = await db.execute(
+                select(models.TimetableSlot).where(models.TimetableSlot.id == assignment.slot_id)
+            )
+            slot = slot_result.scalar_one_or_none()
+            if slot:
+                period = slot.period
+                day = day_names.get(slot.day_of_week, day)
+                if slot.subject_id:
+                    subj_result = await db.execute(
+                        select(models.Subject).where(models.Subject.id == slot.subject_id)
+                    )
+                    subj = subj_result.scalar_one_or_none()
+                    subject_name = subj.name if subj else subject_name
+                if slot.class_id:
+                    cls_result = await db.execute(
+                        select(models.ClassRoom).where(models.ClassRoom.id == slot.class_id)
+                    )
+                    cls = cls_result.scalar_one_or_none()
+                    class_name = cls.name if cls else class_name
+
+        confirmed.append({
+            "id": str(assignment.id),
+            "subject": subject_name,
+            "class": class_name,
+            "day": day,
+            "period": period,
+            "originalTeacher": absent_teacher.name if absent_teacher else "Unknown"
+        })
+
+    return confirmed
+
+@app.get("/teacher/me/leaves")
+async def get_teacher_leaves(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found")
+
+    absences_result = await db.execute(
+        select(models.Absence).where(models.Absence.teacher_id == teacher.id)
+        .order_by(models.Absence.date.desc())
+    )
+    absences = absences_result.scalars().all()
+
+    return [
+        {
+            "id": str(a.id),
+            "type": a.leave_type,
+            "from": a.date.isoformat(),
+            "to": a.date.isoformat(),
+            "days": (a.period_end - a.period_start + 1),
+            "reason": a.reason,
+            "status": a.status.value,
+            "document": a.handover_url,
+            "affectedClasses": []
+        }
+        for a in absences
+    ]
+
+
+@app.get("/teacher/me/notifications")
+async def get_teacher_notifications(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    notifs_result = await db.execute(
+        select(models.Notification)
+        .where(models.Notification.user_id == current_user.id)
+        .order_by(models.Notification.created_at.desc())
+    )
+    notifs = notifs_result.scalars().all()
+
+    return [
+        {
+            "id": str(n.id),
+            "type": "announcement",
+            "title": n.title,
+            "message": n.content,
+            "time": n.created_at.strftime("%I:%M %p") if n.created_at else "",
+            "read": n.is_read
+        }
+        for n in notifs
+    ]
+
+
+@app.patch("/teacher/me/notifications/{notif_id}/read")
+async def mark_notification_read(
+    notif_id: UUID,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(models.Notification).where(
+            models.Notification.id == notif_id,
+            models.Notification.user_id == current_user.id
+        )
+    )
+    notif = result.scalar_one_or_none()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    notif.is_read = True
+    await db.commit()
+    return {"success": True}
+
 # ─── Users (Admin Only) ────────────────────────────────────────────────────────
 @app.post("/users/", response_model=schemas.User, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):

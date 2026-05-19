@@ -65,7 +65,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         college_id: str = payload.get("sub")
         if college_id is None:
-            logger.AlertTriangle("Token received but 'sub' claim is missing.")
+            logger.warning("Token received but 'sub' claim is missing.")
             raise credentials_exception
     except JWTError:
         logger.warning("Invalid or expired JWT token received.")
@@ -74,7 +74,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     result = await db.execute(select(models.User).filter(models.User.college_id == college_id))
     user = result.scalars().first()
     if user is None:
-        logger.AlertTriangle(f"Token valid but no user found for college_id: {college_id}")
+        logger.warning(f"Token valid but no user found for college_id: {college_id}")
         raise credentials_exception
 
     logger.info(f"User {user.college_id} ({user.role}) authenticated successfully.")
@@ -84,7 +84,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
 def check_role(roles: list[UserRole]):
     async def role_checker(current_user: models.User = Depends(get_current_user)):
         if current_user.role not in roles:
-            logger.AlertTriangle(
+            logger.warning(
                 f"User {current_user.college_id} ({current_user.role}) "
                 f"denied access — required: {[r.value for r in roles]}"
             )

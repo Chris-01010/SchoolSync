@@ -1,17 +1,26 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Download, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { timetable, teacher } from '../../mockData';
+import { useTeacherTimetable, useTeacherProfile } from '../../hooks/useTeacherData';
 
 const DAYS    = ['Mon (12)', 'Tue (13)', 'Wed (14)', 'Thu (15)', 'Fri (16)'];
 const DAY_KEYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const TIMES   = [
-  { period: 1, label: '08:00', end: '09:00' },
-  { period: 2, label: '09:00', end: '10:00' },
-  { period: 3, label: '10:00', end: '11:00' },
-  { label: 'LUNCH BREAK', isBreak: true },
-  { period: 4, label: '11:30', end: '12:30' },
-  { period: 5, label: '13:00', end: '14:30' },
+
+// College timings — must match backend seed.py period_times:
+//   P1 08:30–09:40   P2 09:40–10:40   [break 10:40–11:00]
+//   P3 11:00–12:00   [lunch 12:00–13:00]
+//   P4 13:00–14:00   P5 14:00–15:00   [break 15:00–15:15]
+//   P6 15:15–16:15
+const TIMES = [
+  { period: 1, label: '08:30', end: '09:40' },
+  { period: 2, label: '09:40', end: '10:40' },
+  { label: 'MORNING BREAK', isBreak: true, breakLabel: '10:40 – 11:00' },
+  { period: 3, label: '11:00', end: '12:00' },
+  { label: 'LUNCH BREAK', isBreak: true, breakLabel: '12:00 – 13:00' },
+  { period: 4, label: '13:00', end: '14:00' },
+  { period: 5, label: '14:00', end: '15:00' },
+  { label: 'AFTERNOON BREAK', isBreak: true, breakLabel: '15:00 – 15:15' },
+  { period: 6, label: '15:15', end: '16:15' },
 ];
 
 // ─── Cell type styles ─────────────────────────────────────────────────────────
@@ -126,6 +135,14 @@ export default function MyTimetable() {
   const [search, setSearch]       = useState('');
   const [selectedDay, setSelectedDay] = useState(0);
 
+  // ── Real data from API ────────────────────────────────────────────────────
+  const { data: timetableData, loading: timetableLoading } = useTeacherTimetable();
+  const { data: profile } = useTeacherProfile();
+
+  // Fall back to an empty object so the grid lookups (timetable[dayKey]?.[period])
+  // don't crash on the first render while the fetch is in flight.
+  const timetable = timetableData ?? {};
+
   const totalWorkload = 22.5;
   const weeklyTarget  = 85;
 
@@ -141,7 +158,7 @@ export default function MyTimetable() {
         <div>
           <h1 className="text-[18px] font-bold text-gray-900">My Timetable</h1>
           <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
-            Academic Year 2023–2024 &nbsp;·&nbsp;
+            Academic Year 2025–2026 &nbsp;·&nbsp;
             <span className="inline-flex items-center gap-1">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
                 <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
@@ -227,64 +244,78 @@ export default function MyTimetable() {
 
           {/* Grid rows */}
           <div className="overflow-x-auto">
-            {TIMES.map((slot, si) => {
-              if (slot.isBreak) {
+            {timetableLoading ? (
+              <div className="py-16 text-center text-[12px] text-gray-400">
+                Loading timetable…
+              </div>
+            ) : (
+              TIMES.map((slot, si) => {
+                if (slot.isBreak) {
+                  const isLunch = slot.label === 'LUNCH BREAK';
+                  return (
+                    <div
+                      key={`break-${si}`}
+                      className="grid border-b border-gray-100 bg-gray-50"
+                      style={{ gridTemplateColumns: '64px 1fr' }}
+                    >
+                      <div className="px-2 py-2 border-r border-gray-100 flex items-center">
+                        <span className="text-[9px] text-gray-400 font-medium">
+                          {slot.breakLabel?.split(' – ')[0] ?? ''}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-center py-2 gap-2">
+                        <span className="text-gray-400">{isLunch ? '🍴' : '☕'}</span>
+                        <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">
+                          {slot.label}
+                        </span>
+                        {slot.breakLabel && (
+                          <span className="text-[9px] text-gray-400 font-medium">
+                            · {slot.breakLabel}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
-                    key="break"
-                    className="grid border-b border-gray-100 bg-gray-50"
-                    style={{ gridTemplateColumns: '64px 1fr' }}
+                    key={slot.period}
+                    className="grid border-b border-gray-100 last:border-0"
+                    style={{ gridTemplateColumns: '64px repeat(5, 1fr)' }}
                   >
-                    <div className="px-2 py-2 border-r border-gray-100 flex items-center">
-                      <span className="text-[9px] text-gray-400 font-medium">11:00</span>
+                    {/* Time label */}
+                    <div className="px-2 py-2 border-r border-gray-100 flex flex-col justify-center">
+                      <p className="text-[10px] font-bold text-gray-700">{slot.label}</p>
+                      <p className="text-[9px] text-gray-400">{slot.end}</p>
                     </div>
-                    <div className="flex items-center justify-center py-2 gap-2">
-                      <span className="text-gray-400">🍴</span>
-                      <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">
-                        Lunch Break
-                      </span>
-                    </div>
+
+                    {/* Day cells */}
+                    {DAY_KEYS.map((dayKey) => {
+                      const cell = timetable[dayKey]?.[slot.period];
+                      const match =
+                        !search ||
+                        (cell &&
+                          cell.type !== 'free' &&
+                          [cell.subject, cell.class, cell.room]
+                            .join(' ')
+                            .toLowerCase()
+                            .includes(search.toLowerCase()));
+                      return (
+                        <div
+                          key={dayKey}
+                          className={`p-1.5 border-r border-gray-100 last:border-0 transition-opacity ${
+                            search && !match ? 'opacity-20' : 'opacity-100'
+                          }`}
+                        >
+                          <TimetableCell cell={cell} />
+                        </div>
+                      );
+                    })}
                   </div>
                 );
-              }
-
-              return (
-                <div
-                  key={slot.period}
-                  className="grid border-b border-gray-100 last:border-0"
-                  style={{ gridTemplateColumns: '64px repeat(5, 1fr)' }}
-                >
-                  {/* Time label */}
-                  <div className="px-2 py-2 border-r border-gray-100 flex flex-col justify-center">
-                    <p className="text-[10px] font-bold text-gray-700">{slot.label}</p>
-                    <p className="text-[9px] text-gray-400">{slot.end}</p>
-                  </div>
-
-                  {/* Day cells */}
-                  {DAY_KEYS.map((dayKey) => {
-                    const cell = timetable[dayKey]?.[slot.period];
-                    const match =
-                      !search ||
-                      (cell &&
-                        cell.type !== 'free' &&
-                        [cell.subject, cell.class, cell.room]
-                          .join(' ')
-                          .toLowerCase()
-                          .includes(search.toLowerCase()));
-                    return (
-                      <div
-                        key={dayKey}
-                        className={`p-1.5 border-r border-gray-100 last:border-0 transition-opacity ${
-                          search && !match ? 'opacity-20' : 'opacity-100'
-                        }`}
-                      >
-                        <TimetableCell cell={cell} />
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+              })
+            )}
           </div>
         </motion.div>
 

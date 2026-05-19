@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MoreVertical, MapPin, User, BookOpen, Calendar } from 'lucide-react';
-import { myReliefDuties } from '../../mockData';
+import { useTeacherReliefPending, useTeacherReliefConfirmed } from '../../hooks/useTeacherData';
 
 const TABS = ['Upcoming', 'Completed', 'History'];
 
@@ -96,8 +96,35 @@ const EmptyState = ({ label }) => (
 export default function MyReliefDuties() {
   const [activeTab, setActiveTab] = useState(0);
 
-  const upcoming  = myReliefDuties.upcoming;
-  const completed = myReliefDuties.completed;
+  // ── Real data from API ────────────────────────────────────────────────────
+  const { data: upcomingData, loading: upcomingLoading } = useTeacherReliefPending();
+  const { data: completedData, loading: completedLoading } = useTeacherReliefConfirmed();
+
+  // Map API shape → UI shape. NOTE: field names below (r.day, r.period, r.subject, r.class,
+  // r.absentTeacher, r.originalTeacher) are ASSUMPTIONS. Verify against actual response from
+  // GET /teacher/me/relief/pending and /confirmed and adjust if names differ.
+  const upcoming = (upcomingData ?? []).map((r) => ({
+    id: r.id,
+    date: r.day && r.period ? `${r.day} Period ${r.period}` : (r.day ?? 'TBD'),
+    dateLabel: r.day ?? '',
+    subject: r.subject && r.class ? `${r.subject} (${r.class})` : (r.subject ?? '—'),
+    room: r.room ?? 'TBD',
+    relieving: r.absentTeacher ?? r.originalTeacher ?? '—',
+    notes: r.notes ?? null,
+    status: 'upcoming',
+  }));
+
+  const completed = (completedData ?? []).map((r) => ({
+    id: r.id,
+    date: r.day ?? '',
+    subject: r.subject && r.class ? `${r.subject} (${r.class})` : (r.subject ?? '—'),
+    room: r.room ?? 'TBD',
+    relieving: r.originalTeacher ?? r.absentTeacher ?? '—',
+    period: r.period ?? '—',
+    status: 'completed',
+  }));
+
+  const isLoading = upcomingLoading || completedLoading;
 
   return (
     <div className="max-w-[900px] space-y-5">
@@ -127,8 +154,15 @@ export default function MyReliefDuties() {
         </div>
       </div>
 
+      {/* Loading state */}
+      {isLoading && (
+        <div className="text-center py-12 text-[12px] text-gray-400">
+          Loading relief duties…
+        </div>
+      )}
+
       {/* Content */}
-      {activeTab === 0 && (
+      {!isLoading && activeTab === 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {upcoming.length === 0 ? (
             <div className="col-span-2">
@@ -152,7 +186,7 @@ export default function MyReliefDuties() {
         </div>
       )}
 
-      {activeTab === 1 && (
+      {!isLoading && activeTab === 1 && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
           <h3 className="text-[12px] font-bold text-gray-700 mb-3">Completed Relief Duties</h3>
           {completed.length === 0 ? (
@@ -163,7 +197,7 @@ export default function MyReliefDuties() {
         </div>
       )}
 
-      {activeTab === 2 && (
+      {!isLoading && activeTab === 2 && (
         <EmptyState label="Full history coming soon" />
       )}
 
