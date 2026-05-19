@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { api } from '../../services/api';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -47,26 +48,24 @@ const StatCard = ({ icon: Icon, iconColor, iconBg, badge, badgeColor, value, lab
 // ─── Schedule row ─────────────────────────────────────────────────────────────
 const ScheduleRow = ({ item }) => {
   const isCurrent = item.type === 'current';
-  const isFree    = item.type === 'free';
+  const isFree = item.type === 'free';
   const isUpcoming = item.type === 'upcoming';
 
   return (
     <div
-      className={`rounded-xl p-3.5 border transition-all ${
-        isCurrent
-          ? 'bg-white border-l-4 border-l-emerald-500 border-gray-100 shadow-sm'
-          : isFree
+      className={`rounded-xl p-3.5 border transition-all ${isCurrent
+        ? 'bg-white border-l-4 border-l-emerald-500 border-gray-100 shadow-sm'
+        : isFree
           ? 'bg-gray-50 border-gray-100'
           : 'bg-white border-gray-100'
-      }`}
+        }`}
     >
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex items-center gap-1.5">
           {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
           <span
-            className={`text-[9px] font-bold uppercase tracking-wide ${
-              isCurrent ? 'text-emerald-600' : isUpcoming ? 'text-blue-500' : 'text-gray-400'
-            }`}
+            className={`text-[9px] font-bold uppercase tracking-wide ${isCurrent ? 'text-emerald-600' : isUpcoming ? 'text-blue-500' : 'text-gray-400'
+              }`}
           >
             {item.label}
           </span>
@@ -344,28 +343,33 @@ export default function TeacherHome() {
         isOpen={leaveOpen}
         onClose={handleCloseLeave}
         onSubmit={async (data) => {
-  const token = localStorage.getItem('schoolsync_token');
+          try {
+            // Normalize leave_type to one of: "sick" | "casual" | "other"
+            const raw = (data.leaveType || 'sick').toLowerCase();
+            const leave_type = raw.includes('sick')
+              ? 'sick'
+              : raw.includes('casual')
+                ? 'casual'
+                : 'other';
 
-  const res = await fetch('http://localhost:8000/leaves/apply', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      start_date: data.startDate,
-      end_date: data.endDate || data.startDate,
-      period_start: 1,
-      period_end: 2,
-      leave_type: data.leaveType?.toLowerCase().replace(' leave', '') || 'sick',
-      reason: data.reason,
-      handover_url: null,
-    }),
-  });
+            // Backend expects a single "date" — pick the start date
+            const dateStr = data.startDate || data.fromDate || new Date().toISOString().slice(0, 10);
 
-  console.log('Leave API:', await res.json());
-  handleCloseLeave();
-}}
+            await api.post('/leaves/apply', {
+              date: dateStr,
+              period_start: data.periodStart ?? 1,
+              period_end: data.periodEnd ?? data.periodStart ?? 8,
+              leave_type,
+              reason: data.reason || 'No reason provided',
+              handover_url: data.fileDataUrl || null,
+            });
+
+            handleCloseLeave();
+            // Optional: trigger a toast / refetch here
+          } catch (err) {
+            alert(`Failed to submit leave: ${err.message}`);
+          }
+        }}
       />
     </div>
   );

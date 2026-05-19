@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import { Bell, Clock, LogOut, Menu, Plus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useAuth();
   const [notifOpen, setNotifOpen] = useState(false);
+
+  // Hide the top-right "Apply Leave" button when on the My Leaves page,
+  // since that page has its own working in-page Apply button.
+  const isOnLeavesPage = /leaves|my-leaves/i.test(location.pathname);
 
   // Live clock
   const [time, setTime] = React.useState('');
@@ -20,8 +25,8 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
           day: 'numeric',
           year: 'numeric',
         }).toUpperCase() +
-          ' · ' +
-          now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        ' · ' +
+        now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
       );
     };
     fmt();
@@ -112,15 +117,17 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
           <Clock size={16} />
         </button>
 
-        {/* Apply leave button */}
-        <button
-          onClick={onApplyLeave}
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white
-                     text-[11px] font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={12} />
-          Apply Leave
-        </button>
+        {/* Apply leave button — hidden on the My Leaves page */}
+        {!isOnLeavesPage && (
+          <button
+            onClick={onApplyLeave}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white
+                       text-[11px] font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={12} />
+            Apply Leave
+          </button>
+        )}
 
         {/* Avatar + logout */}
         <div className="relative group ml-1">
