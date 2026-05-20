@@ -1005,7 +1005,18 @@ async def respond_to_relief(assignment_id: UUID, response: schemas.ReliefRespons
         raise HTTPException(status_code=403, detail="Not authorized to respond to this assignment")
     assignment.status = response.status
     if response.status == models.ReliefStatus.FLAGGED:
+        if not response.flag_reason:
+            raise HTTPException(
+                status_code=400,
+                detail="flag_reason is required when flagging a request."
+            )
+        if response.flag_reason == "other" and not response.flag_comment:
+            raise HTTPException(
+                status_code=400,
+                detail="flag_comment is required when flag_reason is 'other'."
+            )
         assignment.flag_reason = response.flag_reason
+        assignment.reason_text = response.flag_comment
     elif response.status == models.ReliefStatus.ACCEPTED:
         assignment.acknowledged_at = datetime.utcnow()
     await db.commit()

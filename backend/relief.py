@@ -29,10 +29,9 @@ def rank_relief_candidates(
         if t_id == absent_teacher_id: continue
         if t_id in teaching_now: continue
         
-        # Blocked slots check - day_of_week is 0-6 (0=Mon), but blocked_slots might use string keys
-        day_names = ["0", "1", "2", "3", "4", "5", "6"] # Use string indices for JSON compatibility
-        day_key = day_names[day_of_week]
-        if period in t.get('blocked_slots', {}).get(day_key, []): continue
+        # Blocked slots check - now uses proper BlockedSlot table records
+        blocked = t.get('blocked_slots', [])
+        if any(b['day'] == day_of_week and b['period'] == period for b in blocked): continue
         
         # Weekly cap check
         load = weekly_relief_counts.get(t_id, 0)
