@@ -46,9 +46,9 @@ export function AuthProvider({ children }) {
 
     const payload = JSON.parse(atob(data.access_token.split('.')[1]));
     const userData = {
-      email:  email,
-      role:   payload.role,
-      token:  data.access_token,
+      email: email,
+      role:  payload.role,
+      token: data.access_token,
     };
 
     localStorage.setItem(TOKEN_KEY, data.access_token);
@@ -67,7 +67,7 @@ export function AuthProvider({ children }) {
         password: data.password,
         role: 'teacher',
         name: data.name,
-        department: data.department
+        department: data.department,
       }),
     });
     if (!response.ok) {
@@ -119,6 +119,7 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     isAuthenticated: !!user,
+    role: user?.role ?? null,   // convenience shortcut — used by Teacher/HOD/Admin portals
     isLoading,
     login,
     register,

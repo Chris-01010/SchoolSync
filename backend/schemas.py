@@ -4,7 +4,7 @@ from uuid import UUID
 from datetime import date, datetime
 from enum import Enum
 
-from models import UserRole, AbsenceStatus, ReliefStatus
+from .models import UserRole, AbsenceStatus, ReliefStatus
 
 
 # Auth Schemas
@@ -292,3 +292,88 @@ class TimetableSlot(TimetableSlotCreate):
     class Config:
         from_attributes = True
 
+# --- Admin Dashboard Home Schemas ---
+class DashboardHomeStats(BaseModel):
+    total_departments: int
+    total_teachers: int
+    total_classes: int
+    teachers_on_leave: int
+    pending_leave_requests: int
+    total_relief_duties: int
+    unassigned_relief_periods: int
+    timetable_conflict_count: int
+    active_timetable_updates: int
+
+class AlertType(str, Enum):
+    CONFLICT = "conflict"
+    WARNING = "warning"
+    INFO = "info"
+
+class AdminAlert(BaseModel):
+    id: str
+    type: AlertType
+    title: str
+    message: str
+    time_ago: str
+
+class ConflictDetail(BaseModel):
+    id: str
+    type: str
+    affected_entities: str
+    time_slot: str
+
+# --- Analytics Schemas ---
+class DepartmentWorkload(BaseModel):
+    department_name: str
+    avg_teaching_hours: float
+    avg_relief_hours: float
+    total_leave_days: int
+    load_capacity_percent: int
+    status: str
+
+class TeacherWorkload(BaseModel):
+    teacher_id: UUID
+    teacher_name: str
+    department: str
+    load_percent: int
+
+class ReliefDistribution(BaseModel):
+    internal_percent: int
+    casual_percent: int
+    total_hours: int
+
+class LeaveTrend(BaseModel):
+    week: str
+    count: int
+
+# --- Room Schemas ---
+class RoomBase(BaseModel):
+    name: str
+    capacity: Optional[int] = None
+    room_type: Optional[str] = None
+
+class RoomCreate(RoomBase):
+    pass
+
+class RoomUpdate(RoomBase):
+    name: Optional[str] = None
+    capacity: Optional[int] = None
+    room_type: Optional[str] = None
+
+class Room(RoomBase):
+    id: UUID
+
+    class Config:
+        from_attributes = True
+
+# --- User Management (Admin View) ---
+class UserAdminView(BaseModel):
+    id: UUID
+    college_id: str
+    name: str
+    email: str
+    role: str
+    department: Optional[str] = None
+    is_active: bool
+    status: str
+    last_active: str

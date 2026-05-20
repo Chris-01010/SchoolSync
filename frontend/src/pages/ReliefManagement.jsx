@@ -1,439 +1,183 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Users,
-  Calendar,
-  CheckSquare,
-  Filter,
-  FileDown,
-  ExternalLink,
-  FileText,
-  Clock,
-  ChevronRight,
-  X,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  MoreHorizontal,
-} from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_KPI = {
-  totalLeaveDays: 24,
-  pendingDecisions: 6,
-  availableCapacity: 12,
-};
+const ReliefManagement = () => {
+  // Store data in window object to bypass React state issues
+  const [pendingCount, setPendingCount] = useState(0);
+  const [assignedCount, setAssignedCount] = useState(0);
+  
+  // Use window.__reliefData to store data that persists
+  if (!window.__reliefData) {
+    window.__reliefData = {
+      pending: [
+        { id: 'p2', name: 'Dr. Patel', dept: 'Science', period: 'Period 2', class: '10B' },
+        { id: 'p4', name: 'Dr. Johnson', dept: 'Math', period: 'Period 4', class: '11A' },
+        { id: 'p5', name: 'Prof. Kumar', dept: 'Science', period: 'Period 5', class: '10C' },
+      ],
+      assigned: [
+        { id: 'r1', name: 'Mr. Smith', detail: 'Math - Period 1', class: '10A', reliefTeacher: 'Mr. Smith' },
+      ]
+    };
+  }
 
-const MOCK_LEAVE_IMPACT = [
-  { day: 'MON', date: 14, teachers: [{ initials: 'MJ', color: 'bg-blue-200 text-blue-800' }, { initials: 'AL', color: 'bg-pink-200 text-pink-800' }], extra: 2 },
-  { day: 'TUE', date: 15, teachers: [{ initials: 'SJ', color: 'bg-purple-200 text-purple-700' }], extra: 0, highlighted: true },
-  { day: 'WED', date: 16, teachers: [], extra: 0, empty: true },
-];
+  // Force refresh function
+  const refresh = () => {
+    setPendingCount(window.__reliefData.pending.length);
+    setAssignedCount(window.__reliefData.assigned.length);
+  };
 
-const MOCK_PENDING = [
-  {
-    id: 'p1',
-    initials: 'MJ',
-    color: 'bg-blue-100 text-blue-700',
-    name: 'Marcus Johnson',
-    role: 'Senior Physics',
-    type: 'Sick Leave',
-    typeColor: 'bg-red-100 text-red-600',
-    dates: 'Oct 14 – Oct 15',
-    days: '2 Days',
-    reason: "Doctor's appointment...",
-    doc: 'Medical_Cert.pdf',
-    hasDoc: true,
-  },
-  {
-    id: 'p2',
-    initials: 'AL',
-    color: 'bg-pink-100 text-pink-700',
-    name: 'Alice Low',
-    role: 'Biology Lab Tech',
-    type: 'Personal',
-    typeColor: 'bg-purple-100 text-purple-700',
-    dates: 'Oct 20',
-    days: '1 Day',
-    reason: 'Family emergency -...',
-    doc: null,
-    hasDoc: false,
-  },
-];
+  useEffect(() => {
+    refresh();
+  }, []);
 
-const MOCK_PROCESSED = [
-  {
-    id: 'r1',
-    initials: 'DC',
-    color: 'bg-green-100 text-green-700',
-    name: 'David Chen',
-    meta: 'Approved 2h ago',
-    detail: 'Professional Development',
-    dates: 'Oct 25 – 27',
-    status: 'approved',
-  },
-  {
-    id: 'r2',
-    initials: 'EB',
-    color: 'bg-amber-100 text-amber-700',
-    name: 'Emily Blunt',
-    meta: 'Clarification Requested yesterday',
-    detail: '',
-    dates: '',
-    status: 'pending',
-  },
-];
+  const [showModal, setShowModal] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [selectedTeacher, setSelectedTeacher] = useState('');
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-const KPICard = ({ label, value, icon: Icon, color, barColor, barValue, subLabel }) => (
-  <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex-1 min-w-0">
-    <div className="flex items-start justify-between mb-2">
-      <div>
-        <p className="text-[22px] font-bold text-gray-900 leading-none">{value}</p>
-        <p className="text-[11px] text-gray-400 font-medium mt-1">{label}</p>
-      </div>
-      <div className={`p-2 rounded-lg ${color}`}>
-        <Icon size={14} className="opacity-80" />
-      </div>
-    </div>
-    {barColor && (
-      <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden mt-3">
-        <div
-          className={`h-full rounded-full ${barColor}`}
-          style={{ width: `${barValue}%` }}
-        />
-      </div>
-    )}
-  </div>
-);
+  const teachers = ['Mr. Adams', 'Ms. Garcia', 'Dr. Brown', 'Mrs. Wilson', 'Mr. Davis', 'Ms. Chen'];
 
-const TypeBadge = ({ type, color }) => (
-  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${color}`}>{type}</span>
-);
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-const LeaveManagement = ({ user }) => {
-  const [pendingLeaves, setPendingLeaves] = useState(MOCK_PENDING);
-  const [processed, setProcessed] = useState(MOCK_PROCESSED);
-  const [showBanner, setShowBanner] = useState(true);
-  const [actionLoading, setActionLoading] = useState(null);
-
-  const handleAction = async (id, action) => {
-    setActionLoading(`${id}-${action}`);
-    try {
-      const token = localStorage.getItem('token');
-      await fetch(`http://localhost:8000/absences/${id}/approve`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: action }),
-      });
-    } catch {
-      // fallback: just update UI
-    }
-
-    const moved = pendingLeaves.find((l) => l.id === id);
-    if (moved) {
-      setPendingLeaves((prev) => prev.filter((l) => l.id !== id));
-      setProcessed((prev) => [
-        {
-          ...moved,
-          status: action === 'approved' ? 'approved' : 'rejected',
-          meta: `${action === 'approved' ? 'Approved' : 'Rejected'} just now`,
-        },
-        ...prev,
-      ]);
-    }
-    setActionLoading(null);
+  const handleAssign = () => {
+    console.log("=== ASSIGNING ===");
+    console.log("Selected:", selected);
+    
+    if (!selected) return;
+    
+    const teacher = selectedTeacher || teachers[Math.floor(Math.random() * teachers.length)];
+    
+    // Remove from pending
+    const newPending = window.__reliefData.pending.filter(p => p.id !== selected.id);
+    window.__reliefData.pending = newPending;
+    
+    // Add to assigned
+    const newAssigned = {
+      ...selected,
+      reliefTeacher: teacher,
+      assignedAt: new Date().toLocaleTimeString()
+    };
+    window.__reliefData.assigned = [newAssigned, ...window.__reliefData.assigned];
+    
+    console.log("New pending:", window.__reliefData.pending);
+    console.log("New assigned:", window.__reliefData.assigned);
+    
+    // Force re-render
+    refresh();
+    
+    // Close modal
+    setShowModal(false);
+    setSelected(null);
+    setSelectedTeacher('');
+    
+    alert(`✅ Assigned ${teacher} to ${selected.name}`);
   };
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
-
-      {/* Page header */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-[20px] font-bold text-gray-900">Leave Approvals</h1>
-          <p className="text-[12px] text-gray-400 mt-0.5">
-            Manage department staff absences and relief planning.
-          </p>
+    <div className="p-6 max-w-6xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Relief Management</h1>
+      
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-lg shadow border">
+          <p className="text-2xl font-bold">{window.__reliefData.pending.length + window.__reliefData.assigned.length}</p>
+          <p className="text-sm text-gray-500">Total Requests</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-[11px] font-medium text-gray-600 hover:bg-gray-50 bg-white">
-            <FileDown size={11} /> Download Report
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[11px] font-semibold hover:bg-blue-700">
-            <ExternalLink size={11} /> View School Calendar
-          </button>
+        <div className="bg-white p-4 rounded-lg shadow border">
+          <p className="text-2xl font-bold text-orange-600">{window.__reliefData.pending.length}</p>
+          <p className="text-sm text-gray-500">Pending</p>
         </div>
-      </div>
-
-      {/* KPI + Leave Impact row */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-        {/* KPI cards */}
-        <div className="lg:col-span-3 flex gap-3">
-          <KPICard
-            label="Total Leave Days Used"
-            value={MOCK_KPI.totalLeaveDays}
-            icon={Users}
-            color="bg-blue-50 text-blue-600"
-            barColor="bg-blue-500"
-            barValue={60}
-          />
-          <KPICard
-            label="Pending Decisions"
-            value={`0${MOCK_KPI.pendingDecisions}`}
-            icon={Clock}
-            color="bg-amber-50 text-amber-600"
-            barColor="bg-amber-400"
-            barValue={40}
-          />
-          <KPICard
-            label="Available Capacity"
-            value={MOCK_KPI.availableCapacity}
-            icon={CheckSquare}
-            color="bg-green-50 text-green-600"
-            barColor="bg-green-500"
-            barValue={75}
-          />
-        </div>
-
-        {/* Leave Impact */}
-        <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[12px] font-semibold text-gray-800">Leave Impact</p>
-            <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-              Week 34
-            </span>
-          </div>
-          <div className="space-y-2">
-            {MOCK_LEAVE_IMPACT.map((item, i) => (
-              <div
-                key={i}
-                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${
-                  item.highlighted ? 'bg-blue-50 border border-blue-100' : ''
-                }`}
-              >
-                <div className="w-8 text-center flex-shrink-0">
-                  <p className="text-[8px] font-bold text-gray-400 uppercase">{item.day}</p>
-                  <p className="text-[13px] font-bold text-gray-800">{item.date}</p>
-                </div>
-                <div className="flex items-center gap-1 flex-1">
-                  {item.empty ? (
-                    <p className="text-[10px] text-gray-400 italic">No active absences</p>
-                  ) : (
-                    <>
-                      {item.teachers.map((t, j) => (
-                        <div
-                          key={j}
-                          className={`w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold ${t.color}`}
-                        >
-                          {t.initials}
-                        </div>
-                      ))}
-                      {item.extra > 0 && (
-                        <span className="text-[9px] text-gray-500 font-medium">
-                          +{item.extra} away
-                        </span>
-                      )}
-                      {item.highlighted && (
-                        <div className="ml-auto">
-                          <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-[8px] font-bold text-purple-700">
-                            SJ
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="bg-white p-4 rounded-lg shadow border">
+          <p className="text-2xl font-bold text-green-600">{window.__reliefData.assigned.length}</p>
+          <p className="text-sm text-gray-500">Assigned</p>
         </div>
       </div>
-
-      {/* Pending Requests */}
-      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h3 className="text-[13px] font-semibold text-gray-800">Pending Requests</h3>
-          <button className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700 font-medium">
-            <Filter size={11} /> Filter by Type
-          </button>
-        </div>
-
-        {/* Table header */}
-        <div className="grid px-5 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-semibold text-gray-400 uppercase tracking-wide"
-          style={{ gridTemplateColumns: '2fr 1fr 1.2fr 2fr 1fr 1.5fr' }}>
-          <span>Teacher</span>
-          <span>Type</span>
-          <span>Dates</span>
-          <span>Reason</span>
-          <span>Docs</span>
-          <span className="text-right">Action</span>
-        </div>
-
-        {/* Table rows */}
-        <div className="divide-y divide-gray-50">
-          <AnimatePresence>
-            {pendingLeaves.map((leave) => (
-              <motion.div
-                key={leave.id}
-                layout
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="grid px-5 py-3 items-center hover:bg-gray-50/60 transition-colors"
-                style={{ gridTemplateColumns: '2fr 1fr 1.2fr 2fr 1fr 1.5fr' }}
-              >
-                {/* Teacher */}
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${leave.color}`}
+      
+      {/* Pending Table */}
+      <div className="bg-white rounded-lg shadow border mb-6">
+        <div className="p-4 border-b font-semibold">Pending Assignments ({window.__reliefData.pending.length})</div>
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="p-3 text-left text-xs">TEACHER</th>
+              <th className="p-3 text-left text-xs">DEPT</th>
+              <th className="p-3 text-left text-xs">PERIOD</th>
+              <th className="p-3 text-left text-xs">CLASS</th>
+              <th className="p-3 text-left text-xs">ACTION</th>
+            </tr>
+          </thead>
+          <tbody>
+            {window.__reliefData.pending.map(p => (
+              <tr key={p.id} className="border-t">
+                <td className="p-3">{p.name}</td>
+                <td className="p-3">{p.dept}</td>
+                <td className="p-3">{p.period}</td>
+                <td className="p-3">{p.class}</td>
+                <td className="p-3">
+                  <button 
+                    onClick={() => { setSelected(p); setShowModal(true); }}
+                    className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
                   >
-                    {leave.initials}
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-semibold text-gray-800">{leave.name}</p>
-                    <p className="text-[10px] text-gray-400">{leave.role}</p>
-                  </div>
-                </div>
-
-                {/* Type */}
-                <div>
-                  <TypeBadge type={leave.type} color={leave.typeColor} />
-                  <p className="text-[9px] text-gray-400 mt-0.5">Leave</p>
-                </div>
-
-                {/* Dates */}
-                <div>
-                  <p className="text-[11px] text-gray-700 font-medium">{leave.dates}</p>
-                  <p className="text-[10px] text-gray-400">{leave.days}</p>
-                </div>
-
-                {/* Reason */}
-                <p className="text-[11px] text-gray-500 truncate pr-2">{leave.reason}</p>
-
-                {/* Docs */}
-                <div>
-                  {leave.hasDoc ? (
-                    <button className="flex items-center gap-1 text-[10px] text-blue-600 font-medium hover:text-blue-700">
-                      <FileText size={11} />
-                      {leave.doc}
-                    </button>
-                  ) : (
-                    <span className="text-[10px] text-gray-400">None</span>
-                  )}
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1.5 justify-end">
-                  <button
-                    onClick={() => handleAction(leave.id, 'rejected')}
-                    disabled={!!actionLoading}
-                    className="px-2.5 py-1 border border-gray-200 rounded-lg text-[10px] font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-50"
-                  >
-                    Reject
+                    Assign
                   </button>
-                  <button
-                    onClick={() => handleAction(leave.id, 'approved')}
-                    disabled={!!actionLoading}
-                    className="px-2.5 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {actionLoading === `${leave.id}-approved` ? (
-                      <span className="flex items-center gap-1">
-                        <div className="w-2.5 h-2.5 border border-white border-t-transparent rounded-full animate-spin" />
-                        ...
-                      </span>
-                    ) : (
-                      'Approve'
-                    )}
-                  </button>
-                </div>
-              </motion.div>
+                </td>
+              </tr>
             ))}
-          </AnimatePresence>
-
-          {pendingLeaves.length === 0 && (
-            <div className="px-5 py-8 text-center">
-              <CheckCircle size={24} className="text-green-400 mx-auto mb-2" />
-              <p className="text-[12px] text-gray-400 font-medium">All requests processed</p>
-            </div>
-          )}
-        </div>
+            {window.__reliefData.pending.length === 0 && (
+              <tr><td colSpan="5" className="p-8 text-center text-gray-400">All assigned!</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
-
-      {/* Recently Processed */}
-      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h3 className="text-[13px] font-semibold text-gray-800">Recently Processed</h3>
-          <button className="p-1 rounded text-gray-400 hover:text-gray-600">
-            <MoreHorizontal size={14} />
-          </button>
-        </div>
-        <div className="divide-y divide-gray-50">
-          {processed.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold ${item.color}`}>
-                {item.initials}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold text-gray-800">{item.name}</p>
-                <p className="text-[10px] text-gray-400">{item.meta}</p>
-              </div>
-              {item.detail && (
-                <div className="text-right">
-                  <p className="text-[11px] text-gray-600 font-medium">{item.detail}</p>
-                  <p className="text-[10px] text-gray-400">{item.dates}</p>
-                </div>
-              )}
-              <div className="ml-2">
-                {item.status === 'approved' && (
-                  <CheckCircle size={15} className="text-green-500" />
-                )}
-                {item.status === 'rejected' && (
-                  <XCircle size={15} className="text-red-400" />
-                )}
-                {item.status === 'pending' && (
-                  <Clock size={15} className="text-amber-400" />
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+      
+      {/* Assigned Table */}
+      <div className="bg-white rounded-lg shadow border">
+        <div className="p-4 border-b font-semibold">Recent Assignments ({window.__reliefData.assigned.length})</div>
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="p-3 text-left text-xs">TEACHER</th>
+              <th className="p-3 text-left text-xs">DEPT/PERIOD</th>
+              <th className="p-3 text-left text-xs">CLASS</th>
+              <th className="p-3 text-left text-xs">RELIEF</th>
+            </tr>
+          </thead>
+          <tbody>
+            {window.__reliefData.assigned.map(a => (
+              <tr key={a.id} className="border-t">
+                <td className="p-3">{a.name}</td>
+                <td className="p-3">{a.dept} - {a.period}</td>
+                <td className="p-3">{a.class}</td>
+                <td className="p-3 text-green-600">{a.reliefTeacher}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-
-      {/* Bottom notification banner */}
-      <AnimatePresence>
-        {showBanner && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-xl max-w-sm"
-          >
-            <AlertCircle size={15} className="text-amber-400 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold">Relief Planning Required</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">
-                3 approved absences lack assigned relief teachers for Tuesday.
-              </p>
+      
+      {/* Modal */}
+      {showModal && selected && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold mb-4">Assign Relief Teacher</h3>
+            <div className="mb-4">
+              <p><strong>Teacher:</strong> {selected.name}</p>
+              <p><strong>Class:</strong> {selected.class}</p>
+              <p><strong>Period:</strong> {selected.period}</p>
             </div>
-            <button className="text-[10px] font-bold text-blue-400 hover:text-blue-300 whitespace-nowrap flex-shrink-0">
-              Fix Now
-            </button>
-            <button
-              onClick={() => setShowBanner(false)}
-              className="ml-1 p-0.5 text-gray-500 hover:text-gray-300 flex-shrink-0"
+            <select 
+              value={selectedTeacher}
+              onChange={(e) => setSelectedTeacher(e.target.value)}
+              className="w-full p-2 border rounded mb-4"
             >
-              <X size={12} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <option value="">-- Auto-assign --</option>
+              {teachers.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded">Cancel</button>
+              <button onClick={handleAssign} className="px-4 py-2 bg-blue-600 text-white rounded">Assign</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default LeaveManagement;
+export default ReliefManagement;

@@ -110,25 +110,70 @@ const KPICard = ({ label, value, icon: Icon, color, barColor, barValue, subLabel
 const TypeBadge = ({ type, color }) => (
   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${color}`}>{type}</span>
 );
-
+const TEACHER_TIMETABLE = {
+  'Marcus Johnson': [
+    { subject: 'Physics AP', period: 'Period 2', className: '10-B', room: 'Physics Lab' },
+    { subject: 'Physics AP', period: 'Period 3', className: '10-B', room: 'Physics Lab' },
+  ],
+  'Alice Low': [
+    { subject: 'Biology Lab', period: 'Period 1', className: '9-A', room: 'Room 402' },
+  ],
+  'Unknown Teacher': [
+    { subject: 'General', period: 'Period 1', className: 'Unknown', room: 'Unassigned' },
+  ],
+};
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const LeaveManagement = ({ user }) => {
-  const [pendingLeaves, setPendingLeaves] = useState(MOCK_PENDING);
-  const [processed, setProcessed] = useState(MOCK_PROCESSED);
+  const [pendingLeaves, setPendingLeaves] = useState([]);
+  const [processed, setProcessed] = useState(MOCK_PROCESSED)
   const [showBanner, setShowBanner] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
+  
+
+useEffect(() => {
+  const fetchPendingLeaves = async () => {
+    const token = localStorage.getItem('schoolsync_token');
+
+    const res = await fetch('http://localhost:8000/leaves/pending', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+    console.log("PENDING API RESPONSE:", data);
+    setPendingLeaves(
+  (data.data || []).map((leave) => ({
+    ...leave,
+    name: leave.teacher_name || leave.teacher?.name || 'Unknown Teacher',
+    dates:
+      leave.start_date && leave.end_date
+        ? `${leave.start_date} - ${leave.end_date}`
+        : leave.date || 'No Date',
+    reason: leave.reason || 'No reason provided',
+    type: leave.leave_type || 'Leave',
+  }))
+);
+  };
+
+  fetchPendingLeaves();
+}, []);
+
+
+
 
   const handleAction = async (id, action) => {
     setActionLoading(`${id}-${action}`);
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:8000/absences/${id}/approve`, {
+      await fetch(`http://localhost:8000/leaves/${id}/action`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status: action }),
+        body: JSON.stringify({
+  action: action === 'approved' ? 'approve' : 'reject',}),
       });
     } catch {
       // fallback: just update UI
@@ -136,6 +181,28 @@ const LeaveManagement = ({ user }) => {
 
     const moved = pendingLeaves.find((l) => l.id === id);
     if (moved) {
+      if (action === 'approved') {
+  const existingReliefs = JSON.parse(localStorage.getItem('relief_requests') || '[]');
+
+  const teacherName = moved.name || 'Unknown Teacher';
+  const vacantPeriods = TEACHER_TIMETABLE[teacherName] || TEACHER_TIMETABLE['Unknown Teacher'];
+
+  const newReliefs = vacantPeriods.map((slot, index) => ({
+    id: `${moved.id}-${index}`,
+    name: teacherName,
+    subject: slot.subject,
+    period: slot.period,
+    className: slot.className,
+    room: slot.room,
+    availableRelief: 'Not Assigned',
+    status: 'Unassigned',
+  }));
+
+  localStorage.setItem(
+    'relief_requests',
+    JSON.stringify([...newReliefs, ...existingReliefs])
+  );
+}
       setPendingLeaves((prev) => prev.filter((l) => l.id !== id));
       setProcessed((prev) => [
         {
