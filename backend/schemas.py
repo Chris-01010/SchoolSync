@@ -377,3 +377,18 @@ class UserAdminView(BaseModel):
     is_active: bool
     status: str
     last_active: str
+class BlockedSlotBase(BaseModel):
+    teacher_id: UUID
+    day: int
+    period: int
+    reason: Optional[str] = None
+
+class BlockedSlotCreate(BlockedSlotBase):
+    pass
+
+class BlockedSlotOut(BlockedSlotBase):
+    id: UUID
+    created_at: datetime
+
+    class Config:
+        from_attributes = True    
