@@ -1,13 +1,83 @@
-import React, { useState } from 'react';
-import { Bell, Clock, LogOut, Menu, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bell, Clock, LogOut, Menu, Plus, CheckCircle2, Repeat2, Users, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import ReliefAssignmentModal from '../teacher/ReliefAssignmentModal';
+
+const fmtDate = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const today = new Date();
+const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+const dayAfter = new Date(today); dayAfter.setDate(today.getDate() + 2);
+
+// Mock relief assignment — shape mirrors the eventual /relief-assignments/{id} response
+const mockReliefAssignment = {
+  id: 'mock-relief-001',
+  class_name: '10A Chemistry',
+  period: 4,
+  period_start_time: '13:00',
+  period_end_time: '14:00',
+  original_teacher_name: 'Dr. Patel',
+  day_label: 'Tomorrow',
+  subject_name: 'Chemistry',
+  room_name: 'Lab 3',
+};
+
+const notifs = [
+  {
+    Icon: CheckCircle2,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    title: 'Leave Application Approved',
+    sub: `Your sick leave for ${fmtDate(tomorrow)} has been approved by the HOD.`,
+    time: '2h ago',
+  },
+  {
+    Icon: Repeat2,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-orange-600',
+    title: 'Substitute Assignment Notification',
+    sub: `You have been assigned to cover Dr. Wilson's Period 6 class in Lab 2 on ${fmtDate(tomorrow)}.`,
+    time: '4h ago',
+  },
+  {
+    Icon: Users,
+    iconBg: 'bg-blue-50',
+    iconColor: 'text-blue-600',
+    title: 'Departmental Meeting Scheduled',
+    sub: `Mathematics Department meeting at 15:30 on ${fmtDate(dayAfter)}. Attendance required.`,
+    time: '5h ago',
+  },
+];
 
 const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [reliefModalOpen, setReliefModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null); // { text, kind: 'accept' | 'reject' }
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const id = setTimeout(() => setToastMessage(null), 3000);
+    return () => clearTimeout(id);
+  }, [toastMessage]);
+
+  const handleReliefClick = () => {
+    setNotifOpen(false);
+    setReliefModalOpen(true);
+  };
+
+  const handleAccept = () => {
+    setReliefModalOpen(false);
+    setToastMessage({ text: 'Assignment accepted', kind: 'accept' });
+  };
+
+  const handleReject = () => {
+    setReliefModalOpen(false);
+    setToastMessage({ text: 'Assignment rejected', kind: 'reject' });
+  };
 
   // Hide the top-right "Apply Leave" button when on the My Leaves page,
   // since that page has its own working in-page Apply button.
@@ -47,6 +117,7 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   };
 
   return (
+    <>
     <header className="h-12 bg-white border-b border-gray-100 flex items-center px-4 gap-3 flex-shrink-0 z-10">
       {/* Mobile hamburger */}
       <button
@@ -93,20 +164,26 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
                 </button>
               </div>
               <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
-                {[
-                  { icon: '✅', title: 'Personal Leave Approved', sub: 'Your leave for Oct 30 has been granted.', time: '2h ago', color: 'text-emerald-600' },
-                  { icon: '🔄', title: 'New Relief Duty Assigned', sub: 'Period 6 in Lab 2 for Mr. Wilson.', time: '4h ago', color: 'text-orange-500' },
-                  { icon: '📢', title: 'Departmental Meeting', sub: 'Math Dept meeting at 3:30 PM today.', time: '5h ago', color: 'text-blue-500' },
-                ].map((n, i) => (
-                  <div key={i} className="flex items-start gap-2.5 px-4 py-2.5 hover:bg-gray-50 cursor-pointer">
-                    <span className="text-base mt-0.5">{n.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-bold text-gray-800">{n.title}</p>
-                      <p className="text-[10px] text-gray-500 truncate">{n.sub}</p>
+                {notifs.map((n, i) => {
+                  const I = n.Icon;
+                  const isRelief = n.Icon === Repeat2;
+                  return (
+                    <div
+                      key={i}
+                      onClick={isRelief ? handleReliefClick : undefined}
+                      className="flex items-start gap-2.5 px-4 py-2.5 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <div className={`w-7 h-7 rounded-lg ${n.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+                        <I size={13} className={n.iconColor} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-bold text-gray-800">{n.title}</p>
+                        <p className="text-[10px] text-gray-500 leading-snug">{n.sub}</p>
+                      </div>
+                      <span className="text-[9px] text-gray-400 whitespace-nowrap mt-0.5">{n.time}</span>
                     </div>
-                    <span className="text-[9px] text-gray-400 whitespace-nowrap mt-0.5">{n.time}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -151,6 +228,36 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
         </div>
       </div>
     </header>
+
+    <ReliefAssignmentModal
+      isOpen={reliefModalOpen}
+      onClose={() => setReliefModalOpen(false)}
+      assignment={mockReliefAssignment}
+      onAccept={handleAccept}
+      onReject={handleReject}
+    />
+
+    {/* Toast */}
+    <AnimatePresence>
+      {toastMessage && (
+        <motion.div
+          key="toast"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          transition={{ duration: 0.2 }}
+          className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border flex items-center gap-2 ${
+            toastMessage.kind === 'accept'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : 'bg-gray-50 border-gray-200 text-gray-700'
+          }`}
+        >
+          {toastMessage.kind === 'accept' ? <CheckCircle2 size={14} /> : <X size={14} />}
+          <span className="text-[12px] font-semibold">{toastMessage.text}</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+    </>
   );
 };
 
