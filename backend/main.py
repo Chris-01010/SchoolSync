@@ -1097,3 +1097,5 @@ async def trigger_timetable_generation(request: schemas.TimetableGenerateRequest
     task = generate_timetable_task.delay(str(request.school_id))
     return {"task_id": task.id, "status": "pending"}
 app.include_router(leave_api.router, prefix="/leaves", tags=["leaves"])
+from . import relief_router
+app.include_router(relief_router.router, prefix="/relief", tags=["relief"])

@@ -75,55 +75,108 @@ async def notify(db: AsyncSession, user_id: UUID, title: str, content: str):
 # ─── Helper: dispatch relief (stub for Member 2 scoring engine) ───────────────
 
 async def dispatch_relief_for_absence(absence_id: UUID, db: AsyncSession):
+    from .relief_engine import rank_candidates  # local import avoids circular
 
-    # Get approved absence
+    # ── Fetch absence ──────────────────────────────────────────────────────
     result = await db.execute(
         select(models.Absence).where(models.Absence.id == absence_id)
     )
     absence = result.scalar_one_or_none()
-
     if not absence:
-        print("[VACANT PERIOD] Absence not found.")
+        print("[RELIEF] Absence not found.")
         return
 
-    # Convert date to weekday
+    # ── Fetch absent teacher ───────────────────────────────────────────────
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+    )
+    absent_teacher = teacher_result.scalar_one_or_none()
+    if not absent_teacher:
+        print("[RELIEF] Absent teacher profile not found.")
+        return
+
     day_of_week = absence.date.weekday()
 
-    # Find timetable slots of absent teacher
+    # ── Find vacant slots ──────────────────────────────────────────────────
     slots_result = await db.execute(
         select(models.TimetableSlot).where(
             models.TimetableSlot.teacher_id == absence.teacher_id,
             models.TimetableSlot.day_of_week == day_of_week,
             models.TimetableSlot.period >= absence.period_start,
             models.TimetableSlot.period <= absence.period_end,
-            models.TimetableSlot.is_relief == False
+            models.TimetableSlot.is_relief == False,
         )
     )
-
     vacant_slots = slots_result.scalars().all()
 
-    # Edge case
     if not vacant_slots:
-        print("[VACANT PERIOD] No timetable slots found.")
+        print("[RELIEF] No timetable slots found for this absence.")
         return
 
-    # Create relief requests
+    # ── Build weekly_counts once — used by the fairness scorer ────────────
+    # Count how many relief assignments each teacher already has this week.
+    from sqlalchemy import func as sa_func
+    from datetime import timedelta
+
+    week_start = absence.date - timedelta(days=absence.date.weekday())
+    week_end   = week_start + timedelta(days=6)
+
+    counts_result = await db.execute(
+        select(
+            models.ReliefAssignment.relief_teacher_id,
+            sa_func.count(models.ReliefAssignment.id).label("cnt"),
+        )
+        .join(models.Absence, models.ReliefAssignment.absence_id == models.Absence.id)
+        .where(
+            models.Absence.date >= week_start,
+            models.Absence.date <= week_end,
+            models.ReliefAssignment.relief_teacher_id.isnot(None),
+        )
+        .group_by(models.ReliefAssignment.relief_teacher_id)
+    )
+    weekly_counts: dict = {row[0]: row[1] for row in counts_result.all()}
+
+    # ── Score and assign each vacant slot ─────────────────────────────────
+    assigned = 0
     for slot in vacant_slots:
-        relief_assignment = models.ReliefAssignment(
-            absence_id=absence.id,
-            relief_teacher_id=None,
-            slot_id=slot.id,
-            score=0,
-            status=models.ReliefStatus.PENDING,
-            reason_text="Vacant period generated after leave approval."
+        ranked = await rank_candidates(
+            absent_teacher=absent_teacher,
+            slot=slot,
+            weekly_counts=weekly_counts,
+            db=db,
         )
 
+        top = ranked[0] if ranked else None
+
+        relief_assignment = models.ReliefAssignment(
+            absence_id=absence.id,
+            slot_id=slot.id,
+            relief_teacher_id=top.teacher.id if top else None,
+            score=top.total_score if top else 0,
+            status=models.ReliefStatus.PENDING,
+            reason_text=_build_reason(top) if top else "No eligible teacher found.",
+        )
         db.add(relief_assignment)
 
+        # Update weekly_counts in-memory so later slots in the same absence
+        # see the fairness penalty immediately (before the DB commit).
+        if top:
+            weekly_counts[top.teacher.id] = weekly_counts.get(top.teacher.id, 0) + 1
+
+        assigned += 1
+
     await db.commit()
+    print(f"[RELIEF] Created {assigned} relief assignments for absence {absence_id}.")
 
-    print(f"[VACANT PERIOD] Created {len(vacant_slots)} relief assignments.")
 
+def _build_reason(candidate: "ScoredCandidate") -> str:
+    b = candidate.breakdown
+    parts = []
+    if b.get("p1_continuity"):  parts.append("class continuity")
+    if b.get("p2_expertise"):   parts.append("subject match")
+    if b.get("p3_department"):  parts.append("same dept")
+    if b.get("fairness"):       parts.append(f"fairness +{b['fairness']}")
+    return f"Score {candidate.total_score}: " + (", ".join(parts) or "fallback")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TEACHER: Submit a leave request  (FR-1)

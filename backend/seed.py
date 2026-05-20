@@ -274,21 +274,26 @@ async def seed_data():
 
         # ============================================================
         # GROUP H — Absences / Leave Applications (8)
+        # Fixed weekday dates so the engine always finds timetable slots.
+        # John Doe absence = last Tuesday (always a weekday John has slots).
         # ============================================================
         today = date.today()
+        # Find the most recent Tuesday (weekday 1)
+        days_since_tuesday = (today.weekday() - 1) % 7
+        last_tuesday = today - timedelta(days=days_since_tuesday)
+
         absences_data = [
-            ("Priya Menon",    2,   1, 3, "Sick Leave",     "Fever and rest advised by doctor",   models.AbsenceStatus.PENDING),
-            ("Ravi Iyer",      3,   1, 6, "Casual Leave",   "Wedding in family",                  models.AbsenceStatus.PENDING),
-            ("Fatima Khan",    1,   4, 6, "Personal Leave", "Urgent personal matter",             models.AbsenceStatus.PENDING),
-            ("Arjun Nair",     5,   1, 6, "Casual Leave",   "Family function",                    models.AbsenceStatus.APPROVED),
-            ("Lakshmi Rao",    7,   1, 6, "Earned Leave",   "Annual vacation",                    models.AbsenceStatus.APPROVED),
-            ("John Doe",      -3,   3, 5, "Sick Leave",     "Migraine",                           models.AbsenceStatus.APPROVED),
-            ("George Mathew", -5,   1, 3, "Sick Leave",     "Flu",                                models.AbsenceStatus.APPROVED),
-            ("Sneha Varma",    4,   1, 2, "Personal Leave", "Bank appointment",                   models.AbsenceStatus.REJECTED),
+            ("Priya Menon",    today + timedelta(days=2),   1, 3, "Sick Leave",     "Fever and rest advised by doctor",   models.AbsenceStatus.PENDING),
+            ("Ravi Iyer",      today + timedelta(days=3),   1, 6, "Casual Leave",   "Wedding in family",                  models.AbsenceStatus.PENDING),
+            ("Fatima Khan",    today + timedelta(days=1),   4, 6, "Personal Leave", "Urgent personal matter",             models.AbsenceStatus.PENDING),
+            ("Arjun Nair",     today + timedelta(days=5),   1, 6, "Casual Leave",   "Family function",                    models.AbsenceStatus.APPROVED),
+            ("Lakshmi Rao",    today + timedelta(days=7),   1, 6, "Earned Leave",   "Annual vacation",                    models.AbsenceStatus.APPROVED),
+            ("John Doe",       last_tuesday,                3, 5, "Sick Leave",     "Migraine",                           models.AbsenceStatus.APPROVED),
+            ("George Mathew",  today - timedelta(days=5),   1, 3, "Sick Leave",     "Flu",                                models.AbsenceStatus.APPROVED),
+            ("Sneha Varma",    today + timedelta(days=4),   1, 2, "Personal Leave", "Bank appointment",                   models.AbsenceStatus.REJECTED),
         ]
         absence_ids = {}
-        for name, offset, p_start, p_end, leave_type, reason, status in absences_data:
-            abs_date = today + timedelta(days=offset)
+        for name, abs_date, p_start, p_end, leave_type, reason, status in absences_data:
             absence = models.Absence(
                 teacher_id=teacher_ids[name],
                 date=abs_date,
@@ -297,11 +302,11 @@ async def seed_data():
                 leave_type=leave_type,
                 reason=reason,
                 status=status,
-                resolved=(status == models.AbsenceStatus.APPROVED and offset < 0),
+                resolved=(status == models.AbsenceStatus.APPROVED and abs_date < today),
             )
             db.add(absence)
             await db.flush()
-            absence_ids[f"{name}_{offset}"] = absence.id
+            absence_ids[name] = absence.id
         await db.commit()
         print(f"  ✓ {len(absences_data)} absence records")
 
@@ -309,12 +314,12 @@ async def seed_data():
         # GROUP I — Relief Assignments (6)
         # ============================================================
         relief_data = [
-            ("Arjun Nair_5",     "Lakshmi Rao",   88, models.ReliefStatus.ACCEPTED, "AD/IT cross-coverage, available all day"),
-            ("Lakshmi Rao_7",    "Fatima Khan",   85, models.ReliefStatus.PENDING,  "Same IT department, free during P4-P6"),
-            ("John Doe_-3",      "Priya Menon",   92, models.ReliefStatus.ACCEPTED, "Same CS department, OOP expertise"),
-            ("George Mathew_-5", "Sneha Varma",   90, models.ReliefStatus.ACCEPTED, "EC/AEI cross-coverage, low weekly load"),
-            ("Priya Menon_2",    "Ravi Iyer",     78, models.ReliefStatus.PENDING,  "Same CS dept, data structures expertise"),
-            ("Fatima Khan_1",    "Lakshmi Rao",   82, models.ReliefStatus.PENDING,  "IT dept colleague, free periods P4-P6"),
+            ("Arjun Nair",   "Lakshmi Rao",  88, models.ReliefStatus.ACCEPTED, "AD/IT cross-coverage, available all day"),
+            ("Lakshmi Rao",  "Fatima Khan",  85, models.ReliefStatus.PENDING,  "Same IT department, free during P4-P6"),
+            ("John Doe",     "Priya Menon",  92, models.ReliefStatus.ACCEPTED, "Same CS department, OOP expertise"),
+            ("George Mathew","Sneha Varma",  90, models.ReliefStatus.ACCEPTED, "EC/AEI cross-coverage, low weekly load"),
+            ("Priya Menon",  "Ravi Iyer",    78, models.ReliefStatus.PENDING,  "Same CS dept, data structures expertise"),
+            ("Fatima Khan",  "Lakshmi Rao",  82, models.ReliefStatus.PENDING,  "IT dept colleague, free periods P4-P6"),
         ]
         relief_count = 0
         for abs_key, relief_name, score, status, reason in relief_data:
@@ -337,25 +342,25 @@ async def seed_data():
         # GROUP J — Notifications (10)
         # ============================================================
         notifications_data = [
-            ("teacher@schoolsync.com",          "Relief assignment confirmed",
-             "You have been assigned to cover P3 (11:00-12:00), CS S5-A on Friday."),
-            ("teacher@schoolsync.com",          "Leave application approved",
+            ("teacher@schoolsync.com",       "Relief assignment confirmed",
+             "You have been assigned to cover P3 (11:00-12:00), CS S5-A on Tuesday."),
+            ("teacher@schoolsync.com",       "Leave application approved",
              "Your sick leave request for last week has been approved."),
-            ("priya.menon@schoolsync.com",      "Relief request pending",
+            ("priya.menon@schoolsync.com",   "Relief request pending",
              "You have a pending relief assignment for CS S3-A data structures."),
-            ("arjun.nair@schoolsync.com",       "Leave approved",
+            ("arjun.nair@schoolsync.com",    "Leave approved",
              "Your casual leave request has been approved by HOD."),
-            ("fatima.khan@schoolsync.com",      "Relief duty assigned",
+            ("fatima.khan@schoolsync.com",   "Relief duty assigned",
              "You have been assigned relief duty for an IT department class."),
-            ("hod.cs@schoolsync.com",           "New leave application",
+            ("hod.cs@schoolsync.com",        "New leave application",
              "Priya Menon has submitted a leave request for review."),
-            ("hod.cs@schoolsync.com",           "New leave application",
+            ("hod.cs@schoolsync.com",        "New leave application",
              "Ravi Iyer has submitted a casual leave request."),
-            ("hod.ad@schoolsync.com",           "Relief coverage update",
+            ("hod.ad@schoolsync.com",        "Relief coverage update",
              "Arjun Nair's classes have been fully covered for next week."),
-            ("admin@schoolsync.com",            "Timetable published",
+            ("admin@schoolsync.com",         "Timetable published",
              "The 2025-2026 academic year timetable is now active."),
-            ("admin@schoolsync.com",            "Weekly report ready",
+            ("admin@schoolsync.com",         "Weekly report ready",
              "This week's relief coverage report is ready for review."),
         ]
         notif_count = 0
