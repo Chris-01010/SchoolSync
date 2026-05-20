@@ -51,6 +51,7 @@ class ReliefRespondRequest(BaseModel):
 class AdminOverrideRequest(BaseModel):
     relief_teacher_id: UUID
     override_note: Optional[str] = None
+
 class HODAssignReliefRequest(BaseModel):
     relief_teacher_id: UUID
     note: Optional[str] = None
@@ -72,10 +73,89 @@ async def notify(db: AsyncSession, user_id: UUID, title: str, content: str):
         print(f"[NOTIFICATION ERROR] {e}")
 
 
-# ─── Helper: dispatch relief (stub for Member 2 scoring engine) ───────────────
+# ─── Helper: rollover to next candidate (FR-20) ───────────────────────────────
+
+async def _rollover_relief(assignment_id: UUID, db: AsyncSession):
+    """FR-20: when a teacher rejects, assign the next ranked candidate."""
+    from .relief_engine import rank_candidates
+
+    # Fetch the rejected assignment
+    result = await db.execute(
+        select(models.ReliefAssignment).where(models.ReliefAssignment.id == assignment_id)
+    )
+    assignment = result.scalar_one_or_none()
+    if not assignment or not assignment.slot_id:
+        print(f"[ROLLOVER] Assignment {assignment_id} not found or has no slot.")
+        return
+
+    # Fetch the slot
+    slot_result = await db.execute(
+        select(models.TimetableSlot).where(models.TimetableSlot.id == assignment.slot_id)
+    )
+    slot = slot_result.scalar_one_or_none()
+    if not slot:
+        print(f"[ROLLOVER] Slot not found for assignment {assignment_id}.")
+        return
+
+    # Fetch the absent teacher via the absence
+    absence_result = await db.execute(
+        select(models.Absence).where(models.Absence.id == assignment.absence_id)
+    )
+    absence = absence_result.scalar_one_or_none()
+    if not absence:
+        return
+
+    absent_teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+    )
+    absent_teacher = absent_teacher_result.scalar_one_or_none()
+    if not absent_teacher:
+        return
+
+    # Find all teachers already rejected for this slot — skip them
+    rejected_result = await db.execute(
+        select(models.ReliefAssignment.relief_teacher_id).where(
+            models.ReliefAssignment.absence_id == assignment.absence_id,
+            models.ReliefAssignment.slot_id == assignment.slot_id,
+            models.ReliefAssignment.status == models.ReliefStatus.REJECTED,
+        )
+    )
+    rejected_ids = {row[0] for row in rejected_result.all()}
+
+    # Re-rank and pick the next candidate not already rejected
+    ranked = await rank_candidates(
+        absent_teacher=absent_teacher,
+        slot=slot,
+        weekly_counts={},
+        db=db,
+    )
+
+    next_candidate = next(
+        (c for c in ranked if c.teacher.id not in rejected_ids),
+        None
+    )
+
+    if not next_candidate:
+        print(f"[ROLLOVER] No more candidates for slot {assignment.slot_id}.")
+        assignment.reason_text = "All candidates exhausted — manual assignment required."
+        await db.commit()
+        return
+
+    # Update the existing assignment record to the next candidate
+    assignment.relief_teacher_id = next_candidate.teacher.id
+    assignment.score = next_candidate.total_score
+    assignment.status = models.ReliefStatus.PENDING
+    assignment.acknowledged_at = None
+    assignment.reason_text = f"Rollover: {assignment.reason_text}"
+
+    await db.commit()
+    print(f"[ROLLOVER] Reassigned slot {assignment.slot_id} to {next_candidate.teacher.name}.")
+
+
+# ─── Helper: dispatch relief ──────────────────────────────────────────────────
 
 async def dispatch_relief_for_absence(absence_id: UUID, db: AsyncSession):
-    from .relief_engine import rank_candidates  # local import avoids circular
+    from .relief_engine import rank_candidates
 
     # ── Fetch absence ──────────────────────────────────────────────────────
     result = await db.execute(
@@ -114,7 +194,6 @@ async def dispatch_relief_for_absence(absence_id: UUID, db: AsyncSession):
         return
 
     # ── Build weekly_counts once — used by the fairness scorer ────────────
-    # Count how many relief assignments each teacher already has this week.
     from sqlalchemy import func as sa_func
     from datetime import timedelta
 
@@ -158,8 +237,6 @@ async def dispatch_relief_for_absence(absence_id: UUID, db: AsyncSession):
         )
         db.add(relief_assignment)
 
-        # Update weekly_counts in-memory so later slots in the same absence
-        # see the fairness penalty immediately (before the DB commit).
         if top:
             weekly_counts[top.teacher.id] = weekly_counts.get(top.teacher.id, 0) + 1
 
@@ -169,7 +246,7 @@ async def dispatch_relief_for_absence(absence_id: UUID, db: AsyncSession):
     print(f"[RELIEF] Created {assigned} relief assignments for absence {absence_id}.")
 
 
-def _build_reason(candidate: "ScoredCandidate") -> str:
+def _build_reason(candidate) -> str:
     b = candidate.breakdown
     parts = []
     if b.get("p1_continuity"):  parts.append("class continuity")
@@ -177,6 +254,7 @@ def _build_reason(candidate: "ScoredCandidate") -> str:
     if b.get("p3_department"):  parts.append("same dept")
     if b.get("fairness"):       parts.append(f"fairness +{b['fairness']}")
     return f"Score {candidate.total_score}: " + (", ".join(parts) or "fallback")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TEACHER: Submit a leave request  (FR-1)
@@ -189,7 +267,6 @@ async def apply_leave(
     current_user: models.User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Get the teacher profile
     result = await db.execute(
         select(models.Teacher).where(models.Teacher.user_id == current_user.id)
     )
@@ -197,7 +274,6 @@ async def apply_leave(
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher profile not found.")
 
-    # Create the absence/leave record
     absence = models.Absence(
         teacher_id=teacher.id,
         date=datetime.strptime(body.date, "%Y-%m-%d").date(),
@@ -212,7 +288,6 @@ async def apply_leave(
     await db.commit()
     await db.refresh(absence)
 
-    # Notify the HOD of this department
     if teacher.department_id:
         dept_result = await db.execute(
             select(models.Department).where(models.Department.id == teacher.department_id)
@@ -295,7 +370,6 @@ async def get_pending_leaves(
 ):
     auth.check_role([models.UserRole.HOD, models.UserRole.ADMIN])
 
-    # Get HOD's department
     hod_result = await db.execute(
         select(models.Teacher).where(models.Teacher.user_id == current_user.id)
     )
@@ -315,22 +389,21 @@ async def get_pending_leaves(
     leaves = result.scalars().all()
 
     return {
-    "success": True,
-    "count": len(leaves),
-    "data": [
-        {
-            "id": str(l.id),
-            "teacher_name": l.teacher.name if l.teacher else "Unknown Teacher",
-            "date": str(l.date),
-            "leave_type": l.leave_type,
-            "reason": l.reason,
-            "status": l.status,
-            "period_start": l.period_start,
-            "period_end": l.period_end,
-        }
-        for l in leaves
-    ],
-}
+        "success": True,
+        "count": len(leaves),
+        "data": [
+            {
+                "id": str(l.id),
+                "date": str(l.date),
+                "leave_type": l.leave_type,
+                "reason": l.reason,
+                "status": l.status,
+                "period_start": l.period_start,
+                "period_end": l.period_end,
+            }
+            for l in leaves
+        ],
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -345,14 +418,12 @@ async def hod_action_on_leave(
     current_user: models.User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Validate note is provided for reject/clarify
     if body.action in (HODAction.REJECT, HODAction.CLARIFY) and not body.note:
         raise HTTPException(
             status_code=400,
             detail="A note is required when rejecting or requesting clarification.",
         )
 
-    # Fetch the absence
     result = await db.execute(
         select(models.Absence).where(models.Absence.id == absence_id)
     )
@@ -360,14 +431,12 @@ async def hod_action_on_leave(
     if not absence:
         raise HTTPException(status_code=404, detail="Leave request not found.")
 
-    # Only act on PENDING requests
     if absence.status != models.AbsenceStatus.PENDING:
         raise HTTPException(
             status_code=409,
             detail=f"This request is already {absence.status}.",
         )
 
-    # HOD scope check — must be same department
     teacher_result = await db.execute(
         select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
     )
@@ -389,10 +458,8 @@ async def hod_action_on_leave(
             detail="You can only manage leaves in your department.",
         )
 
-    # Apply action
     if body.action == HODAction.APPROVE:
         absence.status = models.AbsenceStatus.APPROVED
-        # FR-3: trigger relief dispatch as background task
         background_tasks.add_task(dispatch_relief_for_absence, absence.id, db)
         notif_msg = f"Your {absence.leave_type} leave on {absence.date} has been approved."
 
@@ -402,13 +469,11 @@ async def hod_action_on_leave(
         notif_msg = f"Your leave request was rejected. HOD note: {body.note}"
 
     elif body.action == HODAction.CLARIFY:
-        # Keep PENDING but notify teacher to clarify
         notif_msg = f"Your HOD needs clarification on your leave request: {body.note}"
 
     await db.commit()
     await db.refresh(absence)
 
-    # Notify the teacher
     if absent_teacher and absent_teacher.user_id:
         background_tasks.add_task(
             notify, db, absent_teacher.user_id,
@@ -467,7 +532,6 @@ async def respond_to_relief(
 
     if body.status == models.ReliefStatus.ACCEPTED:
         assignment.acknowledged_at = datetime.utcnow()
-        # Update teacher workload
         teacher.current_relief_hours += 1
         teacher.total_hours_worked += 1
 
@@ -475,7 +539,6 @@ async def respond_to_relief(
         if not body.flag_reason:
             raise HTTPException(status_code=400, detail="flag_reason is required when flagging.")
         assignment.flag_reason = body.flag_reason
-        # Notify all admins
         admins_result = await db.execute(
             select(models.User).where(models.User.role == models.UserRole.ADMIN)
         )
@@ -487,8 +550,8 @@ async def respond_to_relief(
             )
 
     elif body.status == models.ReliefStatus.REJECTED:
-        # FR-20: member 2 rollover logic
-        print(f"[ROLLOVER] Assignment {assignment_id} rejected. Rolling to next candidate.")
+        # FR-20: roll over to the next ranked candidate
+        background_tasks.add_task(_rollover_relief, assignment_id, db)
 
     await db.commit()
     await db.refresh(assignment)
@@ -527,7 +590,6 @@ async def override_relief(
     if not new_teacher:
         raise HTTPException(status_code=404, detail="New relief teacher not found.")
 
-    old_teacher_id = assignment.relief_teacher_id
     assignment.relief_teacher_id = body.relief_teacher_id
     assignment.status = models.ReliefStatus.PENDING
     assignment.acknowledged_at = None
@@ -535,7 +597,6 @@ async def override_relief(
     await db.commit()
     await db.refresh(assignment)
 
-    # Notify new teacher
     if new_teacher.user_id:
         background_tasks.add_task(
             notify, db, new_teacher.user_id,
@@ -548,6 +609,8 @@ async def override_relief(
         "message": "Relief assignment overridden successfully.",
         "data": {"id": str(assignment.id), "new_teacher_id": str(body.relief_teacher_id)},
     }
+
+
 @router.post("/relief/{absence_id}/assign")
 async def assign_relief_teacher(
     absence_id: UUID,
@@ -557,7 +620,6 @@ async def assign_relief_teacher(
     result = await db.execute(
         select(models.Absence).filter(models.Absence.id == absence_id)
     )
-
     absence = result.scalars().first()
 
     if not absence:
@@ -570,7 +632,6 @@ async def assign_relief_teacher(
     )
 
     db.add(relief_assignment)
-
     await db.commit()
 
     return {
