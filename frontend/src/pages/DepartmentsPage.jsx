@@ -1,24 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Search, Building2, UserCheck, AlertTriangle, Users, ChevronDown, X, AlertCircle } from "lucide-react";
-
-const summaryStats = [
-  { label: "TOTAL DEPARTMENTS", value: "12", sub: "Institution-wide",  accent: "text-indigo-600",  icon: Building2,     iconBg: "bg-indigo-50" },
-  { label: "ACTIVE HODs",      value: "10", sub: "Assigned heads",    accent: "text-emerald-600", icon: UserCheck,     iconBg: "bg-emerald-50" },
-  { label: "UNASSIGNED HODs",  value: "2",  sub: "Needs assignment",  accent: "text-amber-600",   icon: AlertTriangle, iconBg: "bg-amber-50" },
-  { label: "TOTAL FACULTY",    value: "156", sub: "Across all depts", accent: "text-blue-600",    icon: Users,         iconBg: "bg-blue-50" },
-];
-
-const departments = [
-  { id: 1, name: "Mathematics",      hod: "Mr. Adams",    teachers: 24, workload: 78 },
-  { id: 2, name: "Science",          hod: "Dr. Peterson", teachers: 18, workload: 92 },
-  { id: 3, name: "English",          hod: null,           teachers: 12, workload: 65 },
-  { id: 4, name: "History",          hod: "Ms. Brown",    teachers: 15, workload: 70 },
-  { id: 5, name: "Physical Ed.",     hod: "Mr. Adams",    teachers: 24, workload: 55 },
-  { id: 6, name: "Computer Science", hod: "Prof. Kumar",  teachers: 10, workload: 88 },
-  { id: 7, name: "Physics",          hod: "Dr. Lee",      teachers: 14, workload: 74 },
-  { id: 8, name: "Arts",             hod: null,           teachers: 8,  workload: 45 },
-];
+import { api } from "../services/api";
 
 function workloadColor(pct) {
   if (pct > 90) return "bg-red-500";
@@ -43,11 +26,46 @@ const modalContent = {
 };
 
 export default function DepartmentsPage() {
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState(null);
+  const [search, setSearch]           = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [hodModalOpen, setHodModalOpen] = useState(false);
-  const [hodModalRow, setHodModalRow] = useState(null);
+  const [hodModalRow, setHodModalRow]   = useState(null);
+
+  const fetchDepartments = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.get("/api/v1/departments");
+      const list = Array.isArray(data) ? data : (data?.data || []);
+      setDepartments(list);
+    } catch (err) {
+      setError(err.message || "Failed to load departments.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchDepartments(); }, []);
 
   const openHodModal = (dept) => { setHodModalRow(dept); setHodModalOpen(true); };
+
+  const filtered = departments.filter((d) =>
+    d.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const totalDepts      = departments.length;
+  const assignedHods    = departments.filter((d) => d.hod_id).length;
+  const unassignedHods  = departments.filter((d) => !d.hod_id).length;
+
+  const summaryStats = [
+    { label: "TOTAL DEPARTMENTS", value: loading ? "—" : totalDepts,     sub: "Institution-wide",  accent: "text-indigo-600",  icon: Building2,     iconBg: "bg-indigo-50" },
+    { label: "ACTIVE HODs",       value: loading ? "—" : assignedHods,   sub: "Assigned heads",    accent: "text-emerald-600", icon: UserCheck,     iconBg: "bg-emerald-50" },
+    { label: "UNASSIGNED HODs",   value: loading ? "—" : unassignedHods, sub: "Needs assignment",  accent: "text-amber-600",   icon: AlertTriangle, iconBg: "bg-amber-50" },
+    { label: "TOTAL FACULTY",     value: "—",                            sub: "Across all depts",  accent: "text-blue-600",    icon: Users,         iconBg: "bg-blue-50" },
+  ];
 
   return (
     <>
@@ -90,55 +108,83 @@ export default function DepartmentsPage() {
           <div className="relative">
             <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input type="text" placeholder="Search departments..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 placeholder-gray-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
           </div>
         </motion.div>
 
         {/* DEPARTMENTS TABLE */}
         <motion.div variants={itemV} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50/80">
-                  {["DEPARTMENT", "HOD", "TEACHER COUNT", "WORKLOAD", "ACTIONS"].map((h) => (
-                    <th key={h} className="whitespace-nowrap px-5 py-3 text-[11px] font-medium uppercase tracking-wider text-gray-500">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {departments.map((d) => (
-                  <tr key={d.id} className="border-b border-gray-100 transition-colors hover:bg-gray-50/60">
-                    <td className="whitespace-nowrap px-5 py-3.5 text-[13px] font-semibold text-gray-900">{d.name}</td>
-                    <td className="whitespace-nowrap px-5 py-3.5 text-[13px]">
-                      {d.hod ? (
-                        <span className="font-medium text-gray-700">{d.hod}</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 font-medium text-amber-600">
-                          <AlertTriangle size={12} /> (Unassigned)
-                        </span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-5 py-3.5 text-[13px] text-gray-600">{d.teachers}</td>
-                    <td className="px-5 py-3.5" style={{ minWidth: 160 }}>
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
-                          <div className={`h-full rounded-full ${workloadColor(d.workload)}`} style={{ width: `${d.workload}%` }} />
-                        </div>
-                        <span className={`text-[12px] font-bold ${workloadTextColor(d.workload)}`}>{d.workload}%</span>
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <button className="text-[12px] font-semibold text-indigo-600 transition hover:text-indigo-800">Edit</button>
-                        <button onClick={() => openHodModal(d)} className="text-[12px] font-semibold text-gray-500 transition hover:text-gray-700">Assign HOD</button>
-                        <button className="text-[12px] font-semibold text-gray-500 transition hover:text-gray-700">View</button>
-                      </div>
-                    </td>
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex items-center justify-center py-16 text-sm text-gray-400">Loading departments…</div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-center justify-between px-5 py-4 bg-red-50 border-b border-red-100">
+              <p className="text-sm font-medium text-red-600">{error}</p>
+              <button onClick={fetchDepartments} className="ml-4 rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition">Retry</button>
+            </div>
+          )}
+
+          {/* Empty */}
+          {!loading && !error && filtered.length === 0 && (
+            <div className="flex items-center justify-center py-16 text-sm text-gray-400">No departments found.</div>
+          )}
+
+          {/* Table */}
+          {!loading && !error && filtered.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50/80">
+                    {["DEPARTMENT", "HOD", "TEACHER COUNT", "WORKLOAD", "ACTIONS"].map((h) => (
+                      <th key={h} className="whitespace-nowrap px-5 py-3 text-[11px] font-medium uppercase tracking-wider text-gray-500">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.map((d) => (
+                    <tr key={d.id} className="border-b border-gray-100 transition-colors hover:bg-gray-50/60">
+                      <td className="whitespace-nowrap px-5 py-3.5 text-[13px] font-semibold text-gray-900">{d.name}</td>
+                      <td className="whitespace-nowrap px-5 py-3.5 text-[13px]">
+                        {d.hod_id ? (
+                          <span className="font-medium text-gray-700">{d.hod_name || d.hod_id.slice(0, 8) + "…"}</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 font-medium text-amber-600">
+                            <AlertTriangle size={12} /> Unassigned
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3.5 text-[13px] text-gray-400">
+                        {d.teacher_count ?? "—"}
+                      </td>
+                      <td className="px-5 py-3.5 text-gray-400 text-[13px]" style={{ minWidth: 160 }}>
+                        {d.workload != null ? (
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+                              <div className={`h-full rounded-full ${workloadColor(d.workload)}`} style={{ width: `${d.workload}%` }} />
+                            </div>
+                            <span className={`text-[12px] font-bold ${workloadTextColor(d.workload)}`}>{d.workload}%</span>
+                          </div>
+                        ) : "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <button className="text-[12px] font-semibold text-indigo-600 transition hover:text-indigo-800">Edit</button>
+                          <button onClick={() => openHodModal(d)} className="text-[12px] font-semibold text-gray-500 transition hover:text-gray-700">Assign HOD</button>
+                          <button className="text-[12px] font-semibold text-gray-500 transition hover:text-gray-700">View</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </motion.div>
       </motion.div>
 
@@ -211,7 +257,7 @@ export default function DepartmentsPage() {
                 </button>
               </div>
               <p className="mb-4 text-sm text-gray-500">
-                Current HOD: <span className="font-semibold text-gray-700">{hodModalRow?.hod || "None"}</span>
+                Current HOD: <span className="font-semibold text-gray-700">{hodModalRow?.hod_id ? hodModalRow.hod_name || hodModalRow.hod_id.slice(0, 8) + "…" : "None"}</span>
               </p>
               <div className="mb-4">
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Select New HOD</label>
