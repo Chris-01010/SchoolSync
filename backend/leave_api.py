@@ -1,9 +1,3 @@
-# leave_api.py
-# Member 3 — Leave & HOD Approval Workflow
-# FR-1: Teacher leave application
-# FR-2: HOD approve / reject / clarify
-# FR-3: On approval → trigger relief dispatch
-
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -159,6 +153,12 @@ async def apply_leave(
     await db.commit()
     await db.refresh(absence)
 
+    # Notify teacher: submission confirmed
+    background_tasks.add_task(
+        notify, db, current_user.id,
+        "Leave Request Submitted",
+        f"Your {body.leave_type.value} leave on {body.date} has been submitted and is pending HOD approval.",
+    )
     # Notify the HOD of this department
     if teacher.department_id:
         dept_result = await db.execute(
@@ -525,3 +525,72 @@ async def assign_relief_teacher(
         "absence_id": str(absence.id),
         "relief_teacher_id": str(request.relief_teacher_id)
     }
+
+@router.get("/notifications/")
+async def get_notifications(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(models.Notification)
+        .where(models.Notification.user_id == current_user.id)
+        .order_by(models.Notification.created_at.desc())
+    )
+    notifications = result.scalars().all()
+    unread_count = sum(1 for n in notifications if not n.is_read)
+
+    return {
+        "success": True,
+        "unread_count": unread_count,
+        "data": [
+            {
+                "id": str(n.id),
+                "title": n.title,
+                "content": n.content,
+                "is_read": n.is_read,
+                "read_at": n.read_at.isoformat() if n.read_at else None,
+                "created_at": n.created_at.isoformat(),
+            }
+            for n in notifications
+        ],
+    }
+
+@router.put("/notifications/read-all")
+async def mark_all_notifications_read(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(models.Notification).where(
+            models.Notification.user_id == current_user.id,
+            models.Notification.is_read == False,
+        )
+    )
+    unread = result.scalars().all()
+    now = datetime.utcnow()
+    for n in unread:
+        n.is_read = True
+        n.read_at = now
+    await db.commit()
+    return {"success": True, "message": f"{len(unread)} notifications marked as read."}
+
+
+@router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: UUID,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(models.Notification).where(
+            models.Notification.id == notification_id,
+            models.Notification.user_id == current_user.id,
+        )
+    )
+    notif = result.scalar_one_or_none()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found.")
+    notif.is_read = True
+    notif.read_at = datetime.utcnow()
+    await db.commit()
+    return {"success": True, "message": "Notification marked as read."}
