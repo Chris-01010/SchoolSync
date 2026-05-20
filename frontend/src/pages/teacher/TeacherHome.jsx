@@ -142,9 +142,11 @@ const ReliefCard = ({ duty }) => (
       </p>
     )}
     <div className="flex gap-2 mt-2.5">
-      <button className="flex-1 py-1.5 bg-blue-600 text-white text-[10px] font-semibold rounded-lg hover:bg-blue-700 transition-colors">
-        View Lesson Plan
-      </button>
+      {duty.lessonPlanUrl && (
+        <button className="flex-1 py-1.5 bg-blue-600 text-white text-[10px] font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+          View Lesson Plan
+        </button>
+      )}
       <button className="p-1.5 border border-gray-200 rounded-lg text-gray-400 hover:bg-gray-50 transition-colors">
         <MoreHorizontal size={12} />
       </button>

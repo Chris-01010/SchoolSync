@@ -104,6 +104,7 @@ export const activeReliefDutiesToday = [
     department: 'Mathematics Dept',
     avatar: null,
     upcoming: false,
+    lessonPlanUrl: '/mock/lesson-plan.pdf',
   },
   {
     id: 'ar2',
@@ -114,6 +115,7 @@ export const activeReliefDutiesToday = [
     department: null,
     avatar: null,
     upcoming: true,
+    lessonPlanUrl: null,
   },
 ];
 
@@ -224,6 +226,7 @@ export const myReliefDuties = {
       relieving: 'Dr. Patel',
       notes: 'Please cover Chapter 5 exercises',
       status: 'upcoming',
+      lessonPlanUrl: '/mock/lesson-plan.pdf',
     },
   ],
   completed: [
@@ -235,6 +238,7 @@ export const myReliefDuties = {
       relieving: 'Dr. Johnson',
       period: 3,
       status: 'completed',
+      lessonPlanUrl: null,
     },
     {
       id: 'rd3',
@@ -244,6 +248,7 @@ export const myReliefDuties = {
       relieving: 'Dr. Patel',
       period: 1,
       status: 'completed',
+      lessonPlanUrl: '/mock/lesson-plan.pdf',
     },
   ],
 };
