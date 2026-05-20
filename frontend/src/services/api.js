@@ -80,6 +80,23 @@ export const api = {
     put: (path, body) => request("PUT", path, body),
     patch: (path, body) => request("PATCH", path, body),
     delete: (path) => request("DELETE", path),
+
+    getTeacherTimetable: async (teacherId) => {
+        const res = await request("GET", `/timetable/view?scope=teacher&scope_id=${teacherId}`);
+        return res?.timetable ?? {};
+    },
+    getSubjects: async () => {
+        const res = await request("GET", "/api/v1/subjects");
+        return Array.isArray(res) ? res : (res?.data ?? []);
+    },
+    getRooms: async () => {
+        const res = await request("GET", "/api/v1/rooms/");
+        return Array.isArray(res) ? res : (res?.data ?? []);
+    },
+    getTeachers: async () => {
+        const res = await request("GET", "/api/v1/teachers");
+        return Array.isArray(res) ? res : (res?.data ?? []);
+    },
 };
 
 // Direct helpers used outside the standard JSON pattern (form-urlencoded login)

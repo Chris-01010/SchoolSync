@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { timetable, teacher } from '../../mockData';
+import { Download, Search, X, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
+import { api } from '../../services/api';
+import { teacher } from '../../mockData';
 
-const DAYS    = ['Mon (12)', 'Tue (13)', 'Wed (14)', 'Thu (15)', 'Fri (16)'];
-const DAY_KEYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const TIMES   = [
-  { period: 1, label: '08:00', end: '09:00' },
-  { period: 2, label: '09:00', end: '10:00' },
-  { period: 3, label: '10:00', end: '11:00' },
-  { label: 'LUNCH BREAK', isBreak: true },
-  { period: 4, label: '11:30', end: '12:30' },
-  { period: 5, label: '13:00', end: '14:30' },
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+// College periods + breaks (6 periods, two short breaks + lunch)
+const TIMES = [
+  { period: 1, label: '08:30', end: '09:40' },
+  { period: 2, label: '09:40', end: '10:40' },
+  { isBreak: true, kind: 'short', start: '10:40', end: '11:00' },
+  { period: 3, label: '11:00', end: '12:00' },
+  { isBreak: true, kind: 'lunch', start: '12:00', end: '13:00' },
+  { period: 4, label: '13:00', end: '14:00' },
+  { period: 5, label: '14:00', end: '15:00' },
+  { isBreak: true, kind: 'short', start: '15:00', end: '15:15' },
+  { period: 6, label: '15:15', end: '16:15' },
 ];
 
 // ─── Cell type styles ─────────────────────────────────────────────────────────
@@ -51,6 +56,41 @@ const CELL_CONFIG = {
     badgeColor: 'bg-red-100 text-red-500',
   },
 };
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function titleCase(s) {
+  if (!s) return s;
+  return s.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function timeStrToMinutes(t) {
+  if (!t) return 0;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function computeWeekDays(today) {
+  // JS getDay: 0=Sun, 1=Mon … 6=Sat. Backend uses 0=Mon … 4=Fri.
+  const dow = today.getDay();
+  const offset = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + offset);
+
+  return Array.from({ length: 5 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return {
+      label: `${DAY_NAMES[i]} (${d.getDate()})`,
+      dayIndex: i,
+      date: d,
+    };
+  });
+}
+
+function getTodayBackendDow(today) {
+  const dow = today.getDay();
+  return dow === 0 || dow === 6 ? -1 : dow - 1;
+}
 
 // ─── Timetable cell ───────────────────────────────────────────────────────────
 const TimetableCell = ({ cell }) => {
@@ -114,7 +154,7 @@ const TimetableCell = ({ cell }) => {
   );
 };
 
-// ─── Upcoming transitions ─────────────────────────────────────────────────────
+// ─── Upcoming transitions (still mock — per spec) ─────────────────────────────
 const transitions = [
   { icon: '🔵', label: 'Next: Lab Session', detail: 'Starts in 15 minutes · Rm 302' },
   { icon: '⚠️', label: 'Relief Duty Notification', detail: 'Tomorrow 09:00 for Dr. Harrison' },
@@ -122,12 +162,117 @@ const transitions = [
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function MyTimetable() {
-  const [viewMode, setViewMode]   = useState('week'); // 'week' | 'day'
-  const [search, setSearch]       = useState('');
-  const [selectedDay, setSelectedDay] = useState(0);
+  const [viewMode, setViewMode] = useState('week'); // 'week' | 'day'
+  const [search, setSearch] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [timetableData, setTimetableData] = useState({});
+  const [subjects, setSubjects] = useState([]);
+  const [rooms, setRooms] = useState([]);
+
+  const today = useMemo(() => new Date(), []);
+  const days = useMemo(() => computeWeekDays(today), [today]);
+  const todayBackendDow = useMemo(() => getTodayBackendDow(today), [today]);
+  const isWeekend = todayBackendDow === -1;
+  const nowMinutes = today.getHours() * 60 + today.getMinutes();
 
   const totalWorkload = 22.5;
-  const weeklyTarget  = 85;
+  const weeklyTarget = 85;
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [me, teachersList, subjectsList, roomsList] = await Promise.all([
+        api.get('/auth/me'),
+        api.getTeachers(),
+        api.getSubjects(),
+        api.getRooms(),
+      ]);
+
+      const myTeacher = (teachersList || []).find((t) => t.email === me?.email);
+      if (!myTeacher) {
+        throw new Error('Could not find a teacher profile matching your account.');
+      }
+
+      const tt = await api.getTeacherTimetable(myTeacher.id);
+
+      setTimetableData(tt || {});
+      setSubjects(subjectsList || []);
+      setRooms(roomsList || []);
+    } catch (err) {
+      setError(err.message || 'Failed to load timetable');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const subjectMap = useMemo(() => {
+    const m = {};
+    subjects.forEach((s) => { m[s.id] = titleCase(s.name); });
+    return m;
+  }, [subjects]);
+
+  const roomMap = useMemo(() => {
+    const m = {};
+    rooms.forEach((r) => { m[r.id] = r.name; });
+    return m;
+  }, [rooms]);
+
+  // slotMap[day_of_week][period] = slot
+  const slotMap = useMemo(() => {
+    const m = {};
+    Object.entries(timetableData || {}).forEach(([dow, slots]) => {
+      const key = Number(dow);
+      m[key] = {};
+      (slots || []).forEach((s) => { m[key][s.period] = s; });
+    });
+    return m;
+  }, [timetableData]);
+
+  const totalSlots = useMemo(
+    () => Object.values(slotMap).reduce((acc, byPeriod) => acc + Object.keys(byPeriod).length, 0),
+    [slotMap]
+  );
+
+  const buildCell = useCallback((dayIndex, period) => {
+    const slot = slotMap[dayIndex]?.[period];
+    if (!slot) return { type: 'free' };
+
+    const startMin = timeStrToMinutes(slot.start_time);
+    const endMin = timeStrToMinutes(slot.end_time);
+    const isNow =
+      dayIndex === todayBackendDow && nowMinutes >= startMin && nowMinutes < endMin;
+
+    let type = 'regular';
+    if (isNow) type = 'current';
+    else if (slot.is_relief) type = 'relief';
+
+    return {
+      type,
+      subject: subjectMap[slot.subject_id] || 'Unknown',
+      room: roomMap[slot.room_id] || '',
+    };
+  }, [slotMap, subjectMap, roomMap, todayBackendDow, nowMinutes]);
+
+  const visibleDays = useMemo(() => {
+    if (viewMode === 'day') {
+      const idx = isWeekend ? 0 : todayBackendDow;
+      return [days[idx]];
+    }
+    return days;
+  }, [viewMode, days, isWeekend, todayBackendDow]);
+
+  const gridCols = `64px repeat(${visibleDays.length}, 1fr)`;
+
+  const handleViewClick = (v) => {
+    setViewMode(v);
+  };
 
   return (
     <div className="space-y-4 max-w-[1280px]">
@@ -154,19 +299,23 @@ export default function MyTimetable() {
         {/* View toggle */}
         <div className="flex items-center gap-2">
           <div className="flex bg-gray-100 rounded-lg p-0.5">
-            {['Day', 'Week', 'Today'].map((v) => (
-              <button
-                key={v}
-                onClick={() => setViewMode(v.toLowerCase())}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all ${
-                  viewMode === v.toLowerCase()
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {v}
-              </button>
-            ))}
+            {['Day', 'Week'].map((v) => {
+              const lower = v.toLowerCase();
+              const isActive = viewMode === lower;
+              return (
+                <button
+                  key={v}
+                  onClick={() => handleViewClick(lower)}
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all ${
+                    isActive
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {v}
+                </button>
+              );
+            })}
           </div>
         </div>
       </motion.div>
@@ -205,87 +354,118 @@ export default function MyTimetable() {
           transition={{ duration: 0.3, delay: 0.1 }}
           className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden"
         >
-          {/* Grid header — days */}
-          <div className="grid border-b border-gray-100"
-            style={{ gridTemplateColumns: '64px repeat(5, 1fr)' }}>
-            <div className="px-2 py-2.5 border-r border-gray-100">
-              <span className="text-[10px] text-gray-400 font-medium">Time</span>
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 size={18} className="animate-spin text-blue-500" />
+              <span className="ml-3 text-[12px] text-gray-500 font-medium">Loading timetable…</span>
             </div>
-            {DAYS.map((d, i) => (
-              <div
-                key={d}
-                className={`px-2 py-2.5 text-center border-r border-gray-100 last:border-0 cursor-pointer
-                             ${selectedDay === i ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-                onClick={() => setSelectedDay(i)}
-              >
-                <p className={`text-[11px] font-bold ${selectedDay === i ? 'text-blue-700' : 'text-gray-700'}`}>
-                  {d}
-                </p>
+          ) : error ? (
+            <div className="m-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+              <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold text-red-700">Failed to load timetable</p>
+                <p className="text-[10px] text-red-500 mt-0.5 break-words">{error}</p>
               </div>
-            ))}
-          </div>
-
-          {/* Grid rows */}
-          <div className="overflow-x-auto">
-            {TIMES.map((slot, si) => {
-              if (slot.isBreak) {
-                return (
-                  <div
-                    key="break"
-                    className="grid border-b border-gray-100 bg-gray-50"
-                    style={{ gridTemplateColumns: '64px 1fr' }}
-                  >
-                    <div className="px-2 py-2 border-r border-gray-100 flex items-center">
-                      <span className="text-[9px] text-gray-400 font-medium">11:00</span>
+              <button
+                onClick={loadData}
+                className="px-2.5 py-1 bg-red-600 text-white text-[10px] font-semibold rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
+              >
+                Retry
+              </button>
+            </div>
+          ) : totalSlots === 0 ? (
+            <div className="flex items-center justify-center py-20">
+              <p className="text-[12px] text-gray-400 font-medium">No timetable assigned</p>
+            </div>
+          ) : (
+            <>
+              {/* Grid header — days */}
+              <div className="grid border-b border-gray-100" style={{ gridTemplateColumns: gridCols }}>
+                <div className="px-2 py-2.5 border-r border-gray-100">
+                  <span className="text-[10px] text-gray-400 font-medium">Time</span>
+                </div>
+                {visibleDays.map((d) => {
+                  const isToday = d.dayIndex === todayBackendDow;
+                  return (
+                    <div
+                      key={d.dayIndex}
+                      className={`px-2 py-2.5 text-center border-r border-gray-100 last:border-0 ${
+                        isToday ? 'bg-blue-50' : ''
+                      }`}
+                    >
+                      <p className={`text-[11px] font-bold ${isToday ? 'text-blue-700' : 'text-gray-700'}`}>
+                        {d.label}
+                      </p>
                     </div>
-                    <div className="flex items-center justify-center py-2 gap-2">
-                      <span className="text-gray-400">🍴</span>
-                      <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">
-                        Lunch Break
-                      </span>
-                    </div>
-                  </div>
-                );
-              }
+                  );
+                })}
+              </div>
 
-              return (
-                <div
-                  key={slot.period}
-                  className="grid border-b border-gray-100 last:border-0"
-                  style={{ gridTemplateColumns: '64px repeat(5, 1fr)' }}
-                >
-                  {/* Time label */}
-                  <div className="px-2 py-2 border-r border-gray-100 flex flex-col justify-center">
-                    <p className="text-[10px] font-bold text-gray-700">{slot.label}</p>
-                    <p className="text-[9px] text-gray-400">{slot.end}</p>
-                  </div>
-
-                  {/* Day cells */}
-                  {DAY_KEYS.map((dayKey) => {
-                    const cell = timetable[dayKey]?.[slot.period];
-                    const match =
-                      !search ||
-                      (cell &&
-                        cell.type !== 'free' &&
-                        [cell.subject, cell.class, cell.room]
-                          .join(' ')
-                          .toLowerCase()
-                          .includes(search.toLowerCase()));
+              {/* Grid rows */}
+              <div className="overflow-x-auto">
+                {TIMES.map((slot, si) => {
+                  if (slot.isBreak) {
+                    const isLunch = slot.kind === 'lunch';
                     return (
                       <div
-                        key={dayKey}
-                        className={`p-1.5 border-r border-gray-100 last:border-0 transition-opacity ${
-                          search && !match ? 'opacity-20' : 'opacity-100'
-                        }`}
+                        key={`break-${si}`}
+                        className="grid border-b border-gray-100 bg-gray-50"
+                        style={{ gridTemplateColumns: '64px 1fr' }}
                       >
-                        <TimetableCell cell={cell} />
+                        <div className="px-2 py-2 border-r border-gray-100 flex items-center">
+                          <span className="text-[9px] text-gray-400 font-medium">{slot.start}</span>
+                        </div>
+                        <div className="flex items-center justify-center py-2 gap-2">
+                          <span className="text-gray-400">{isLunch ? '🍴' : '☕'}</span>
+                          <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">
+                            {isLunch ? 'Lunch Break' : 'Break'}
+                          </span>
+                        </div>
                       </div>
                     );
-                  })}
-                </div>
-              );
-            })}
-          </div>
+                  }
+
+                  return (
+                    <div
+                      key={slot.period}
+                      className="grid border-b border-gray-100 last:border-0"
+                      style={{ gridTemplateColumns: gridCols }}
+                    >
+                      {/* Time label */}
+                      <div className="px-2 py-2 border-r border-gray-100 flex flex-col justify-center">
+                        <p className="text-[10px] font-bold text-gray-700">{slot.label}</p>
+                        <p className="text-[9px] text-gray-400">{slot.end}</p>
+                      </div>
+
+                      {/* Day cells */}
+                      {visibleDays.map((d) => {
+                        const cell = buildCell(d.dayIndex, slot.period);
+                        const isToday = d.dayIndex === todayBackendDow;
+                        const match =
+                          !search ||
+                          (cell.type !== 'free' &&
+                            [cell.subject, cell.room]
+                              .filter(Boolean)
+                              .join(' ')
+                              .toLowerCase()
+                              .includes(search.toLowerCase()));
+                        return (
+                          <div
+                            key={d.dayIndex}
+                            className={`p-1.5 border-r border-gray-100 last:border-0 transition-opacity ${
+                              isToday ? 'bg-blue-50/40' : ''
+                            } ${search && !match ? 'opacity-20' : 'opacity-100'}`}
+                          >
+                            <TimetableCell cell={cell} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </motion.div>
 
         {/* Right panel */}
