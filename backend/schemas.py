@@ -4,7 +4,7 @@ from uuid import UUID
 from datetime import date, datetime
 from enum import Enum
 
-from .models import UserRole, AbsenceStatus, ReliefStatus
+from models import UserRole, AbsenceStatus, ReliefStatus
 
 
 # Auth Schemas

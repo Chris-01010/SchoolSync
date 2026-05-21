@@ -13,9 +13,9 @@ from uuid import UUID
 from pydantic import BaseModel
 from enum import Enum
 
-from .database import get_db
-from . import models
-from . import auth
+from database import get_db
+import models
+import auth
 
 router = APIRouter()
 

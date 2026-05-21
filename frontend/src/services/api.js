@@ -101,5 +101,5 @@ export const api = {
 
 // Direct helpers used outside the standard JSON pattern (form-urlencoded login)
 export async function loginRequest(email, password) {
-    return request("POST", "/auth/login", { username: email, password }, { form: true });
+   return request("POST", "/api/auth/login", { username: email, password: password });
 }

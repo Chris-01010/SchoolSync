@@ -4,7 +4,7 @@ from enum import Enum as PyEnum
 from sqlalchemy import Column, String, Boolean, Integer, Float, Time, Date, SmallInteger, ForeignKey, UniqueConstraint, Enum, JSON, DateTime, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from .database import Base
+from database import Base
 
 # Note: For SQLite, we might need to handle UUIDs as strings. 
 # SQLAlchemy 2.0's UUID type handles this better.
