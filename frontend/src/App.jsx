@@ -19,11 +19,12 @@ const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'));
 
 // ─── HOD layout + pages ──────────────────────────────────────────────────────
-const HODLayout        = lazy(() => import('./components/layout/HODLayout'));
-const HODDashboard     = lazy(() => import('./components/HODDashboard'));
-const TimetableGrid    = lazy(() => import('./components/TimetableGrid'));
-const LeaveManagement  = lazy(() => import('./pages/LeaveManagement'));
-const ReliefManagement = lazy(() => import('./pages/ReliefManagement'));
+const HODLayout          = lazy(() => import('./components/layout/HODLayout'));
+const HODDashboard       = lazy(() => import('./components/HODDashboard'));
+const TimetableGrid      = lazy(() => import('./components/TimetableGrid'));
+const LeaveManagement    = lazy(() => import('./pages/LeaveManagement'));
+const ReliefManagement   = lazy(() => import('./pages/ReliefManagement'));
+const HODAnalyticsPage   = lazy(() => import('./pages/HODAnalyticsPage'));
 
 // ─── Teacher layout + pages ──────────────────────────────────────────────────
 const TeacherLayout        = lazy(() => import('./components/layout/TeacherLayout'));
@@ -53,22 +54,6 @@ const SettingsPage          = lazy(() => import('./pages/SettingsPage'));
 // ─── Legacy app ───────────────────────────────────────────────────────────────
 const LegacyApp = lazy(() => import('./LegacyApp'));
 
-// ─── Placeholders ─────────────────────────────────────────────────────────────
-const PlaceholderPage = ({ title }) => (
-  <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-3">
-    <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-      <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-      </svg>
-    </div>
-    <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-    <p className="text-[14px] font-medium text-gray-500">Coming soon</p>
-  </div>
-);
-
-const AnalyticsPlaceholder = () => <PlaceholderPage title="HOD Analytics" />;
-
 // ─── Loaders / 404 ────────────────────────────────────────────────────────────
 const PageLoader = () => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -80,10 +65,7 @@ const NotFound = () => (
   <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4 p-6 text-center">
     <h1 className="text-[32px] font-bold text-gray-900">Page not found</h1>
     <p className="text-gray-400 text-sm">The page you're looking for doesn't exist.</p>
-    <a
-      href="/login"
-      className="text-blue-600 font-semibold hover:text-blue-700 transition-colors"
-    >
+    <a href="/login" className="text-blue-600 font-semibold hover:text-blue-700 transition-colors">
       ← Back to Sign in
     </a>
   </div>
@@ -97,7 +79,7 @@ export default function App() {
         <Suspense fallback={<PageLoader />}>
           <Routes>
 
-            {/* Root → role-based redirect (protected) */}
+            {/* Root → role-based redirect */}
             <Route path="/" element={<PrivateRoute><RoleRedirect /></PrivateRoute>} />
 
             {/* ── Auth ─────────────────────────────────────────────────────── */}
@@ -107,11 +89,8 @@ export default function App() {
             <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
             <Route path="/reset-password"  element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
 
-            {/* ── Admin Portal — admin role only ───────────────────────────── */}
-            <Route
-              path="/admin"
-              element={<RoleRoute allowedRoles={['admin']}><AdminLayout /></RoleRoute>}
-            >
+            {/* ── Admin Portal ─────────────────────────────────────────────── */}
+            <Route path="/admin" element={<RoleRoute allowedRoles={['admin']}><AdminLayout /></RoleRoute>}>
               <Route index              element={<AdminHome />} />
               <Route path="timetables"  element={<TimetablePage />} />
               <Route path="relief"      element={<ReliefManagementPage />} />
@@ -125,39 +104,17 @@ export default function App() {
               <Route path="settings"    element={<SettingsPage />} />
             </Route>
 
-            {/* ── HOD Portal — hod role only ───────────────────────────────── */}
-            <Route
-              path="/hod"
-              element={<RoleRoute allowedRoles={['hod']}><HODLayout /></RoleRoute>}
-            >
+            {/* ── HOD Portal ───────────────────────────────────────────────── */}
+            <Route path="/hod" element={<RoleRoute allowedRoles={['hod']}><HODLayout /></RoleRoute>}>
               <Route index             element={<HODDashboard />} />
               <Route path="timetables" element={<TimetableGrid />} />
               <Route path="leave"      element={<LeaveManagement />} />
               <Route path="relief"     element={<ReliefManagement />} />
-              <Route path="analytics"  element={<AnalyticsPlaceholder />} />
+              <Route path="analytics"  element={<HODAnalyticsPage />} />
             </Route>
 
-            {/* ── Teacher Portal — teacher role only ──────────────────────── */}
-            <Route
-              path="/app/*"
-              element={
-                <PrivateRoute>
-                  <LegacyApp />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/hod-dashboard"
-              element={
-                <PrivateRoute>
-                  <HODDashboard />
-                </PrivateRoute>
-              }
-            />
-              <Route
-              path="/dashboard"
-              element={<RoleRoute allowedRoles={['teacher']}><TeacherLayout /></RoleRoute>}
-            >
+            {/* ── Teacher Portal ───────────────────────────────────────────── */}
+            <Route path="/dashboard" element={<RoleRoute allowedRoles={['teacher']}><TeacherLayout /></RoleRoute>}>
               <Route index                   element={<TeacherHome />} />
               <Route path="timetable"        element={<MyTimetable />} />
               <Route path="relief-timetable" element={<ReliefTimetable />} />
@@ -169,7 +126,8 @@ export default function App() {
             </Route>
 
             {/* ── Legacy ───────────────────────────────────────────────────── */}
-            <Route path="/app/*" element={<PrivateRoute><LegacyApp /></PrivateRoute>} />
+            <Route path="/hod-dashboard" element={<PrivateRoute><HODDashboard /></PrivateRoute>} />
+            <Route path="/app/*"         element={<PrivateRoute><LegacyApp /></PrivateRoute>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
