@@ -2,8 +2,7 @@ import uuid
 import datetime
 from enum import Enum as PyEnum
 from sqlalchemy import Column, String, Boolean, Integer, Float, Time, Date, SmallInteger, ForeignKey, UniqueConstraint, Enum, JSON, DateTime, Text
-from sqlalchemy.sql import func++
---+
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -215,5 +214,5 @@ class BlockedSlot(Base):
     reason = Column(String, nullable=True)     # e.g. "Staff meeting"
     created_at = Column(DateTime, server_default=func.now())
 
-    teacher = relationship("Teacher", back_populates="blocked_slots")
+    teacher = relationship("Teacher")
 
