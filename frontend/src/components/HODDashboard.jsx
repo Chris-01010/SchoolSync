@@ -15,7 +15,7 @@ import {
 
 // ─── Mock / fallback data ───────────────────────────────────────────────────
 const MOCK_STATS = {
-  department_name: 'Science',
+  department_name: 'CS',
   pending_approvals_count: 3,
   missing_reliefs: 1,
   teacher_workload_AlertTriangle: true,

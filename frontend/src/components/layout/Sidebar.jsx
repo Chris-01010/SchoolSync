@@ -56,7 +56,7 @@ const ADMIN_NAV = [
 
 const BRAND = {
   teacher: { label: 'Teacher Portal', sub: 'Mathematics Dept' },
-  hod:     { label: 'Science Dept',   sub: 'HOD Portal' },
+  hod: { label: 'HOD Portal', sub: 'Department Overview' },
   admin:   { label: 'Admin Portal',   sub: 'Institution-Wide' },
 };
 
