@@ -25,6 +25,7 @@ from . import leave_api
 from .crud import router as master_router
 from .admin_dashboard import router as admin_dashboard_router
 from .rooms import router as rooms_router
+from .blockedslot import router as blocked_slots_router
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -74,8 +75,6 @@ app.add_middleware(
         "http://127.0.0.1:5175",
         "http://localhost:5177",
         "http://127.0.0.1:5177",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -86,6 +85,7 @@ app.add_middleware(
 app.include_router(master_router, prefix="/api/v1")
 app.include_router(admin_dashboard_router, prefix="/api/v1")
 app.include_router(rooms_router, prefix="/api/v1")
+app.include_router(blocked_slots_router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def startup():
