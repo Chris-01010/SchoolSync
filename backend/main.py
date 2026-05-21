@@ -1,3 +1,4 @@
+import os
 import secrets
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, status, Request, Response
@@ -27,6 +28,7 @@ from .crud import router as master_router
 from .admin_dashboard import router as admin_dashboard_router
 from .rooms import router as rooms_router
 from .blockedslot import router as blocked_slots_router
+
 # ─── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -72,20 +74,21 @@ app.add_middleware(
         "http://localhost:5174",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
-<<<<<<< HEAD
         "http://localhost:5175",
         "http://127.0.0.1:5175",
         "http://localhost:5177",
         "http://127.0.0.1:5177",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-=======
->>>>>>> 9d2f82b (feat(relief): add dispatch service and pool filter)
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── Routers ───────────────────────────────────────────────────────────────────
+app.include_router(master_router, prefix="/api/v1")
+app.include_router(admin_dashboard_router, prefix="/api/v1")
+app.include_router(rooms_router, prefix="/api/v1")
+app.include_router(blocked_slots_router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def startup():
@@ -273,6 +276,9 @@ async def signup(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
     token = secrets.token_urlsafe(32)
     db_user.verification_token = token
     db_user.verification_token_expires_at = datetime.utcnow() + timedelta(hours=24)
+   # Local-dev escape hatch: skip email verification gate when DEV_AUTO_VERIFY=true
+    if os.getenv("DEV_AUTO_VERIFY", "").lower() == "true":
+        db_user.is_verified = True
     await db.commit()
     send_verification_email(db_user.email, db_user.college_id, token)
     return db_user
@@ -666,6 +672,9 @@ async def delete_timetable_slot(slot_id: UUID, db: AsyncSession = Depends(get_db
 async def trigger_timetable_generation(request: schemas.TimetableGenerateRequest):
     task = generate_timetable_task.delay(str(request.school_id))
     return {"task_id": task.id, "status": "pending"}
+app.include_router(leave_api.router, prefix="/leaves", tags=["leaves"])
+from . import relief_router
+app.include_router(relief_router.router, prefix="/relief", tags=["relief"])
 @app.put("/absences/{absence_id}/reject", response_model=schemas.Absence, dependencies=[Depends(auth.check_role([models.UserRole.HOD]))])
 async def reject_leave(absence_id: UUID, approval: schemas.LeaveApproval, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.Absence).where(models.Absence.id == absence_id))
