@@ -23,6 +23,7 @@ from . import models
 from . import schemas
 from . import relief
 from . import auth
+from . import leave_api
 from .worker import generate_timetable_task
 from .crud import router as master_router
 from .admin_dashboard import router as admin_dashboard_router
