@@ -219,12 +219,14 @@ async def get_my_leaves(
         "data": [
             {
                 "id": str(l.id),
+                "teacher_name": teacher.name,
                 "date": str(l.date),
                 "leave_type": l.leave_type,
                 "reason": l.reason,
                 "status": l.status,
                 "period_start": l.period_start,
                 "period_end": l.period_end,
+                "clarification_note": getattr(l, "clarification_note", None),
             }
             for l in leaves
         ],

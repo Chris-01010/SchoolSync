@@ -104,13 +104,27 @@ async def get_dashboard_alerts(db: AsyncSession = Depends(get_db), _: User = Dep
 async def get_dashboard_conflicts(db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
     return []
 
-@router.get("/leaves", response_model=List[AbsenceOut])
+@router.get("/leaves")
 async def get_all_leaves(status: AbsenceStatus = None, db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
-    query = select(Absence).order_by(Absence.date.desc())
+    query = select(Absence, Teacher).join(Teacher, Absence.teacher_id == Teacher.id).order_by(Absence.date.desc())
     if status:
         query = query.where(Absence.status == status)
     result = await db.execute(query)
-    return result.scalars().all()
+    rows = result.all()
+    return [
+        {
+            "id": str(a.id),
+            "teacher_id": str(a.teacher_id),
+            "teacher_name": t.name or "Unknown Teacher",
+            "date": str(a.date),
+            "leave_type": a.leave_type,
+            "reason": a.reason,
+            "status": a.status,
+            "period_start": a.period_start,
+            "period_end": a.period_end,
+        }
+        for a, t in rows
+    ]
 
 @router.get("/leaves/on-leave-today", response_model=List[AbsenceOut])
 async def get_on_leave_today(db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):

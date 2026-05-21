@@ -1,20 +1,36 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Download, Plus, Search, ChevronDown, CalendarDays,
-  Eye, MessageSquare, XCircle, CheckCircle,
+  Eye, MessageSquare, XCircle, CheckCircle, X,
 } from "lucide-react";
 import { api } from "../services/api";
 
 const containerVariants = { hidden: {}, visible: { transition: { staggerChildren: 0.04 } } };
 const itemVariants = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: "easeOut" } } };
 
+// Helper: derive initials from teacher name
+const getInitials = (name) =>
+  name
+    ?.split(" ")
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "??";
+
 export default function LeaveOversightPage() {
-  const [leaves, setLeaves]       = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState(null);
-  const [activeTab, setActiveTab] = useState("pending");
-  const [search, setSearch]       = useState("");
+  const [leaves, setLeaves]             = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState(null);
+  const [activeTab, setActiveTab]       = useState("pending");
+  const [search, setSearch]             = useState("");
+  const [actionLoading, setActionLoading] = useState(null);
+  const [rejectModal, setRejectModal] = useState(null);
+  const [rejectMsg, setRejectMsg]     = useState("");
+  const [toast, setToast]               = useState(null);
+  const [clarifyModal, setClarifyModal] = useState(null);
+  const [clarifyMsg, setClarifyMsg]     = useState("");
 
   const fetchLeaves = async () => {
     setLoading(true);
@@ -32,7 +48,58 @@ export default function LeaveOversightPage() {
 
   useEffect(() => { fetchLeaves(); }, []);
 
-  const pendingLeaves = leaves.filter((l) => l.status === "pending");
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleApprove = async (id) => {
+    setActionLoading(`approve-${id}`);
+    try {
+      await api.put(`/leaves/${id}/action`, { action: "approve" });
+      setLeaves(prev => prev.map(l => l.id === id ? { ...l, status: "approved" } : l));
+      showToast("Leave approved successfully.");
+    } catch (e) {
+      showToast(e.message || "Failed to approve leave.", "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectMsg.trim()) return;
+    const id = rejectModal.id;
+    setActionLoading(`reject-${id}`);
+    try {
+      await api.put(`/leaves/${id}/action`, { action: "reject", note: rejectMsg });
+      setLeaves(prev => prev.map(l => l.id === id ? { ...l, status: "rejected" } : l));
+      showToast("Leave rejected.");
+      setRejectModal(null);
+      setRejectMsg("");
+    } catch (e) {
+      showToast(e.message || "Failed to reject leave.", "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleClarifySend = async () => {
+    if (!clarifyMsg.trim()) return;
+    const id = clarifyModal.id;
+    setActionLoading(`clarify-${id}`);
+    try {
+      await api.put(`/leaves/${id}/action`, { action: "clarify", note: clarifyMsg });
+      showToast(`Clarification sent to ${clarifyModal.name}.`);
+      setClarifyModal(null);
+      setClarifyMsg("");
+    } catch (e) {
+      showToast(e.message || "Failed to send clarification.", "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const pendingLeaves  = leaves.filter((l) => l.status === "pending");
   const approvedLeaves = leaves.filter((l) => l.status === "approved");
   const rejectedLeaves = leaves.filter((l) => l.status === "rejected");
 
@@ -49,7 +116,7 @@ export default function LeaveOversightPage() {
                   : pendingLeaves;
 
   const filtered = tabLeaves.filter((l) =>
-    !search || l.teacher_id?.toLowerCase().includes(search.toLowerCase()) ||
+    !search || l.teacher_name?.toLowerCase().includes(search.toLowerCase()) ||
     l.leave_type?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -57,10 +124,16 @@ export default function LeaveOversightPage() {
     .filter((l) => l.status === "pending" || l.status === "approved")
     .slice(0, 5)
     .map((l) => ({
-      initials: l.teacher_id?.slice(0, 2).toUpperCase() || "??",
-      name: l.teacher_id?.slice(0, 8) || "Unknown",
+      initials: getInitials(l.teacher_name),
+      name: l.teacher_name || "Unknown Teacher",
       dept: l.leave_type || "—",
     }));
+
+  const statusBadgeColor = (status) => {
+    if (status === "approved") return "bg-green-50 text-green-700 ring-green-500/20";
+    if (status === "rejected") return "bg-red-50 text-red-700 ring-red-500/20";
+    return "bg-amber-50 text-amber-700 ring-amber-500/20";
+  };
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-7">
@@ -144,16 +217,16 @@ export default function LeaveOversightPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-sm font-bold text-gray-600">
-                      {req.teacher_id?.slice(0, 2).toUpperCase() || "??"}
+                      {getInitials(req.teacher_name)}
                     </div>
                     <div>
-                      <p className="text-base font-bold text-gray-900">{req.teacher_id?.slice(0, 8) || "Unknown"}</p>
+                      <p className="text-base font-bold text-gray-900">{req.teacher_name || "Unknown Teacher"}</p>
                       <span className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
                         {req.leave_type}
                       </span>
                     </div>
                   </div>
-                  <span className="flex-shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-500/20">
+                  <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeColor(req.status)}`}>
                     {req.status}
                   </span>
                 </div>
@@ -172,21 +245,43 @@ export default function LeaveOversightPage() {
                     <p className="mt-0.5 text-sm text-gray-700">{req.reason || "—"}</p>
                   </div>
                 </div>
-                <div className="mt-5 flex items-center gap-2.5">
-                  <button className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-500 transition hover:text-indigo-600">
-                    <Eye size={13} /> View Details
-                  </button>
-                  <div className="flex-1" />
-                  <button className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50">
-                    <MessageSquare size={13} /> Clarify
-                  </button>
-                  <button className="inline-flex items-center gap-1 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
-                    <XCircle size={13} /> Reject
-                  </button>
-                  <button className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-indigo-700">
-                    <CheckCircle size={13} /> Approve
-                  </button>
-                </div>
+
+                {/* ACTION BUTTONS — only show for pending */}
+                {req.status === "pending" && (
+                  <div className="mt-5 flex items-center gap-2.5">
+                    <button className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-500 transition hover:text-indigo-600">
+                      <Eye size={13} /> View Details
+                    </button>
+                    <div className="flex-1" />
+                    <button
+                      onClick={() => { setClarifyModal({ id: req.id, name: req.teacher_name || "Teacher" }); setClarifyMsg(""); }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50">
+                      <MessageSquare size={13} /> Clarify
+                    </button>
+                    <button
+                      onClick={() => { setRejectModal({ id: req.id, name: req.teacher_name || "Teacher" }); setRejectMsg(""); }}
+                      disabled={!!actionLoading}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-red-600 shadow-sm transition hover:bg-red-50 disabled:opacity-50">
+                      <XCircle size={13} /> Reject
+                    </button>
+                    <button
+                      onClick={() => handleApprove(req.id)}
+                      disabled={!!actionLoading}
+                      className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50">
+                      <CheckCircle size={13} />
+                      {actionLoading === `approve-${req.id}` ? "…" : "Approve"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Status label for non-pending */}
+                {req.status !== "pending" && (
+                  <div className="mt-5 flex items-center gap-1 text-[12px] font-medium text-gray-400">
+                    {req.status === "approved"
+                      ? <><CheckCircle size={13} className="text-green-500" /> Approved</>
+                      : <><XCircle size={13} className="text-red-400" /> Rejected</>}
+                  </div>
+                )}
               </motion.div>
             ))
           )}
@@ -217,6 +312,98 @@ export default function LeaveOversightPage() {
           )}
         </motion.section>
       )}
+
+      {/* CLARIFY MODAL */}
+      <AnimatePresence>
+        {clarifyModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-[15px] font-bold text-gray-900">Request Clarification</h2>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Send a message to {clarifyModal.name}</p>
+                </div>
+                <button onClick={() => setClarifyModal(null)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                  <X size={16} />
+                </button>
+              </div>
+              <textarea
+                value={clarifyMsg}
+                onChange={e => setClarifyMsg(e.target.value)}
+                placeholder="Type your clarification message here…"
+                rows={4}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 resize-none"
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button onClick={() => setClarifyModal(null)}
+                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button onClick={handleClarifySend} disabled={!clarifyMsg.trim()}
+                  className="px-4 py-2 text-[12px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                  Send Message
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* REJECT MODAL */}
+      <AnimatePresence>
+        {rejectModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-[15px] font-bold text-gray-900">Reject Leave Request</h2>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Provide a reason for rejecting {rejectModal.name}'s request</p>
+                </div>
+                <button onClick={() => setRejectModal(null)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                  <X size={16} />
+                </button>
+              </div>
+              <textarea
+                value={rejectMsg}
+                onChange={e => setRejectMsg(e.target.value)}
+                placeholder="Reason for rejection…"
+                rows={4}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/20 resize-none"
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button onClick={() => setRejectModal(null)}
+                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button onClick={handleReject} disabled={!rejectMsg.trim() || !!actionLoading}
+                  className="px-4 py-2 text-[12px] font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+                  {actionLoading?.startsWith("reject-") ? "Rejecting…" : "Confirm Reject"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* TOAST */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+            className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl text-[12px] font-semibold text-white ${toast.type === "error" ? "bg-red-600" : "bg-gray-900"}`}>
+            {toast.type === "error"
+              ? <XCircle size={14} className="text-red-200" />
+              : <CheckCircle size={14} className="text-green-400" />}
+            {toast.msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </motion.div>
   );
 }
