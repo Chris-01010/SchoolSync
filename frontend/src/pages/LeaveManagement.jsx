@@ -1,438 +1,361 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users,
-  Calendar,
-  CheckSquare,
-  Filter,
-  FileDown,
-  ExternalLink,
-  FileText,
-  Clock,
-  ChevronRight,
-  X,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  MoreHorizontal,
+  Download, Search, ChevronDown, CalendarDays,
+  Eye, MessageSquare, XCircle, CheckCircle, X, FileText,
 } from 'lucide-react';
 import { api } from '../services/api';
 
-const MOCK_LEAVE_IMPACT = [
-  { day: 'MON', date: 14, teachers: [{ initials: 'MJ', color: 'bg-blue-200 text-blue-800' }, { initials: 'AL', color: 'bg-pink-200 text-pink-800' }], extra: 2 },
-  { day: 'TUE', date: 15, teachers: [{ initials: 'SJ', color: 'bg-purple-200 text-purple-700' }], extra: 0, highlighted: true },
-  { day: 'WED', date: 16, teachers: [], extra: 0, empty: true },
-];
+const containerVariants = { hidden: {}, visible: { transition: { staggerChildren: 0.04 } } };
+const itemVariants = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: 'easeOut' } } };
 
-const KPICard = ({ label, value, icon: Icon, color, barColor, barValue }) => (
-  <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex-1 min-w-0">
-    <div className="flex items-start justify-between mb-2">
-      <div>
-        <p className="text-[22px] font-bold text-gray-900 leading-none">{value}</p>
-        <p className="text-[11px] text-gray-400 font-medium mt-1">{label}</p>
-      </div>
-      <div className={`p-2 rounded-lg ${color}`}>
-        <Icon size={14} className="opacity-80" />
-      </div>
-    </div>
-    {barColor && (
-      <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden mt-3">
-        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${barValue}%` }} />
-      </div>
-    )}
-  </div>
-);
+const getInitials = (name) =>
+  name?.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '??';
 
-const TypeBadge = ({ type, color }) => (
-  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${color}`}>{type}</span>
-);
-
-const AVATAR_COLORS = [
-  'bg-blue-100 text-blue-700',
-  'bg-pink-100 text-pink-700',
-  'bg-green-100 text-green-700',
-  'bg-amber-100 text-amber-700',
-  'bg-purple-100 text-purple-700',
-  'bg-rose-100 text-rose-700',
-  'bg-indigo-100 text-indigo-700',
-];
-
-function avatarColor(name = '') {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function getInitials(name = 'Unknown Teacher') {
-  return name
-    .split(' ')
-    .map((s) => s[0])
-    .filter(Boolean)
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || '??';
-}
-
-const TYPE_COLORS = {
-  sick: 'bg-red-100 text-red-600',
-  casual: 'bg-purple-100 text-purple-700',
-  other: 'bg-blue-100 text-blue-700',
+const statusBadgeColor = (status) => {
+  if (status === 'approved') return 'bg-green-50 text-green-700 ring-green-500/20';
+  if (status === 'rejected') return 'bg-red-50 text-red-700 ring-red-500/20';
+  if (status === 'clarification_requested') return 'bg-purple-50 text-purple-700 ring-purple-500/20';
+  return 'bg-amber-50 text-amber-700 ring-amber-500/20';
 };
 
-function typeColor(t) {
-  const key = (t || '').toLowerCase();
-  if (key.includes('sick')) return TYPE_COLORS.sick;
-  if (key.includes('casual')) return TYPE_COLORS.casual;
-  return TYPE_COLORS.other;
-}
+const statusLabel = (status) => {
+  if (status === 'clarification_requested') return 'Action Needed';
+  return status;
+};
 
-function fmtDate(d) {
-  if (!d) return '';
-  try {
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } catch {
-    return d;
-  }
-}
+const isActionable = (status) => status === 'pending' || status === 'clarification_requested';
 
-function mapPending(raw) {
-  const teacherName = raw.teacher_name || raw.teacher?.name || 'Unknown Teacher';
-  const periods = (raw.period_start && raw.period_end)
-    ? (raw.period_end - raw.period_start + 1)
-    : null;
-
-  return {
-    id: raw.id,
-    initials: getInitials(teacherName),
-    color: avatarColor(teacherName),
-    name: teacherName,
-    role: raw.teacher?.department_name || '—',
-    type: raw.leave_type || 'Leave',
-    typeColor: typeColor(raw.leave_type),
-    dates: fmtDate(raw.date),
-    days: periods ? `${periods} period${periods > 1 ? 's' : ''}` : '',
-    reason: raw.reason || 'No reason provided',
-    doc: raw.handover_url || null,
-    hasDoc: !!raw.handover_url,
-  };
-}
-
-const LeaveManagement = () => {
-  const [pendingLeaves, setPendingLeaves] = useState([]);
-  const [processed, setProcessed] = useState([]);
-  const [showBanner, setShowBanner] = useState(true);
+export default function LeaveManagement() {
+  const [leaves, setLeaves]               = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState(null);
+  const [activeTab, setActiveTab]         = useState('pending');
+  const [search, setSearch]               = useState('');
   const [actionLoading, setActionLoading] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [toast, setToast]                 = useState(null);
+  const [clarifyModal, setClarifyModal]   = useState(null);
+  const [clarifyMsg, setClarifyMsg]       = useState('');
+  const [rejectModal, setRejectModal]     = useState(null);
+  const [rejectMsg, setRejectMsg]         = useState('');
 
-  const loadPending = useCallback(async () => {
+  const fetchLeaves = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const resp = await api.get('/hod/leaves/pending');
-      const list = Array.isArray(resp) ? resp : (resp?.data || []);
-      setPendingLeaves(list.map(mapPending));
-    } catch (e) {
-      setError(e.message || 'Failed to load pending leaves');
+      const data = await api.get('/leaves/pending');
+      const list = Array.isArray(data) ? data : (data?.data || []);
+      setLeaves(list.map((l) => ({
+        ...l,
+        teacher_name: l.teacher_name || 'Unknown Teacher',
+        status: (l.status || 'pending').toLowerCase(),
+        clarification_note: l.clarification_note || null,
+      })));
+    } catch (err) {
+      setError(err.message || 'Failed to load leaves.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadPending(); }, [loadPending]);
+  useEffect(() => { fetchLeaves(); }, [fetchLeaves]);
 
-  const handleAction = async (id, action) => {
-    setActionLoading(`${id}-${action}`);
-    const apiAction = action === 'approved' ? 'approve' : 'reject';
-    let success = false;
-
-    try {
-      await api.put(`/leaves/${id}/action`, { action: apiAction });
-      success = true;
-    } catch (e) {
-      alert(`Failed to ${apiAction} leave: ${e.message}`);
-    }
-
-    if (success) {
-      const moved = pendingLeaves.find((l) => l.id === id);
-      setPendingLeaves((prev) => prev.filter((l) => l.id !== id));
-      if (moved) {
-        setProcessed((prev) => [
-          {
-            ...moved,
-            status: action === 'approved' ? 'approved' : 'rejected',
-            meta: `${action === 'approved' ? 'Approved' : 'Rejected'} just now`,
-            detail: moved.type,
-            dates: moved.dates,
-          },
-          ...prev,
-        ]);
-      }
-    }
-
-    setActionLoading(null);
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
   };
 
-  const pendingCount = pendingLeaves.length;
+  const handleApprove = async (id) => {
+    setActionLoading(`approve-${id}`);
+    try {
+      await api.put(`/leaves/${id}/action`, { action: 'approve' });
+      setLeaves(prev => prev.map(l => l.id === id ? { ...l, status: 'approved' } : l));
+      showToast('Leave approved successfully.');
+    } catch (e) {
+      showToast(e.message || 'Failed to approve leave.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectMsg.trim()) return;
+    const id = rejectModal.id;
+    setActionLoading(`reject-${id}`);
+    try {
+      await api.put(`/leaves/${id}/action`, { action: 'reject', note: rejectMsg });
+      setLeaves(prev => prev.map(l => l.id === id ? { ...l, status: 'rejected' } : l));
+      showToast('Leave rejected.');
+      setRejectModal(null);
+      setRejectMsg('');
+    } catch (e) {
+      showToast(e.message || 'Failed to reject leave.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleClarifySend = async () => {
+    if (!clarifyMsg.trim()) return;
+    const id = clarifyModal.id;
+    setActionLoading(`clarify-${id}`);
+    try {
+      await api.put(`/leaves/${id}/action`, { action: 'clarify', note: clarifyMsg });
+      setLeaves(prev => prev.map(l => l.id === id ? { ...l, status: 'clarification_requested', clarification_note: clarifyMsg } : l));
+      showToast(`Clarification sent to ${clarifyModal.name}.`);
+      setClarifyModal(null);
+      setClarifyMsg('');
+    } catch (e) {
+      showToast(e.message || 'Failed to send clarification.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const pendingLeaves  = leaves.filter((l) => l.status === 'pending' || l.status === 'clarification_requested');
+  const approvedLeaves = leaves.filter((l) => l.status === 'approved');
+  const rejectedLeaves = leaves.filter((l) => l.status === 'rejected');
+
+  const tabs = [
+    { id: 'pending',  label: 'Pending',  count: pendingLeaves.length },
+    { id: 'approved', label: 'Approved', count: approvedLeaves.length },
+    { id: 'rejected', label: 'Rejected', count: rejectedLeaves.length },
+  ];
+
+  const tabLeaves = activeTab === 'pending'  ? pendingLeaves
+                  : activeTab === 'approved' ? approvedLeaves
+                  : rejectedLeaves;
+
+  const filtered = tabLeaves.filter((l) =>
+    !search || l.teacher_name?.toLowerCase().includes(search.toLowerCase()) ||
+    l.leave_type?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
-      <div className="flex items-start justify-between flex-wrap gap-3">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-7">
+
+      {/* HEADER */}
+      <motion.div variants={itemVariants} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-[20px] font-bold text-gray-900">Leave Approvals</h1>
-          <p className="text-[12px] text-gray-400 mt-0.5">
-            Manage department staff absences and relief planning.
-          </p>
+          <h1 className="text-[28px] font-bold tracking-tight text-gray-900">Leave Approvals</h1>
+          <p className="mt-1 text-sm text-gray-500">Manage department staff absences and relief planning.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-[11px] font-medium text-gray-600 hover:bg-gray-50 bg-white">
-            <FileDown size={11} /> Download Report
-          </button>
-        </div>
-      </div>
+        <button className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">
+          <Download size={15} /> Download Report
+        </button>
+      </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-        <div className="lg:col-span-3 flex gap-3">
-          <KPICard
-            label="Pending Decisions"
-            value={String(pendingCount).padStart(2, '0')}
-            icon={Clock}
-            color="bg-amber-50 text-amber-600"
-            barColor="bg-amber-400"
-            barValue={Math.min(100, pendingCount * 15)}
-          />
-          <KPICard
-            label="Processed Today"
-            value={String(processed.length).padStart(2, '0')}
-            icon={CheckSquare}
-            color="bg-green-50 text-green-600"
-            barColor="bg-green-500"
-            barValue={Math.min(100, processed.length * 20)}
-          />
-          <KPICard
-            label="Department Staff"
-            value="—"
-            icon={Users}
-            color="bg-blue-50 text-blue-600"
-            barColor="bg-blue-500"
-            barValue={60}
-          />
-        </div>
+      {/* TABS */}
+      <motion.div variants={itemVariants} className="flex gap-0 border-b border-gray-200">
+        {tabs.map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`relative whitespace-nowrap px-5 pb-3 pt-1 text-[13px] font-semibold transition-colors ${active ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
+              {tab.label}
+              <span className={`ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${active ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                {loading ? '—' : tab.count}
+              </span>
+              {active && (
+                <motion.span layoutId="hod-leave-tab-underline"
+                  className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-blue-600"
+                  transition={{ type: 'spring', stiffness: 380, damping: 28 }} />
+              )}
+            </button>
+          );
+        })}
+      </motion.div>
 
-        <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[12px] font-semibold text-gray-800">Leave Impact</p>
-            <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-              This Week
-            </span>
-          </div>
-          <div className="space-y-2">
-            {MOCK_LEAVE_IMPACT.map((item, i) => (
-              <div
-                key={i}
-                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${item.highlighted ? 'bg-blue-50 border border-blue-100' : ''}`}
-              >
-                <div className="w-8 text-center flex-shrink-0">
-                  <p className="text-[8px] font-bold text-gray-400 uppercase">{item.day}</p>
-                  <p className="text-[13px] font-bold text-gray-800">{item.date}</p>
+      {/* FILTER ROW */}
+      <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3">
+        <div className="relative">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input type="text" placeholder="Search by name..." value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-56 rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 placeholder-gray-400 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+        </div>
+        <div className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm">
+          <CalendarDays size={14} className="text-gray-400" /> All Dates
+        </div>
+      </motion.div>
+
+      {/* LOADING / ERROR */}
+      {loading && <div className="flex items-center justify-center py-12 text-sm text-gray-400">Loading leaves…</div>}
+      {error && (
+        <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-5 py-4">
+          <p className="text-sm font-medium text-red-600">{error}</p>
+          <button onClick={fetchLeaves} className="ml-4 rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition">Retry</button>
+        </div>
+      )}
+
+      {/* LEAVE CARDS */}
+      {!loading && !error && (
+        <motion.div variants={itemVariants} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {filtered.length === 0 ? (
+            <div className="col-span-2 flex flex-col items-center justify-center py-12 text-gray-400">
+              <CheckCircle size={28} className="text-green-400 mb-2" />
+              <p className="text-sm font-semibold">All requests processed</p>
+            </div>
+          ) : (
+            filtered.map((req) => (
+              <motion.div key={req.id} whileHover={{ y: -2 }} transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                className="overflow-hidden rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-sm font-bold text-gray-600">
+                      {getInitials(req.teacher_name)}
+                    </div>
+                    <div>
+                      <p className="text-base font-bold text-gray-900">{req.teacher_name}</p>
+                      <span className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500 capitalize">
+                        {req.leave_type}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeColor(req.status)}`}>
+                    {statusLabel(req.status)}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1 flex-1">
-                  {item.empty ? (
-                    <p className="text-[10px] text-gray-400 italic">No active absences</p>
-                  ) : (
-                    <>
-                      {item.teachers.map((t, j) => (
-                        <div key={j} className={`w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold ${t.color}`}>
-                          {t.initials}
-                        </div>
-                      ))}
-                      {item.extra > 0 && (
-                        <span className="text-[9px] text-gray-500 font-medium">+{item.extra} away</span>
-                      )}
-                    </>
+                <div className="my-4 h-px bg-gray-100" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Date</p>
+                    <p className="mt-0.5 text-sm font-bold text-gray-900">{req.date}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Periods</p>
+                    <p className="mt-0.5 text-sm font-bold text-gray-900">{req.period_start} – {req.period_end}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Reason</p>
+                    <p className="mt-0.5 text-sm text-gray-700">{req.reason || '—'}</p>
+                  </div>
+                  {req.clarification_note && (
+                    <div className="col-span-2 p-2.5 bg-purple-50 border border-purple-200 rounded-lg">
+                      <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Clarification Requested</p>
+                      <p className="text-[11px] text-purple-900 mt-1">{req.clarification_note}</p>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h3 className="text-[13px] font-semibold text-gray-800">
-            Pending Requests {pendingCount > 0 && <span className="ml-1 text-gray-400 text-[11px]">({pendingCount})</span>}
-          </h3>
-          <button className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700 font-medium">
-            <Filter size={11} /> Filter by Type
-          </button>
-        </div>
-
-        <div className="grid px-5 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-semibold text-gray-400 uppercase tracking-wide"
-          style={{ gridTemplateColumns: '2fr 1fr 1.2fr 2fr 1fr 1.5fr' }}>
-          <span>Teacher</span>
-          <span>Type</span>
-          <span>Date</span>
-          <span>Reason</span>
-          <span>Docs</span>
-          <span className="text-right">Action</span>
-        </div>
-
-        <div className="divide-y divide-gray-50">
-          {loading ? (
-            <div className="px-5 py-8 text-center text-[12px] text-gray-400">Loading pending leaves…</div>
-          ) : error ? (
-            <div className="px-5 py-6 text-[12px] text-red-600 bg-red-50">
-              {error}
-              <button onClick={loadPending} className="ml-3 underline">Retry</button>
-            </div>
-          ) : (
-            <>
-              <AnimatePresence>
-                {pendingLeaves.map((leave) => (
-                  <motion.div
-                    key={leave.id}
-                    layout
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="grid px-5 py-3 items-center hover:bg-gray-50/60 transition-colors"
-                    style={{ gridTemplateColumns: '2fr 1fr 1.2fr 2fr 1fr 1.5fr' }}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${leave.color}`}>
-                        {leave.initials}
-                      </div>
-                      <div>
-                        <p className="text-[12px] font-semibold text-gray-800">{leave.name}</p>
-                        <p className="text-[10px] text-gray-400">{leave.role}</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <TypeBadge type={leave.type} color={leave.typeColor} />
-                    </div>
-
-                    <div>
-                      <p className="text-[11px] text-gray-700 font-medium">{leave.dates}</p>
-                      <p className="text-[10px] text-gray-400">{leave.days}</p>
-                    </div>
-
-                    <p className="text-[11px] text-gray-500 truncate pr-2">{leave.reason}</p>
-
-                    <div>
-                      {leave.hasDoc ? (
-
-                        <a href={leave.doc}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          download={`leave-document-${String(leave.id).slice(0, 8)}.${leave.doc?.match(/^data:([^;]+)/)?.[1]?.split('/')[1]?.replace('jpeg', 'jpg') || 'bin'
-                            }`}
-                          className="flex items-center gap-1 text-[10px] text-blue-600 font-medium hover:text-blue-700"
-                        >
-                          <FileText size={11} />
-                          View
-                        </a>
-                      ) : (
-                        <span className="text-[10px] text-gray-400">None</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1.5 justify-end">
-                      <button
-                        onClick={() => handleAction(leave.id, 'rejected')}
-                        disabled={!!actionLoading}
-                        className="px-2.5 py-1 border border-gray-200 rounded-lg text-[10px] font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-50"
-                      >
-                        {actionLoading === `${leave.id}-rejected` ? '…' : 'Reject'}
-                      </button>
-                      <button
-                        onClick={() => handleAction(leave.id, 'approved')}
-                        disabled={!!actionLoading}
-                        className="px-2.5 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
-                      >
-                        {actionLoading === `${leave.id}-approved` ? '…' : 'Approve'}
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              {pendingLeaves.length === 0 && !loading && (
-                <div className="px-5 py-8 text-center">
-                  <CheckCircle size={24} className="text-green-400 mx-auto mb-2" />
-                  <p className="text-[12px] text-gray-400 font-medium">All requests processed</p>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h3 className="text-[13px] font-semibold text-gray-800">Recently Processed</h3>
-          <button className="p-1 rounded text-gray-400 hover:text-gray-600">
-            <MoreHorizontal size={14} />
-          </button>
-        </div>
-        <div className="divide-y divide-gray-50">
-          {processed.length === 0 ? (
-            <p className="px-5 py-8 text-center text-[12px] text-gray-400">
-              No leaves processed in this session yet.
-            </p>
-          ) : (
-            processed.map((item) => (
-              <div key={item.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold ${item.color}`}>
-                  {item.initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-semibold text-gray-800">{item.name}</p>
-                  <p className="text-[10px] text-gray-400">{item.meta}</p>
-                </div>
-                {item.detail && (
-                  <div className="text-right">
-                    <p className="text-[11px] text-gray-600 font-medium">{item.detail}</p>
-                    <p className="text-[10px] text-gray-400">{item.dates}</p>
+                {/* ACTION BUTTONS */}
+                {isActionable(req.status) && (
+                  <div className="mt-5 flex items-center gap-2.5">
+                    <button className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-500 transition hover:text-blue-600">
+                      <Eye size={13} /> View Details
+                    </button>
+                    <div className="flex-1" />
+                    <button
+                      onClick={() => { setClarifyModal({ id: req.id, name: req.teacher_name }); setClarifyMsg(''); }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50">
+                      <MessageSquare size={13} /> Clarify
+                    </button>
+                    <button
+                      onClick={() => { setRejectModal({ id: req.id, name: req.teacher_name }); setRejectMsg(''); }}
+                      disabled={!!actionLoading}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-red-600 shadow-sm transition hover:bg-red-50 disabled:opacity-50">
+                      <XCircle size={13} /> Reject
+                    </button>
+                    <button
+                      onClick={() => handleApprove(req.id)}
+                      disabled={!!actionLoading}
+                      className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50">
+                      <CheckCircle size={13} />
+                      {actionLoading === `approve-${req.id}` ? '…' : 'Approve'}
+                    </button>
                   </div>
                 )}
-                <div className="ml-2">
-                  {item.status === 'approved' && <CheckCircle size={15} className="text-green-500" />}
-                  {item.status === 'rejected' && <XCircle size={15} className="text-red-400" />}
-                </div>
-              </div>
+
+                {!isActionable(req.status) && (
+                  <div className="mt-5 flex items-center gap-1 text-[12px] font-medium text-gray-400">
+                    {req.status === 'approved'
+                      ? <><CheckCircle size={13} className="text-green-500" /> Approved</>
+                      : <><XCircle size={13} className="text-red-400" /> Rejected</>}
+                  </div>
+                )}
+              </motion.div>
             ))
           )}
-        </div>
-      </div>
+        </motion.div>
+      )}
 
+      {/* CLARIFY MODAL */}
       <AnimatePresence>
-        {showBanner && pendingCount > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-xl max-w-sm"
-          >
-            <AlertCircle size={15} className="text-amber-400 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold">Pending Decisions</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">
-                {pendingCount} leave request{pendingCount > 1 ? 's await' : ' awaits'} your decision.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowBanner(false)}
-              className="ml-1 p-0.5 text-gray-500 hover:text-gray-300 flex-shrink-0"
-            >
-              <X size={12} />
-            </button>
+        {clarifyModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-[15px] font-bold text-gray-900">Request Clarification</h2>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Send a message to {clarifyModal.name}</p>
+                </div>
+                <button onClick={() => setClarifyModal(null)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                  <X size={16} />
+                </button>
+              </div>
+              <textarea value={clarifyMsg} onChange={e => setClarifyMsg(e.target.value)}
+                placeholder="Type your clarification message here…" rows={4}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 resize-none" />
+              <div className="flex justify-end gap-2 mt-4">
+                <button onClick={() => setClarifyModal(null)}
+                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+                <button onClick={handleClarifySend} disabled={!clarifyMsg.trim()}
+                  className="px-4 py-2 text-[12px] font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">Send Message</button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div >
-  );
-};
 
-export default LeaveManagement; 
+      {/* REJECT MODAL */}
+      <AnimatePresence>
+        {rejectModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-[15px] font-bold text-gray-900">Reject Leave Request</h2>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Provide a reason for rejecting {rejectModal.name}'s request</p>
+                </div>
+                <button onClick={() => setRejectModal(null)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                  <X size={16} />
+                </button>
+              </div>
+              <textarea value={rejectMsg} onChange={e => setRejectMsg(e.target.value)}
+                placeholder="Reason for rejection…" rows={4}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/20 resize-none" />
+              <div className="flex justify-end gap-2 mt-4">
+                <button onClick={() => setRejectModal(null)}
+                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+                <button onClick={handleReject} disabled={!rejectMsg.trim() || !!actionLoading}
+                  className="px-4 py-2 text-[12px] font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+                  {actionLoading?.startsWith('reject-') ? 'Rejecting…' : 'Confirm Reject'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* TOAST */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+            className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl text-[12px] font-semibold text-white ${toast.type === 'error' ? 'bg-red-600' : 'bg-gray-900'}`}>
+            {toast.type === 'error'
+              ? <XCircle size={14} className="text-red-200" />
+              : <CheckCircle size={14} className="text-green-400" />}
+            {toast.msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+    </motion.div>
+  );
+}

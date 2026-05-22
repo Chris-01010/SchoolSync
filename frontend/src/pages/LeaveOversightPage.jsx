@@ -9,28 +9,21 @@ import { api } from "../services/api";
 const containerVariants = { hidden: {}, visible: { transition: { staggerChildren: 0.04 } } };
 const itemVariants = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: "easeOut" } } };
 
-// Helper: derive initials from teacher name
 const getInitials = (name) =>
-  name
-    ?.split(" ")
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase() || "??";
+  name?.split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "??";
 
 export default function LeaveOversightPage() {
-  const [leaves, setLeaves]             = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState(null);
-  const [activeTab, setActiveTab]       = useState("pending");
-  const [search, setSearch]             = useState("");
+  const [leaves, setLeaves]               = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState(null);
+  const [activeTab, setActiveTab]         = useState("pending");
+  const [search, setSearch]               = useState("");
   const [actionLoading, setActionLoading] = useState(null);
-  const [rejectModal, setRejectModal] = useState(null);
-  const [rejectMsg, setRejectMsg]     = useState("");
-  const [toast, setToast]               = useState(null);
-  const [clarifyModal, setClarifyModal] = useState(null);
-  const [clarifyMsg, setClarifyMsg]     = useState("");
+  const [rejectModal, setRejectModal]     = useState(null);
+  const [rejectMsg, setRejectMsg]         = useState("");
+  const [toast, setToast]                 = useState(null);
+  const [clarifyModal, setClarifyModal]   = useState(null);
+  const [clarifyMsg, setClarifyMsg]       = useState("");
 
   const fetchLeaves = async () => {
     setLoading(true);
@@ -89,6 +82,7 @@ export default function LeaveOversightPage() {
     setActionLoading(`clarify-${id}`);
     try {
       await api.put(`/leaves/${id}/action`, { action: "clarify", note: clarifyMsg });
+      setLeaves(prev => prev.map(l => l.id === id ? { ...l, status: "clarification_requested", clarification_note: clarifyMsg } : l));
       showToast(`Clarification sent to ${clarifyModal.name}.`);
       setClarifyModal(null);
       setClarifyMsg("");
@@ -99,7 +93,7 @@ export default function LeaveOversightPage() {
     }
   };
 
-  const pendingLeaves  = leaves.filter((l) => l.status === "pending");
+  const pendingLeaves  = leaves.filter((l) => l.status === "pending" || l.status === "clarification_requested");
   const approvedLeaves = leaves.filter((l) => l.status === "approved");
   const rejectedLeaves = leaves.filter((l) => l.status === "rejected");
 
@@ -121,7 +115,7 @@ export default function LeaveOversightPage() {
   );
 
   const onLeaveTeachers = leaves
-    .filter((l) => l.status === "pending" || l.status === "approved")
+    .filter((l) => l.status === "pending" || l.status === "approved" || l.status === "clarification_requested")
     .slice(0, 5)
     .map((l) => ({
       initials: getInitials(l.teacher_name),
@@ -132,8 +126,16 @@ export default function LeaveOversightPage() {
   const statusBadgeColor = (status) => {
     if (status === "approved") return "bg-green-50 text-green-700 ring-green-500/20";
     if (status === "rejected") return "bg-red-50 text-red-700 ring-red-500/20";
+    if (status === "clarification_requested") return "bg-purple-50 text-purple-700 ring-purple-500/20";
     return "bg-amber-50 text-amber-700 ring-amber-500/20";
   };
+
+  const statusLabel = (status) => {
+    if (status === "clarification_requested") return "Action Needed";
+    return status;
+  };
+
+  const isActionable = (status) => status === "pending" || status === "clarification_requested";
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-7">
@@ -227,7 +229,7 @@ export default function LeaveOversightPage() {
                     </div>
                   </div>
                   <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeColor(req.status)}`}>
-                    {req.status}
+                    {statusLabel(req.status)}
                   </span>
                 </div>
                 <div className="my-4 h-px bg-gray-100" />
@@ -244,10 +246,16 @@ export default function LeaveOversightPage() {
                     <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Reason</p>
                     <p className="mt-0.5 text-sm text-gray-700">{req.reason || "—"}</p>
                   </div>
+                  {req.clarification_note && (
+                    <div className="col-span-2 p-2.5 bg-purple-50 border border-purple-200 rounded-lg">
+                      <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Clarification Requested</p>
+                      <p className="text-[11px] text-purple-900 mt-1">{req.clarification_note}</p>
+                    </div>
+                  )}
                 </div>
 
-                {/* ACTION BUTTONS — only show for pending */}
-                {req.status === "pending" && (
+                {/* ACTION BUTTONS */}
+                {isActionable(req.status) && (
                   <div className="mt-5 flex items-center gap-2.5">
                     <button className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-500 transition hover:text-indigo-600">
                       <Eye size={13} /> View Details
@@ -274,8 +282,8 @@ export default function LeaveOversightPage() {
                   </div>
                 )}
 
-                {/* Status label for non-pending */}
-                {req.status !== "pending" && (
+                {/* Status label for non-actionable */}
+                {!isActionable(req.status) && (
                   <div className="mt-5 flex items-center gap-1 text-[12px] font-medium text-gray-400">
                     {req.status === "approved"
                       ? <><CheckCircle size={13} className="text-green-500" /> Approved</>
@@ -330,22 +338,14 @@ export default function LeaveOversightPage() {
                   <X size={16} />
                 </button>
               </div>
-              <textarea
-                value={clarifyMsg}
-                onChange={e => setClarifyMsg(e.target.value)}
-                placeholder="Type your clarification message here…"
-                rows={4}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 resize-none"
-              />
+              <textarea value={clarifyMsg} onChange={e => setClarifyMsg(e.target.value)}
+                placeholder="Type your clarification message here…" rows={4}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 resize-none" />
               <div className="flex justify-end gap-2 mt-4">
                 <button onClick={() => setClarifyModal(null)}
-                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
-                  Cancel
-                </button>
+                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
                 <button onClick={handleClarifySend} disabled={!clarifyMsg.trim()}
-                  className="px-4 py-2 text-[12px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                  Send Message
-                </button>
+                  className="px-4 py-2 text-[12px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">Send Message</button>
               </div>
             </motion.div>
           </motion.div>
@@ -369,18 +369,12 @@ export default function LeaveOversightPage() {
                   <X size={16} />
                 </button>
               </div>
-              <textarea
-                value={rejectMsg}
-                onChange={e => setRejectMsg(e.target.value)}
-                placeholder="Reason for rejection…"
-                rows={4}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/20 resize-none"
-              />
+              <textarea value={rejectMsg} onChange={e => setRejectMsg(e.target.value)}
+                placeholder="Reason for rejection…" rows={4}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/20 resize-none" />
               <div className="flex justify-end gap-2 mt-4">
                 <button onClick={() => setRejectModal(null)}
-                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
-                  Cancel
-                </button>
+                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
                 <button onClick={handleReject} disabled={!rejectMsg.trim() || !!actionLoading}
                   className="px-4 py-2 text-[12px] font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
                   {actionLoading?.startsWith("reject-") ? "Rejecting…" : "Confirm Reject"}

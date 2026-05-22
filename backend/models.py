@@ -4,17 +4,12 @@ from enum import Enum as PyEnum
 from sqlalchemy import Column, String, Boolean, Integer, Float, Time, Date, SmallInteger, ForeignKey, UniqueConstraint, Enum, JSON, DateTime, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from database import Base
+from .database import Base
 
-# Note: For SQLite, we might need to handle UUIDs as strings. 
-# SQLAlchemy 2.0's UUID type handles this better.
 from sqlalchemy.types import TypeDecorator, CHAR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 class GUID(TypeDecorator):
-    """Platform-independent GUID type.
-    Uses PostgreSQL's UUID type, otherwise uses CHAR(32), storing as stringified hex values.
-    """
     impl = CHAR
     cache_ok = True
 
@@ -53,6 +48,7 @@ class AbsenceStatus(str, PyEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    CLARIFICATION_REQUESTED = "clarification_requested"
 
 class ReliefStatus(str, PyEnum):
     PENDING = "pending"
@@ -98,14 +94,13 @@ class Teacher(Base):
     email = Column(String, unique=True, nullable=False)
     department_id = Column(GUID(), ForeignKey("departments.id"), nullable=True)
     
-    # Workload tracking
     weekly_relief_cap = Column(Integer, default=3)
     max_weekly_hours = Column(Integer, default=30)
     current_relief_hours = Column(Integer, default=0)
     total_hours_worked = Column(Integer, default=0)
     
     is_active = Column(Boolean, default=True)
-    blocked_slots = Column(JSON, default=dict) # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
+    blocked_slots = Column(JSON, default=dict)
 
     user = relationship("User", back_populates="teacher_profile")
     dept_link = relationship("Department", back_populates="teachers", foreign_keys=[department_id])
@@ -147,8 +142,8 @@ class TimetableSlot(Base):
     class_id = Column(GUID(), ForeignKey("classes.id"))
     room_id = Column(GUID(), ForeignKey("rooms.id"))
     subject_id = Column(GUID(), ForeignKey("subjects.id"))
-    day_of_week = Column(SmallInteger) # 0=Mon .. 4=Fri
-    period = Column(SmallInteger) # 1..8
+    day_of_week = Column(SmallInteger)
+    period = Column(SmallInteger)
     start_time = Column(Time)
     end_time = Column(Time)
     is_relief = Column(Boolean, default=False)
@@ -190,6 +185,9 @@ class Absence(Base):
     status = Column(Enum(AbsenceStatus), default=AbsenceStatus.PENDING, nullable=False)
     resolved = Column(Boolean, default=False)
     resolution_report_url = Column(String)
+    clarification_note = Column(String, nullable=True)
+
+    teacher = relationship("Teacher")
 
 class ReliefAssignment(Base):
     __tablename__ = "relief_assignments"

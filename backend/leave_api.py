@@ -12,10 +12,10 @@ from typing import List, Optional
 from uuid import UUID
 from pydantic import BaseModel
 from enum import Enum
-
-from database import get_db
-import models
-import auth
+from sqlalchemy.orm import selectinload
+from .database import get_db
+from . import models
+from . import auth
 
 router = APIRouter()
 
@@ -54,6 +54,11 @@ class AdminOverrideRequest(BaseModel):
 class HODAssignReliefRequest(BaseModel):
     relief_teacher_id: UUID
     note: Optional[str] = None
+class LeaveEditRequest(BaseModel):
+    date: str
+    leave_type: LeaveType
+    reason: str
+    handover_url: Optional[str] = None
 
 
 # ─── Helper: send notification ────────────────────────────────────────────────
@@ -219,14 +224,14 @@ async def get_my_leaves(
         "data": [
             {
                 "id": str(l.id),
-                "teacher_name": teacher.name,
+                "teacher_name": l.teacher.name if l.teacher else "Unknown Teacher",
                 "date": str(l.date),
                 "leave_type": l.leave_type,
                 "reason": l.reason,
                 "status": l.status,
                 "period_start": l.period_start,
                 "period_end": l.period_end,
-                "clarification_note": getattr(l, "clarification_note", None),
+                "clarification_note": l.clarification_note if hasattr(l, 'clarification_note') else None,
             }
             for l in leaves
         ],
@@ -238,13 +243,13 @@ async def get_my_leaves(
 # GET /leaves/pending
 # ─────────────────────────────────────────────────────────────────────────────
 @router.get("/pending")
+@router.get("/pending")
 async def get_pending_leaves(
     current_user: models.User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    auth.check_role([models.UserRole.HOD, models.UserRole.ADMIN])
+    from sqlalchemy.orm import selectinload
 
-    # Get HOD's department
     hod_result = await db.execute(
         select(models.Teacher).where(models.Teacher.user_id == current_user.id)
     )
@@ -254,32 +259,37 @@ async def get_pending_leaves(
 
     result = await db.execute(
         select(models.Absence)
+        .options(selectinload(models.Absence.teacher))
         .join(models.Teacher)
         .where(
             models.Teacher.department_id == hod.department_id,
-            models.Absence.status == models.AbsenceStatus.PENDING,
+            models.Absence.status.in_([
+                models.AbsenceStatus.PENDING,
+                models.AbsenceStatus.CLARIFICATION_REQUESTED,
+            ]),
         )
         .order_by(models.Absence.date.asc())
     )
     leaves = result.scalars().all()
 
     return {
-    "success": True,
-    "count": len(leaves),
-    "data": [
-        {
-            "id": str(l.id),
-            "teacher_name": l.teacher.name if l.teacher else "Unknown Teacher",
-            "date": str(l.date),
-            "leave_type": l.leave_type,
-            "reason": l.reason,
-            "status": l.status,
-            "period_start": l.period_start,
-            "period_end": l.period_end,
-        }
-        for l in leaves
-    ],
-}
+        "success": True,
+        "count": len(leaves),
+        "data": [
+            {
+                "id": str(l.id),
+                "teacher_name": l.teacher.name if l.teacher else "Unknown Teacher",
+                "date": str(l.date),
+                "leave_type": l.leave_type,
+                "reason": l.reason,
+                "status": l.status,
+                "period_start": l.period_start,
+                "period_end": l.period_end,
+                "clarification_note": l.clarification_note if hasattr(l, "clarification_note") else None,
+            }
+            for l in leaves
+        ],
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -310,7 +320,10 @@ async def hod_action_on_leave(
         raise HTTPException(status_code=404, detail="Leave request not found.")
 
     # Only act on PENDING requests
-    if absence.status != models.AbsenceStatus.PENDING:
+    if absence.status not in (
+    models.AbsenceStatus.PENDING,
+    models.AbsenceStatus.CLARIFICATION_REQUESTED,
+    ):
         raise HTTPException(
             status_code=409,
             detail=f"This request is already {absence.status}.",
@@ -351,7 +364,8 @@ async def hod_action_on_leave(
         notif_msg = f"Your leave request was rejected. HOD note: {body.note}"
 
     elif body.action == HODAction.CLARIFY:
-        # Keep PENDING but notify teacher to clarify
+        absence.status = models.AbsenceStatus.CLARIFICATION_REQUESTED
+        absence.clarification_note = body.note
         notif_msg = f"Your HOD needs clarification on your leave request: {body.note}"
 
     await db.commit()
@@ -497,6 +511,93 @@ async def override_relief(
         "message": "Relief assignment overridden successfully.",
         "data": {"id": str(assignment.id), "new_teacher_id": str(body.relief_teacher_id)},
     }
+# ─────────────────────────────────────────────────────────────────────────────
+# TEACHER: Edit a pending leave request
+# PUT /leaves/{absence_id}/edit
+# ─────────────────────────────────────────────────────────────────────────────
+@router.put("/{absence_id}/edit")
+async def edit_leave(
+    absence_id: UUID,
+    body: LeaveApplyRequest,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found.")
+
+    result = await db.execute(
+        select(models.Absence).where(models.Absence.id == absence_id)
+    )
+    absence = result.scalar_one_or_none()
+    if not absence:
+        raise HTTPException(status_code=404, detail="Leave request not found.")
+
+    if absence.teacher_id != teacher.id:
+        raise HTTPException(status_code=403, detail="Not your leave request.")
+
+    if absence.status not in (models.AbsenceStatus.PENDING, models.AbsenceStatus.CLARIFICATION_REQUESTED):
+        raise HTTPException(status_code=409, detail="Only pending or clarification-requested leaves can be edited.")
+
+    absence.date = datetime.strptime(body.date, "%Y-%m-%d").date()
+    absence.leave_type = body.leave_type.value
+    absence.reason = body.reason
+    if body.handover_url:
+        absence.handover_url = body.handover_url
+
+    await db.commit()
+    await db.refresh(absence)
+
+    return {
+        "success": True,
+        "message": "Leave request updated successfully.",
+        "data": {
+            "id": str(absence.id),
+            "date": str(absence.date),
+            "leave_type": absence.leave_type,
+            "reason": absence.reason,
+            "status": absence.status,
+        },
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TEACHER: Cancel (delete) a pending leave request
+# DELETE /leaves/{absence_id}
+# ─────────────────────────────────────────────────────────────────────────────
+@router.delete("/{absence_id}")
+async def cancel_leave(
+    absence_id: UUID,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found.")
+
+    result = await db.execute(
+        select(models.Absence).where(models.Absence.id == absence_id)
+    )
+    absence = result.scalar_one_or_none()
+    if not absence:
+        raise HTTPException(status_code=404, detail="Leave request not found.")
+
+    if absence.teacher_id != teacher.id:
+        raise HTTPException(status_code=403, detail="Not your leave request.")
+
+    if absence.status not in (models.AbsenceStatus.PENDING, models.AbsenceStatus.CLARIFICATION_REQUESTED):
+        raise HTTPException(status_code=409, detail="Only pending or clarification-requested leaves can be cancelled.")
+
+    await db.delete(absence)
+    await db.commit()
+
+    return {"success": True, "message": "Leave request cancelled successfully."}
 @router.post("/relief/{absence_id}/assign")
 async def assign_relief_teacher(
     absence_id: UUID,

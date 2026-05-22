@@ -5,13 +5,13 @@ from typing import List
 from datetime import date, timedelta, datetime
 import uuid
 
-from database import get_db
-from models import (
+from .database import get_db
+from .models import (
     User, UserRole, Teacher, Department, ClassRoom, Absence,
     ReliefAssignment, AbsenceStatus, ReliefStatus, TimetableVersion, TimetableSlot
 )
-import auth
-from schemas import (
+from . import auth
+from .schemas import (
     DashboardHomeStats, AdminAlert, AlertType, ConflictDetail,
     DepartmentWorkload, TeacherWorkload, ReliefDistribution, LeaveTrend,
     AbsenceOut, ReliefAssignmentBase
@@ -122,10 +122,10 @@ async def get_all_leaves(status: AbsenceStatus = None, db: AsyncSession = Depend
             "status": a.status,
             "period_start": a.period_start,
             "period_end": a.period_end,
+            "clarification_note": a.clarification_note,
         }
         for a, t in rows
     ]
-
 @router.get("/leaves/on-leave-today", response_model=List[AbsenceOut])
 async def get_on_leave_today(db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
     today = date.today()
