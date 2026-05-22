@@ -46,11 +46,11 @@ const alerts = [
 ];
 
 const quickActions = [
-  { label: "Create Timetable",  icon: CalendarPlus,  path: "/admin/timetables" },
-  { label: "Manage Relief",     icon: RefreshCw,     path: "/admin/relief" },
-  { label: "Review Leaves",     icon: ClipboardList, path: "/admin/leave" },
-  { label: "Manage Users",      icon: Users,         path: "/admin/users" },
-  { label: "Manage Depts",      icon: Building2,     path: "/admin/departments" },
+  { label: "Create Timetable",  icon: CalendarPlus,  path: "/admin/timetables"   },
+  { label: "Manage Relief",     icon: RefreshCw,     path: "/admin/relief"        },
+  { label: "Review Leaves",     icon: ClipboardList, path: "/admin/leave"         },
+  { label: "Manage Users",      icon: Users,         path: "/admin/users"         },
+  { label: "Manage Depts",      icon: Building2,     path: "/admin/departments"   },
   { label: "Send Announcement", icon: Send,          path: "/admin/announcements" },
 ];
 
