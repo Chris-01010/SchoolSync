@@ -80,13 +80,27 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
     return () => clearTimeout(id);
   }, [toastMessage]);
 
+  const mockReliefAssignment = {
+    id: 'mock-relief-001',
+    class_name: '10A Chemistry',
+    period: 4,
+    period_start_time: '13:00',
+    period_end_time: '14:00',
+    original_teacher_name: 'Dr. Patel',
+    day_label: 'Today',
+    subject_name: 'Chemistry',
+    room_name: 'Lab 3',
+  };
+
+  // REPLACE WITH THIS
   const handleReliefClick = () => {
-    if (pendingReliefs.length === 0) return;
-    setActiveAssignment(toModalShape(pendingReliefs[0]));
+    const assignment = pendingReliefs.length > 0
+      ? toModalShape(pendingReliefs[0])
+      : mockReliefAssignment;
+    setActiveAssignment(assignment);
     setNotifOpen(false);
     setReliefModalOpen(true);
   };
-
   const handleAccept = () => {
     setPendingReliefs((prev) => prev.slice(1));
     setToastMessage({ text: "Assignment accepted", kind: "accept" });
