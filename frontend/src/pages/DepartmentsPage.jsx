@@ -112,7 +112,10 @@ export default function DepartmentsPage() {
     if (!selectedHod) return;
     setSaving(true);
     try {
-      await api.patch(`/api/v1/departments/${hodModal.id}`, { hod_id: selectedHod });
+      await api.patch(`/api/v1/departments/${hodModal.id}`, {
+        name: hodModal.name,  // required by backend schema
+        hod_id: selectedHod,
+      });
       showToast("HOD assigned successfully.");
       setHodModal(null);
       fetchAll();
