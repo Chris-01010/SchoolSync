@@ -207,12 +207,12 @@ class ReliefAssignment(Base):
 class BlockedSlot(Base):
     __tablename__ = "blocked_slots"
 
-    id = Column(Integer, primary_key=True, index=True)
-    teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=False)
-    day = Column(String, nullable=False)       # e.g. "Monday"
-    period = Column(Integer, nullable=False)   # e.g. 3
-    reason = Column(String, nullable=True)     # e.g. "Staff meeting"
-    created_at = Column(DateTime, server_default=func.now())
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(GUID(), ForeignKey("teachers.id"), nullable=False)
+    day = Column(String, nullable=False)
+    period = Column(Integer, nullable=False)
+    reason = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     teacher = relationship("Teacher")
 
