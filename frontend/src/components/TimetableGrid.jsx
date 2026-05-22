@@ -216,7 +216,7 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
       {/* Timetable grid */}
       <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <div style={{ minWidth: 820 }}>
+          <div style={{ minWidth: 600 }}>
 
             {/* Period header row */}
             <div
