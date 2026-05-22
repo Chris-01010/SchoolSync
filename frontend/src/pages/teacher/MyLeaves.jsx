@@ -62,6 +62,12 @@ const LeaveCard = ({ req, onCancel }) => {
       {req.reason && (
         <p className="text-[11px] text-gray-500 mt-2.5 pl-10 leading-relaxed">{req.reason}</p>
       )}
+      {req.clarificationNote && (
+      <div className="mt-2.5 ml-10 p-2.5 bg-purple-50 border border-purple-200 rounded-lg">
+        <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Clarification Requested</p>
+        <p className="text-[11px] text-purple-900 mt-1">{req.clarificationNote}</p>
+      </div>
+      )}
 
       <div className="mt-3 pl-10 flex items-center gap-2 flex-wrap">
         <button className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold
@@ -90,6 +96,8 @@ const LeaveCard = ({ req, onCancel }) => {
 
 // ─── Map backend leave → UI shape ─────────────────────────────────────────────
 function mapLeave(raw) {
+  const rawStatus = (raw.status || 'pending').toLowerCase();
+  const status = rawStatus.includes('clarif') ? 'clarification' : rawStatus;
   return {
     id: raw.id,
     type: raw.leave_type || raw.type || 'Leave',
@@ -99,7 +107,8 @@ function mapLeave(raw) {
       ? (raw.period_end - raw.period_start + 1)
       : (raw.days ?? 1),
     reason: raw.reason || '',
-    status: (raw.status || 'pending').toLowerCase(),
+    status,
+    clarificationNote: raw.clarification_note || null,
     document: raw.handover_url || null,
     affectedClasses: raw.affectedClasses || [],
   };

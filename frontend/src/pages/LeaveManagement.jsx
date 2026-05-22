@@ -188,9 +188,6 @@ const LeaveManagement = () => {
           <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-[11px] font-medium text-gray-600 hover:bg-gray-50 bg-white">
             <FileDown size={11} /> Download Report
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[11px] font-semibold hover:bg-blue-700">
-            <ExternalLink size={11} /> View School Calendar
-          </button>
         </div>
       </div>
 

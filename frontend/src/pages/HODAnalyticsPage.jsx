@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
+  BarChart, Bar, LineChart, Line,
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Users, Clock, RefreshCw, Calendar } from 'lucide-react';
-
-// ── Mock Data ────────────────────────────────────────────────────────────────
+import { TrendingUp, TrendingDown, Users, Clock, RefreshCw, Calendar, Download } from 'lucide-react';
 
 const LEAVE_DATA = {
   'This Week':  [
@@ -22,7 +20,7 @@ const LEAVE_DATA = {
     { name: 'W3', sick: 4, casual: 1, other: 0 },
     { name: 'W4', sick: 2, casual: 2, other: 3 },
   ],
-  'This Term':  [
+  'This Term': [
     { name: 'Jan', sick: 8,  casual: 5, other: 3 },
     { name: 'Feb', sick: 5,  casual: 7, other: 2 },
     { name: 'Mar', sick: 12, casual: 4, other: 5 },
@@ -33,30 +31,30 @@ const LEAVE_DATA = {
 
 const WORKLOAD_DATA = {
   'This Week': [
-    { name: 'Dr. Adams',   teaching: 18, relief: 4 },
-    { name: 'J. Miller',   teaching: 22, relief: 2 },
-    { name: 'E. Lawson',   teaching: 16, relief: 6 },
-    { name: 'S. Patel',    teaching: 20, relief: 3 },
-    { name: 'R. Thomas',   teaching: 14, relief: 5 },
+    { name: 'Dr. Adams', teaching: 18, relief: 4 },
+    { name: 'J. Miller', teaching: 22, relief: 2 },
+    { name: 'E. Lawson', teaching: 16, relief: 6 },
+    { name: 'S. Patel',  teaching: 20, relief: 3 },
+    { name: 'R. Thomas', teaching: 14, relief: 5 },
   ],
   'This Month': [
-    { name: 'Dr. Adams',   teaching: 72, relief: 16 },
-    { name: 'J. Miller',   teaching: 88, relief: 8  },
-    { name: 'E. Lawson',   teaching: 64, relief: 24 },
-    { name: 'S. Patel',    teaching: 80, relief: 12 },
-    { name: 'R. Thomas',   teaching: 56, relief: 20 },
+    { name: 'Dr. Adams', teaching: 72, relief: 16 },
+    { name: 'J. Miller', teaching: 88, relief: 8  },
+    { name: 'E. Lawson', teaching: 64, relief: 24 },
+    { name: 'S. Patel',  teaching: 80, relief: 12 },
+    { name: 'R. Thomas', teaching: 56, relief: 20 },
   ],
   'This Term': [
-    { name: 'Dr. Adams',   teaching: 288, relief: 64  },
-    { name: 'J. Miller',   teaching: 352, relief: 32  },
-    { name: 'E. Lawson',   teaching: 256, relief: 96  },
-    { name: 'S. Patel',    teaching: 320, relief: 48  },
-    { name: 'R. Thomas',   teaching: 224, relief: 80  },
+    { name: 'Dr. Adams', teaching: 288, relief: 64 },
+    { name: 'J. Miller', teaching: 352, relief: 32 },
+    { name: 'E. Lawson', teaching: 256, relief: 96 },
+    { name: 'S. Patel',  teaching: 320, relief: 48 },
+    { name: 'R. Thomas', teaching: 224, relief: 80 },
   ],
 };
 
 const RELIEF_DATA = {
-  'This Week':  [
+  'This Week': [
     { name: 'Mon', assigned: 3, covered: 3, uncovered: 0 },
     { name: 'Tue', assigned: 2, covered: 1, uncovered: 1 },
     { name: 'Wed', assigned: 4, covered: 4, uncovered: 0 },
@@ -80,10 +78,10 @@ const RELIEF_DATA = {
 
 const ATTENDANCE_DATA = {
   'This Week': [
-    { name: 'Mon', present: 8, absent: 2 },
-    { name: 'Tue', present: 9, absent: 1 },
-    { name: 'Wed', present: 7, absent: 3 },
-    { name: 'Thu', present: 9, absent: 1 },
+    { name: 'Mon', present: 8,  absent: 2 },
+    { name: 'Tue', present: 9,  absent: 1 },
+    { name: 'Wed', present: 7,  absent: 3 },
+    { name: 'Thu', present: 9,  absent: 1 },
     { name: 'Fri', present: 10, absent: 0 },
   ],
   'This Month': [
@@ -107,64 +105,91 @@ const SUMMARY_CARDS = (range) => [
   {
     label: 'Total Leave Days',
     value: range === 'This Week' ? '6' : range === 'This Month' ? '23' : '68',
-    change: '-12%',
-    trend: 'down',
-    icon: Calendar,
+    change: '-12%', trend: 'down', icon: Calendar,
     color: 'text-blue-600', bg: 'bg-blue-50',
   },
   {
     label: 'Avg Teaching Hours',
     value: range === 'This Week' ? '18h' : range === 'This Month' ? '72h' : '288h',
-    change: '+5%',
-    trend: 'up',
-    icon: Clock,
+    change: '+5%', trend: 'up', icon: Clock,
     color: 'text-purple-600', bg: 'bg-purple-50',
   },
   {
     label: 'Relief Coverage',
     value: range === 'This Week' ? '83%' : range === 'This Month' ? '93%' : '91%',
-    change: '+3%',
-    trend: 'up',
-    icon: RefreshCw,
+    change: '+3%', trend: 'up', icon: RefreshCw,
     color: 'text-green-600', bg: 'bg-green-50',
   },
   {
     label: 'Staff Present',
     value: range === 'This Week' ? '86%' : range === 'This Month' ? '88%' : '85%',
-    change: '-2%',
-    trend: 'down',
-    icon: Users,
+    change: '-2%', trend: 'down', icon: Users,
     color: 'text-amber-600', bg: 'bg-amber-50',
   },
 ];
 
-// ── Custom Tooltip ────────────────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white border border-gray-100 rounded-lg shadow-lg p-2.5 text-[11px]">
       <p className="font-bold text-gray-700 mb-1">{label}</p>
       {payload.map((p, i) => (
-        <p key={i} style={{ color: p.color }} className="font-medium">
-          {p.name}: {p.value}
-        </p>
+        <p key={i} style={{ color: p.color }} className="font-medium">{p.name}: {p.value}</p>
       ))}
     </div>
   );
 };
 
-// ── Main Component ────────────────────────────────────────────────────────────
 export default function HODAnalytics() {
   const [range, setRange] = useState('This Month');
   const [activeTab, setActiveTab] = useState('overview');
 
   const tabs = [
-    { key: 'overview',    label: 'Overview' },
-    { key: 'leave',       label: 'Leave Trends' },
-    { key: 'workload',    label: 'Workload' },
-    { key: 'relief',      label: 'Relief Stats' },
-    { key: 'attendance',  label: 'Attendance' },
+    { key: 'overview',   label: 'Overview' },
+    { key: 'leave',      label: 'Leave Trends' },
+    { key: 'workload',   label: 'Workload' },
+    { key: 'relief',     label: 'Relief Stats' },
+    { key: 'attendance', label: 'Attendance' },
   ];
+
+  const handleCSV = () => {
+    const cards = SUMMARY_CARDS(range);
+    const rows = [
+      ['SchoolSync Department Analytics Report'],
+      ['Period', range],
+      ['Generated', new Date().toLocaleDateString()],
+      [],
+      ['SUMMARY'],
+      ['Metric', 'Value', 'Change'],
+      ...cards.map(c => [c.label, c.value, c.change]),
+      [],
+      ['LEAVE TRENDS'],
+      ['Period', 'Sick', 'Casual', 'Other'],
+      ...LEAVE_DATA[range].map(d => [d.name, d.sick, d.casual, d.other]),
+      [],
+      ['WORKLOAD'],
+      ['Teacher', 'Teaching Hours', 'Relief Hours'],
+      ...WORKLOAD_DATA[range].map(d => [d.name, d.teaching, d.relief]),
+      [],
+      ['RELIEF COVERAGE'],
+      ['Period', 'Assigned', 'Covered', 'Uncovered'],
+      ...RELIEF_DATA[range].map(d => [d.name, d.assigned, d.covered, d.uncovered]),
+      [],
+      ['ATTENDANCE'],
+      ['Period', 'Present', 'Absent'],
+      ...ATTENDANCE_DATA[range].map(d => [d.name, d.present, d.absent]),
+    ];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SchoolSync_Analytics_${range.replace(/ /g, '_')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePDF = () => window.print();
 
   return (
     <div className="space-y-5 max-w-6xl">
@@ -175,14 +200,25 @@ export default function HODAnalytics() {
           <h1 className="text-[18px] font-bold text-gray-900">Department Analytics</h1>
           <p className="text-[11px] text-gray-400 mt-0.5">CS Department · Real-time insights</p>
         </div>
-        {/* Range toggle */}
-        <div className="flex bg-gray-100 rounded-lg p-0.5">
-          {RANGES.map(r => (
-            <button key={r} onClick={() => setRange(r)}
-              className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all ${range === r ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-              {r}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Download buttons */}
+          <button onClick={handleCSV}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 bg-white">
+            <Download size={11} /> CSV
+          </button>
+          <button onClick={handlePDF}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 bg-white">
+            <Download size={11} /> PDF
+          </button>
+          {/* Range toggle */}
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            {RANGES.map(r => (
+              <button key={r} onClick={() => setRange(r)}
+                className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all ${range === r ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                {r}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -221,10 +257,8 @@ export default function HODAnalytics() {
       <motion.div key={activeTab + range}
         initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
 
-        {/* Overview — all 4 charts small */}
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Leave */}
             <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
               <h3 className="text-[12px] font-bold text-gray-800 mb-3">Leave Trends</h3>
               <ResponsiveContainer width="100%" height={160}>
@@ -238,8 +272,6 @@ export default function HODAnalytics() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-
-            {/* Workload */}
             <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
               <h3 className="text-[12px] font-bold text-gray-800 mb-3">Teacher Workload</h3>
               <ResponsiveContainer width="100%" height={160}>
@@ -252,8 +284,6 @@ export default function HODAnalytics() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-
-            {/* Relief */}
             <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
               <h3 className="text-[12px] font-bold text-gray-800 mb-3">Relief Coverage</h3>
               <ResponsiveContainer width="100%" height={160}>
@@ -261,14 +291,12 @@ export default function HODAnalytics() {
                   <XAxis dataKey="name" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 9 }} axisLine={false} tickLine={false} width={20} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Line type="monotone" dataKey="assigned"   stroke="#3B82F6" strokeWidth={2} dot={{ r: 3 }} name="Assigned" />
-                  <Line type="monotone" dataKey="covered"    stroke="#10B981" strokeWidth={2} dot={{ r: 3 }} name="Covered" />
-                  <Line type="monotone" dataKey="uncovered"  stroke="#EF4444" strokeWidth={2} dot={{ r: 3 }} name="Uncovered" strokeDasharray="4 2" />
+                  <Line type="monotone" dataKey="assigned"  stroke="#3B82F6" strokeWidth={2} dot={{ r: 3 }} name="Assigned" />
+                  <Line type="monotone" dataKey="covered"   stroke="#10B981" strokeWidth={2} dot={{ r: 3 }} name="Covered" />
+                  <Line type="monotone" dataKey="uncovered" stroke="#EF4444" strokeWidth={2} dot={{ r: 3 }} name="Uncovered" strokeDasharray="4 2" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-
-            {/* Attendance */}
             <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
               <h3 className="text-[12px] font-bold text-gray-800 mb-3">Staff Attendance</h3>
               <ResponsiveContainer width="100%" height={160}>
@@ -284,7 +312,6 @@ export default function HODAnalytics() {
           </div>
         )}
 
-        {/* Leave Trends — full */}
         {activeTab === 'leave' && (
           <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -308,7 +335,6 @@ export default function HODAnalytics() {
           </div>
         )}
 
-        {/* Workload — full */}
         {activeTab === 'workload' && (
           <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -330,7 +356,6 @@ export default function HODAnalytics() {
           </div>
         )}
 
-        {/* Relief Stats — full */}
         {activeTab === 'relief' && (
           <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -354,7 +379,6 @@ export default function HODAnalytics() {
           </div>
         )}
 
-        {/* Attendance — full */}
         {activeTab === 'attendance' && (
           <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -379,4 +403,4 @@ export default function HODAnalytics() {
       </motion.div>
     </div>
   );
-}
+}   

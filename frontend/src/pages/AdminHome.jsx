@@ -46,12 +46,12 @@ const alerts = [
 ];
 
 const quickActions = [
-   { label: "Create Timetable",  icon: CalendarPlus,  route: "/admin/timetables"    },
-  { label: "Manage Relief",     icon: RefreshCw,     route: "/admin/relief"        },
-  { label: "Review Leaves",     icon: ClipboardList, route: "/admin/leave"         },
-  { label: "Manage Users",      icon: Users,         route: "/admin/users"         },
-  { label: "Manage Depts",      icon: Building2,     route: "/admin/departments"   },
-  { label: "Send Announcement", icon: Send,          route: "/admin/announcements" },
+  { label: "Create Timetable",  icon: CalendarPlus,  path: "/admin/timetables" },
+  { label: "Manage Relief",     icon: RefreshCw,     path: "/admin/relief" },
+  { label: "Review Leaves",     icon: ClipboardList, path: "/admin/leave" },
+  { label: "Manage Users",      icon: Users,         path: "/admin/users" },
+  { label: "Manage Depts",      icon: Building2,     path: "/admin/departments" },
+  { label: "Send Announcement", icon: Send,          path: "/admin/announcements" },
 ];
 
 const conflicts = [
@@ -165,7 +165,7 @@ export default function AdminHome() {
               return (
                 <motion.button
                   key={qa.label}
-                  onClick={() => navigate(qa.route)}
+                  onClick={() => qa.path && navigate(qa.path)}
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.97 }}
                   transition={{ type: "spring", stiffness: 400, damping: 22 }}
