@@ -2,8 +2,7 @@ import uuid
 import datetime
 from enum import Enum as PyEnum
 from sqlalchemy import Column, String, Boolean, Integer, Float, Time, Date, SmallInteger, ForeignKey, UniqueConstraint, Enum, JSON, DateTime, Text
-from sqlalchemy.sql import func++
---+
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -206,13 +205,11 @@ class ReliefAssignment(Base):
     acknowledged_at = Column(DateTime(timezone=True))
 class BlockedSlot(Base):
     __tablename__ = "blocked_slots"
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(GUID(), ForeignKey("teachers.id"), nullable=False)
+    day = Column(String, nullable=False)
+    period = Column(Integer, nullable=False)
+    reason = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    id = Column(Integer, primary_key=True, index=True)
-    teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=False)
-    day = Column(String, nullable=False)       # e.g. "Monday"
-    period = Column(Integer, nullable=False)   # e.g. 3
-    reason = Column(String, nullable=True)     # e.g. "Staff meeting"
-    created_at = Column(DateTime, server_default=func.now())
-
-    teacher = relationship("Teacher", back_populates="blocked_slots")
-
+    teacher = relationship("Teacher")
