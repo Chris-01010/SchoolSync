@@ -67,7 +67,7 @@ async function request(method, path, body, opts = {}) {
         } catch {
             // body wasn't JSON; keep statusText
         }
-        throw new Error(detail);
+        throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
     }
 
     if (res.status === 204) return null; // No Content

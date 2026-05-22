@@ -673,7 +673,7 @@ async def create_timetable_slot(slot: schemas.TimetableSlotCreate, db: AsyncSess
         await db.rollback()
         raise HTTPException(status_code=409, detail="Scheduling conflict: teacher, room or class already booked at this slot")
 
-@app.get("/timetable/slots", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
+@app.get("/timetable/slots", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN, models.UserRole.HOD, models.UserRole.TEACHER]))])
 async def list_timetable_slots(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.TimetableSlot))
     return result.scalars().all()
@@ -704,27 +704,7 @@ async def get_timetable_view(scope: str, scope_id: UUID, current_user: models.Us
         grouped[day].append(slot)
     return {"scope": scope, "scope_id": str(scope_id), "timetable": grouped}
 
-@app.put("/timetable/slots/{slot_id}", response_model=schemas.TimetableSlot, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
-async def update_timetable_slot(slot_id: UUID, slot_update: schemas.TimetableSlotCreate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.TimetableSlot).where(models.TimetableSlot.id == slot_id))
-    slot = result.scalar_one_or_none()
-    if not slot:
-        raise HTTPException(status_code=404, detail="Slot not found")
-    for key, value in slot_update.dict(exclude_unset=True).items():
-        setattr(slot, key, value)
-    await db.commit()
-    await db.refresh(slot)
-    return slot
 
-@app.delete("/timetable/slots/{slot_id}", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
-async def delete_timetable_slot(slot_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.TimetableSlot).where(models.TimetableSlot.id == slot_id))
-    slot = result.scalar_one_or_none()
-    if not slot:
-        raise HTTPException(status_code=404, detail="Slot not found")
-    await db.delete(slot)
-    await db.commit()
-    return {"status": "deleted"}
 
 @app.post("/generate-timetable/", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def trigger_timetable_generation(request: schemas.TimetableGenerateRequest):
@@ -836,3 +816,186 @@ async def activate_timetable_version(version_id: str, db: AsyncSession = Depends
     version.is_active = True
     await db.commit()
     return {"status": "success"}
+
+# ─── Timetable Slot CRUD ─────────────────────────────────────────────────────
+
+class TimetableSlotCreate(BaseModel):
+    teacher_id: str
+    class_id: str
+    room_id: str
+    subject_id: str
+    day_of_week: int
+    period: int
+    timetable_version_id: Optional[str] = None
+
+class TimetableSlotUpdate(BaseModel):
+    teacher_id: Optional[str] = None
+    class_id: Optional[str] = None
+    room_id: Optional[str] = None
+    subject_id: Optional[str] = None
+    day_of_week: Optional[int] = None
+    period: Optional[int] = None
+
+@app.post("/timetable/slots/assign")
+async def assign_timetable_slot(
+    payload: TimetableSlotCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    day = payload.day_of_week
+    period = payload.period
+
+    # Get active version if not specified
+    version_id = payload.timetable_version_id
+    if not version_id:
+        result = await db.execute(select(models.TimetableVersion).filter(models.TimetableVersion.is_active == True))
+        active = result.scalars().first()
+        if not active:
+            raise HTTPException(status_code=400, detail="No active timetable version found")
+        version_id = str(active.id)
+
+    # Conflict check: teacher already assigned at this day/period
+    teacher_conflict = await db.execute(
+        select(models.TimetableSlot).filter(
+            models.TimetableSlot.teacher_id == payload.teacher_id,
+            models.TimetableSlot.day_of_week == day,
+            models.TimetableSlot.period == period
+        )
+    )
+    if teacher_conflict.scalars().first():
+        raise HTTPException(status_code=409, detail="Teacher is already assigned to another class at this time")
+
+    # Conflict check: room already booked at this day/period
+    room_conflict = await db.execute(
+        select(models.TimetableSlot).filter(
+            models.TimetableSlot.room_id == payload.room_id,
+            models.TimetableSlot.day_of_week == day,
+            models.TimetableSlot.period == period
+        )
+    )
+    if room_conflict.scalars().first():
+        raise HTTPException(status_code=409, detail="Room is already booked at this time")
+
+    # Conflict check: class already has a slot at this day/period
+    class_conflict = await db.execute(
+        select(models.TimetableSlot).filter(
+            models.TimetableSlot.class_id == payload.class_id,
+            models.TimetableSlot.day_of_week == day,
+            models.TimetableSlot.period == period
+        )
+    )
+    if class_conflict.scalars().first():
+        raise HTTPException(status_code=409, detail="This class already has a slot at this time")
+
+    import uuid as uuid_module
+    slot = models.TimetableSlot(
+        id=str(uuid_module.uuid4()),
+        timetable_version_id=version_id,
+        teacher_id=payload.teacher_id,
+        class_id=payload.class_id,
+        room_id=payload.room_id,
+        subject_id=payload.subject_id,
+        day_of_week=day,
+        period=period,
+        is_relief=False
+    )
+    db.add(slot)
+    await db.commit()
+    await db.refresh(slot)
+    return {"status": "success", "slot_id": str(slot.id)}
+
+@app.put("/timetable/slots/{slot_id}")
+async def update_timetable_slot(
+    slot_id: str,
+    payload: TimetableSlotUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    result = await db.execute(select(models.TimetableSlot).filter(models.TimetableSlot.id == slot_id))
+    slot = result.scalars().first()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+
+    new_day = payload.day_of_week if payload.day_of_week is not None else slot.day_of_week
+    new_period = payload.period if payload.period is not None else slot.period
+    new_teacher = payload.teacher_id or str(slot.teacher_id)
+    new_room = payload.room_id or str(slot.room_id)
+    new_class = payload.class_id or str(slot.class_id)
+
+    # Conflict check excluding current slot
+    teacher_conflict = await db.execute(
+        select(models.TimetableSlot).filter(
+            models.TimetableSlot.teacher_id == new_teacher,
+            models.TimetableSlot.day_of_week == new_day,
+            models.TimetableSlot.period == new_period,
+            models.TimetableSlot.id != slot_id
+        )
+    )
+    if teacher_conflict.scalars().first():
+        raise HTTPException(status_code=409, detail="Teacher is already assigned to another class at this time")
+
+    room_conflict = await db.execute(
+        select(models.TimetableSlot).filter(
+            models.TimetableSlot.room_id == new_room,
+            models.TimetableSlot.day_of_week == new_day,
+            models.TimetableSlot.period == new_period,
+            models.TimetableSlot.id != slot_id
+        )
+    )
+    if room_conflict.scalars().first():
+        raise HTTPException(status_code=409, detail="Room is already booked at this time")
+
+    class_conflict = await db.execute(
+        select(models.TimetableSlot).filter(
+            models.TimetableSlot.class_id == new_class,
+            models.TimetableSlot.day_of_week == new_day,
+            models.TimetableSlot.period == new_period,
+            models.TimetableSlot.id != slot_id
+        )
+    )
+    if class_conflict.scalars().first():
+        raise HTTPException(status_code=409, detail="This class already has a slot at this time")
+
+    if payload.teacher_id: slot.teacher_id = payload.teacher_id
+    if payload.class_id: slot.class_id = payload.class_id
+    if payload.room_id: slot.room_id = payload.room_id
+    if payload.subject_id: slot.subject_id = payload.subject_id
+    if payload.day_of_week is not None: slot.day_of_week = payload.day_of_week
+    if payload.period is not None: slot.period = payload.period
+
+    await db.commit()
+    return {"status": "success", "slot_id": slot_id}
+
+
+@app.delete("/timetable/slots/{slot_id}")
+async def delete_timetable_slot(
+    slot_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    result = await db.execute(select(models.TimetableSlot).filter(models.TimetableSlot.id == slot_id))
+    slot = result.scalars().first()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    await db.delete(slot)
+    await db.commit()
+    return {"status": "success", "message": "Slot deleted"}
+
+
+# ─── Fetch dropdown data for timetable modals ────────────────────────────────
+
+@app.get("/timetable/meta")
+async def get_timetable_meta(
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    teachers = (await db.execute(select(models.Teacher).filter(models.Teacher.is_active == True))).scalars().all()
+    classes = (await db.execute(select(models.ClassRoom))).scalars().all()
+    rooms = (await db.execute(select(models.Room))).scalars().all()
+    subjects = (await db.execute(select(models.Subject))).scalars().all()
+    return {
+        "teachers": [{"id": str(t.id), "name": t.name} for t in teachers],
+        "classes": [{"id": str(c.id), "name": c.name} for c in classes],
+        "rooms": [{"id": str(r.id), "name": r.name} for r in rooms],
+        "subjects": [{"id": str(s.id), "name": s.name} for s in subjects],
+    }
