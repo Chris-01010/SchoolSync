@@ -1,9 +1,11 @@
 import os
 import logging
+from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from this file's directory regardless of where uvicorn is started
+load_dotenv(Path(__file__).parent / ".env")
 
 logger = logging.getLogger(__name__)
 
