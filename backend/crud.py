@@ -280,3 +280,4 @@ async def admin_change_status(user_id: UUID, payload: StatusPayload, db: AsyncSe
     user.is_active = payload.is_active
     await db.commit()
     return {"status": "success", "message": "User status updated"}
+

@@ -7,23 +7,28 @@ from enum import Enum
 from .models import UserRole, AbsenceStatus, ReliefStatus
 
 
-# Auth Schemas
+# ─── Auth Schemas ──────────────────────────────────────────────────────────────
+
 class Token(BaseModel):
     access_token: str
     token_type: str
 
+
 class TokenData(BaseModel):
     college_id: Optional[str] = None
+
 
 class UserBase(BaseModel):
     college_id: str
     email: EmailStr
     role: UserRole = UserRole.TEACHER
 
+
 class UserCreate(UserBase):
     password: str
     name: Optional[str] = None
     department: Optional[str] = None
+
 
 class User(UserBase):
     id: UUID
@@ -34,21 +39,26 @@ class User(UserBase):
         from_attributes = True
 
 
-# Department Schemas
+# ─── Department Schemas ────────────────────────────────────────────────────────
+
 class DepartmentBase(BaseModel):
     name: str
     hod_id: Optional[UUID] = None
 
+
 class DepartmentCreate(DepartmentBase):
     pass
 
+
 class Department(DepartmentBase):
     id: UUID
-    
+
     class Config:
         from_attributes = True
 
-# Teacher Schemas
+
+# ─── Teacher Schemas ───────────────────────────────────────────────────────────
+
 class TeacherBase(BaseModel):
     name: str
     email: str
@@ -56,8 +66,10 @@ class TeacherBase(BaseModel):
     weekly_relief_cap: int = 3
     max_weekly_hours: int = 30
 
+
 class TeacherCreate(TeacherBase):
     user_id: UUID
+
 
 class TeacherUpdate(BaseModel):
     name: Optional[str] = None
@@ -67,9 +79,14 @@ class TeacherUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-class Teacher(TeacherBase):
+class Teacher(BaseModel):
     id: UUID
     user_id: UUID
+    name: str
+    email: str
+    department_id: Optional[UUID] = None
+    weekly_relief_cap: int
+    max_weekly_hours: int
     current_relief_hours: int
     total_hours_worked: int
     is_active: bool
@@ -78,13 +95,16 @@ class Teacher(TeacherBase):
         from_attributes = True
 
 
-# Subject Schemas
+# ─── Subject Schemas ───────────────────────────────────────────────────────────
+
 class SubjectBase(BaseModel):
     name: str
     department_id: UUID
 
+
 class SubjectCreate(SubjectBase):
     pass
+
 
 class Subject(SubjectBase):
     id: UUID
@@ -93,8 +113,8 @@ class Subject(SubjectBase):
         from_attributes = True
 
 
-# Absence Schemas
-# FIXED — teacher_id removed from body, comes from JWT in the endpoint
+# ─── Absence Schemas ───────────────────────────────────────────────────────────
+
 class AbsenceCreate(BaseModel):
     date: date
     period_start: int
@@ -103,7 +123,7 @@ class AbsenceCreate(BaseModel):
     reason: Optional[str] = None
     handover_url: Optional[str] = None
 
-# Also add this new schema for the "view my leaves" response
+
 class AbsenceOut(BaseModel):
     id: UUID
     teacher_id: UUID
@@ -119,17 +139,20 @@ class AbsenceOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 class Absence(AbsenceCreate):
     id: UUID
     status: AbsenceStatus
     resolved: bool
     resolution_report_url: Optional[str] = None
+    clarification_note: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 
-# --- Leave Request Schemas (HOD workflow) ---
+# ─── Leave Request Schemas ─────────────────────────────────────────────────────
+
 class LeaveType(str, Enum):
     SICK = "sick"
     CASUAL = "casual"
@@ -151,9 +174,7 @@ class LeaveRequestCreate(BaseModel):
     end_date: date
     reason: str
     is_full_day: bool = True
-    # required if is_full_day=False
     period_ids: Optional[List[int]] = None
-    # document_url comes from separate file upload endpoint
 
 
 class LeaveRequestOut(BaseModel):
@@ -173,7 +194,6 @@ class LeaveRequestOut(BaseModel):
     decision_at: Optional[datetime]
     created_at: datetime
 
-    # UI joins (may be None depending on query)
     period_ids: Optional[List[int]]
     relief_teacher_name: Optional[str]
 
@@ -182,15 +202,16 @@ class LeaveRequestOut(BaseModel):
 
 
 class LeaveRequestStatusUpdate(BaseModel):
-    # HOD uses this to approve/reject (and optionally ask for clarification)
     status: LeaveStatus
     clarification_note: Optional[str] = None
 
 
-# Relief Schemas
+# ─── Relief Schemas ────────────────────────────────────────────────────────────
+
 class ReliefResponse(BaseModel):
     status: ReliefStatus
     flag_reason: Optional[str] = None
+    flag_comment: Optional[str] = None
 
 
 class ReliefAssignmentBase(BaseModel):
@@ -206,7 +227,15 @@ class ReliefAssignmentBase(BaseModel):
         from_attributes = True
 
 
-# Notification Schemas
+class ReliefCandidate(BaseModel):
+    teacher_id: UUID
+    name: str
+    score: int
+    reasons: str
+
+
+# ─── Notification Schemas ──────────────────────────────────────────────────────
+
 class NotificationBase(BaseModel):
     title: str
     content: str
@@ -221,14 +250,33 @@ class Notification(NotificationBase):
         from_attributes = True
 
 
-class ReliefCandidate(BaseModel):
-    teacher_id: UUID
-    name: str
-    score: int
-    reasons: str
+# ─── Timetable Schemas ─────────────────────────────────────────────────────────
 
 class TimetableGenerateRequest(BaseModel):
     school_id: UUID
+
+
+class TimetableSlotCreate(BaseModel):
+    version_id: UUID
+    teacher_id: UUID
+    class_id: UUID
+    room_id: UUID
+    day_of_week: int
+    period: int
+    subject: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TimetableSlot(TimetableSlotCreate):
+    id: UUID
+
+    class Config:
+        from_attributes = True
+
+
+# ─── Dashboard Schemas ─────────────────────────────────────────────────────────
 
 class DashboardSummary(BaseModel):
     timetable: List[Dict]
@@ -246,17 +294,6 @@ class HODDashboardSummary(BaseModel):
     pending_approvals_count: int
 
 
-class AbsenceDecision(BaseModel):
-    # Matches AbsenceStatus enum values in DB: approved / rejected
-    status: AbsenceStatus
-
-
-class LeaveApproval(BaseModel):
-    # Deprecated: use LeaveRequestStatusUpdate for leave request approval flow.
-    status: AbsenceStatus
-    clarification_note: Optional[str] = None
-
-
 class AdminDashboardStats(BaseModel):
     active_absences: int
     relief_assigned_today: int
@@ -266,33 +303,7 @@ class AdminDashboardStats(BaseModel):
     flagged_issues_count: int
     pending_timetable_tasks: int
 
-class SystemSettings(BaseModel):
-    max_weekly_hours_default: int
-    weekly_relief_cap_default: int
-    fairness_balance_factor: float
-    allow_hod_auto_approval: bool
 
-# --- Timetable Slot Schemas ---
-class TimetableSlotCreate(BaseModel):
-    version_id: UUID
-    teacher_id: UUID
-    class_id: UUID
-    room_id: UUID
-    day_of_week: int       # 0 = Monday, 6 = Sunday
-    period: int
-    subject: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-
-class TimetableSlot(TimetableSlotCreate):
-    id: UUID
-
-    class Config:
-        from_attributes = True
-
-# --- Admin Dashboard Home Schemas ---
 class DashboardHomeStats(BaseModel):
     total_departments: int
     total_teachers: int
@@ -304,25 +315,29 @@ class DashboardHomeStats(BaseModel):
     timetable_conflict_count: int
     active_timetable_updates: int
 
-class AlertType(str, Enum):
-    CONFLICT = "conflict"
-    WARNING = "warning"
-    INFO = "info"
 
-class AdminAlert(BaseModel):
-    id: str
-    type: AlertType
-    title: str
-    message: str
-    time_ago: str
+# ─── System Settings ───────────────────────────────────────────────────────────
 
-class ConflictDetail(BaseModel):
-    id: str
-    type: str
-    affected_entities: str
-    time_slot: str
+class SystemSettings(BaseModel):
+    max_weekly_hours_default: int
+    weekly_relief_cap_default: int
+    fairness_balance_factor: float
+    allow_hod_auto_approval: bool
 
-# --- Analytics Schemas ---
+
+# ─── Leave Approval ────────────────────────────────────────────────────────────
+
+class AbsenceDecision(BaseModel):
+    status: AbsenceStatus
+
+
+class LeaveApproval(BaseModel):
+    status: AbsenceStatus
+    clarification_note: Optional[str] = None
+
+
+# ─── Analytics Schemas ─────────────────────────────────────────────────────────
+
 class DepartmentWorkload(BaseModel):
     department_name: str
     avg_teaching_hours: float
@@ -331,34 +346,65 @@ class DepartmentWorkload(BaseModel):
     load_capacity_percent: int
     status: str
 
+
 class TeacherWorkload(BaseModel):
     teacher_id: UUID
     teacher_name: str
     department: str
     load_percent: int
 
+
 class ReliefDistribution(BaseModel):
     internal_percent: int
     casual_percent: int
     total_hours: int
 
+
 class LeaveTrend(BaseModel):
     week: str
     count: int
 
-# --- Room Schemas ---
+
+# ─── Alerts / Conflicts ────────────────────────────────────────────────────────
+
+class AlertType(str, Enum):
+    CONFLICT = "conflict"
+    WARNING = "warning"
+    INFO = "info"
+
+
+class AdminAlert(BaseModel):
+    id: str
+    type: AlertType
+    title: str
+    message: str
+    time_ago: str
+
+
+class ConflictDetail(BaseModel):
+    id: str
+    type: str
+    affected_entities: str
+    time_slot: str
+
+
+# ─── Room Schemas ──────────────────────────────────────────────────────────────
+
 class RoomBase(BaseModel):
     name: str
     capacity: Optional[int] = None
     room_type: Optional[str] = None
 
+
 class RoomCreate(RoomBase):
     pass
+
 
 class RoomUpdate(RoomBase):
     name: Optional[str] = None
     capacity: Optional[int] = None
     room_type: Optional[str] = None
+
 
 class Room(RoomBase):
     id: UUID
@@ -366,7 +412,9 @@ class Room(RoomBase):
     class Config:
         from_attributes = True
 
-# --- User Management (Admin View) ---
+
+# ─── Admin User Management ─────────────────────────────────────────────────────
+
 class UserAdminView(BaseModel):
     id: UUID
     college_id: str
@@ -380,6 +428,7 @@ class UserAdminView(BaseModel):
     last_active: str
     created_at: Optional[datetime] = None
 
+
 class UserAdminCreate(BaseModel):
     college_id: str
     name: str
@@ -388,11 +437,13 @@ class UserAdminCreate(BaseModel):
     role: UserRole = UserRole.TEACHER
     department_id: Optional[UUID] = None
 
+
 class UserAdminUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     role: Optional[UserRole] = None
     department_id: Optional[UUID] = None
+
 
 class AuditLogOut(BaseModel):
     id: UUID
@@ -405,7 +456,29 @@ class AuditLogOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 class BulkActionPayload(BaseModel):
     user_ids: List[UUID]
-    action: str  # "enable", "disable", "reset_password"
+    action: str
     new_password: Optional[str] = None
+
+
+# ─── Blocked Slot Schemas ──────────────────────────────────────────────────────
+
+class BlockedSlotBase(BaseModel):
+    teacher_id: UUID
+    day: int
+    period: int
+    reason: Optional[str] = None
+
+
+class BlockedSlotCreate(BlockedSlotBase):
+    pass
+
+
+class BlockedSlotOut(BlockedSlotBase):
+    id: UUID
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

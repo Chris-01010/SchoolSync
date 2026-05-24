@@ -1,17 +1,23 @@
 from dotenv import load_dotenv
 load_dotenv()
 import os
+from pathlib import Path
+from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from dotenv import load_dotenv
+load_dotenv()
 
-# Fallback to SQLite for local development if PostgreSQL is not available
+
+# Load .env from project root (works regardless of where you run from)
+load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./schoolsync.db")
 
-# SQLite needs different arguments
-if DATABASE_URL.startswith("sqlite"):
-    engine = create_async_engine(DATABASE_URL, echo=True)
-else:
-    engine = create_async_engine(DATABASE_URL, echo=True)
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set")
+
+engine = create_async_engine(DATABASE_URL, echo=True)
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
