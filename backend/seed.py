@@ -3,9 +3,9 @@ import uuid
 from datetime import time, date, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.database import engine, Base, AsyncSessionLocal
-from backend import models
-from backend import auth
+from .database import engine, Base, AsyncSessionLocal
+from . import models
+from . import auth
 
 
 async def seed_data():
