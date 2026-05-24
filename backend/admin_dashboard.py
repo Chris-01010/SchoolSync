@@ -8,7 +8,8 @@ import uuid
 from .database import get_db
 from .models import (
     User, UserRole, Teacher, Department, ClassRoom, Absence,
-    ReliefAssignment, AbsenceStatus, ReliefStatus, TimetableVersion, TimetableSlot
+    ReliefAssignment, AbsenceStatus, ReliefStatus, TimetableVersion, TimetableSlot,
+    Notification, AuditLog
 )
 from . import auth
 from .schemas import (
@@ -182,3 +183,119 @@ async def get_leave_trends(db: AsyncSession = Depends(get_db), _: User = Depends
 @router.get("/analytics/overloaded-teachers", response_model=List[TeacherWorkload])
 async def get_overloaded_teachers(db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
     return []
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADMIN: Get all flagged relief assignments
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/relief/flagged")
+async def get_flagged_reliefs(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    result = await db.execute(
+        select(ReliefAssignment, Teacher)
+        .join(Teacher, ReliefAssignment.relief_teacher_id == Teacher.id)
+        .where(ReliefAssignment.status == ReliefStatus.FLAGGED)
+        .order_by(ReliefAssignment.assigned_at.desc())
+    )
+    rows = result.all()
+
+    return [
+        {
+            "id": str(a.id),
+            "relief_teacher_id": str(a.relief_teacher_id),
+            "relief_teacher_name": t.name,
+            "absence_id": str(a.absence_id),
+            "flag_reason": a.flag_reason,
+            "assigned_at": str(a.assigned_at),
+            "status": a.status,
+        }
+        for a, t in rows
+    ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADMIN: Override a flagged relief assignment
+# ─────────────────────────────────────────────────────────────────────────────
+
+from pydantic import BaseModel
+
+class ReliefOverrideRequest(BaseModel):
+    new_teacher_id: str
+    override_note: str | None = None
+
+
+@router.put("/relief/{assignment_id}/override")
+async def override_flagged_relief(
+    assignment_id: str,
+    body: ReliefOverrideRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    # 1. Fetch the assignment
+    result = await db.execute(
+        select(ReliefAssignment).where(ReliefAssignment.id == assignment_id)
+    )
+    assignment = result.scalar_one_or_none()
+
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Relief assignment not found.")
+
+    if assignment.status != ReliefStatus.FLAGGED:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Assignment is not flagged. Current status: {assignment.status}"
+        )
+
+    # 2. Fetch the new teacher
+    new_teacher_result = await db.execute(
+        select(Teacher).where(Teacher.id == body.new_teacher_id)
+    )
+    new_teacher = new_teacher_result.scalar_one_or_none()
+
+    if not new_teacher:
+        raise HTTPException(status_code=404, detail="New teacher not found.")
+
+    # 3. Update the assignment
+    assignment.relief_teacher_id = body.new_teacher_id
+    assignment.status = ReliefStatus.OVERRIDDEN
+    assignment.acknowledged_at = datetime.utcnow()
+
+    # 4. Notify the new teacher
+    if new_teacher.user_id:
+        notification = Notification(
+            user_id=new_teacher.user_id,
+            title="Relief Duty Assigned (Admin Override)",
+            content=f"An admin has assigned you to a relief duty. Note: {body.override_note or 'No additional note.'}",
+        )
+        db.add(notification)
+
+    # 5. Log to AuditLog
+    audit = AuditLog(
+        performed_by_user_id=current_user.id,
+        performed_by_college_id=current_user.college_id,
+        action="relief_override",
+        target_college_id=new_teacher.email,
+        details={
+            "assignment_id": str(assignment_id),
+            "new_teacher_id": str(body.new_teacher_id),
+            "override_note": body.override_note,
+        },
+    )
+    db.add(audit)
+
+    # 6. Commit everything together
+    await db.commit()
+    await db.refresh(assignment)
+
+    return {
+        "success": True,
+        "message": "Relief assignment overridden successfully.",
+        "data": {
+            "assignment_id": str(assignment.id),
+            "status": assignment.status,
+            "new_teacher_id": str(body.new_teacher_id),
+            "new_teacher_name": new_teacher.name,
+        }
+    }
+

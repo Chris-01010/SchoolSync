@@ -80,6 +80,7 @@ class ReliefStatus(str, PyEnum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     FLAGGED = "flagged"
+    OVERRIDDEN = "overridden"
 
 
 class User(Base):
@@ -449,5 +450,31 @@ class BlockedSlot(Base):
     reason = Column(String, nullable=True)     # e.g. "Staff meeting"
     created_at = Column(DateTime, server_default=func.now())
 
-    teacher = relationship("Teacher", foreign_keys=[teacher_id],back_populates="blocked_slots")
+    teacher = relationship(
+        "Teacher",
+        back_populates="blocked_slot_entries"
+    )
+    
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
 
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    performed_by_user_id = Column(
+        GUID(),
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    performed_by_college_id = Column(String, nullable=True)
+
+    action = Column(String, nullable=False)
+
+    target_college_id = Column(String, nullable=True)
+
+    details = Column(JSON, nullable=True)
+
+    timestamp = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
