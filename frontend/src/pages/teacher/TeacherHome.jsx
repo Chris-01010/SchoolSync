@@ -1,54 +1,51 @@
 import React, { useState } from 'react';
 import { api } from '../../services/api';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   CalendarDays, Clock, FileText, CheckCircle2,
   Repeat2, BookOpen, Star, ChevronRight,
-  MapPin, Users, MoreHorizontal,
+  MapPin, Users, MoreHorizontal, X,
 } from 'lucide-react';
 import {
   teacher, teacherStats, todaySchedule, notifications, activeReliefDutiesToday,
 } from '../../mockData';
 import ApplyLeaveModal from '../../components/teacher/ApplyLeaveModal';
 
+const NOTIF_ICONS = {
+  leave_approved:  { el: CheckCircle2, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  relief_assigned: { el: Repeat2,      bg: 'bg-orange-50',  color: 'text-orange-500'  },
+  announcement:    { el: Users,        bg: 'bg-blue-50',    color: 'text-blue-500'    },
+};
+
 // ─── Stat card ────────────────────────────────────────────────────────────────
 const StatCard = ({ icon: Icon, iconColor, iconBg, badge, badgeColor, value, label, sub, subColor, delay }) => (
   <motion.div
-    initial={{ opacity: 0, y: 12 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3, delay }}
-    className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
-  >
+    initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay }}
+    className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
     <div className="flex items-start justify-between mb-2">
       <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center`}>
         <Icon size={15} className={iconColor} />
       </div>
-      {badge && (
-        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${badgeColor}`}>{badge}</span>
-      )}
+      {badge && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${badgeColor}`}>{badge}</span>}
     </div>
     <p className="text-[26px] font-bold text-gray-900 leading-none mb-1">{value}</p>
     <p className="text-[11px] font-semibold text-gray-500">{label}</p>
-    {sub && (
-      <p className={`text-[10px] font-medium mt-1 flex items-center gap-1 ${subColor ?? 'text-gray-400'}`}>{sub}</p>
-    )}
+    {sub && <p className={`text-[10px] font-medium mt-1 flex items-center gap-1 ${subColor ?? 'text-gray-400'}`}>{sub}</p>}
   </motion.div>
 );
 
 // ─── Schedule row ─────────────────────────────────────────────────────────────
 const ScheduleRow = ({ item }) => {
   const isCurrent = item.type === 'current';
-  const isFree = item.type === 'free';
-  const isUpcoming = item.type === 'upcoming';
+  const isFree    = item.type === 'free';
+  const isUpcoming= item.type === 'upcoming';
   return (
     <div className={`rounded-xl p-3.5 border transition-all ${isCurrent ? 'bg-white border-l-4 border-l-emerald-500 border-gray-100 shadow-sm' : isFree ? 'bg-gray-50 border-gray-100' : 'bg-white border-gray-100'}`}>
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex items-center gap-1.5">
           {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
-          <span className={`text-[9px] font-bold uppercase tracking-wide ${isCurrent ? 'text-emerald-600' : isUpcoming ? 'text-blue-500' : 'text-gray-400'}`}>
-            {item.label}
-          </span>
+          <span className={`text-[9px] font-bold uppercase tracking-wide ${isCurrent ? 'text-emerald-600' : isUpcoming ? 'text-blue-500' : 'text-gray-400'}`}>{item.label}</span>
         </div>
         <span className="text-[10px] text-gray-400 font-medium">{item.timeStart} – {item.timeEnd}</span>
       </div>
@@ -65,16 +62,15 @@ const ScheduleRow = ({ item }) => {
 };
 
 // ─── Notification row ─────────────────────────────────────────────────────────
-const NotifRow = ({ n }) => {
-  const icons = {
-    leave_approved:  { el: <CheckCircle2 size={14} className="text-emerald-600" />, bg: 'bg-emerald-50' },
-    relief_assigned: { el: <Repeat2 size={14} className="text-orange-500" />,       bg: 'bg-orange-50'  },
-    announcement:    { el: <Users size={14} className="text-blue-500" />,            bg: 'bg-blue-50'    },
-  };
-  const cfg = icons[n.type] ?? icons.announcement;
+const NotifRow = ({ n, onClick }) => {
+  const cfg = NOTIF_ICONS[n.type] ?? NOTIF_ICONS.announcement;
+  const Icon = cfg.el;
   return (
-    <div className="flex items-start gap-2.5 py-2.5 border-b border-gray-50 last:border-0">
-      <div className={`w-6 h-6 rounded-lg ${cfg.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}>{cfg.el}</div>
+    <div onClick={() => onClick(n)}
+      className="cursor-pointer flex items-start gap-2.5 py-2.5 border-b border-gray-50 last:border-0 hover:bg-gray-50/60 rounded-lg px-1 transition-colors">
+      <div className={`w-6 h-6 rounded-lg ${cfg.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+        <Icon size={14} className={cfg.color} />
+      </div>
       <div className="flex-1 min-w-0">
         <p className="text-[11px] font-bold text-gray-800 leading-tight">{n.title}</p>
         <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">{n.message}</p>
@@ -111,13 +107,13 @@ const ReliefCard = ({ duty }) => (
 
 // ─── Main component ───────────────────────────────────────────────────────────
 const STATS = [
-  { icon: CalendarDays, iconBg: 'bg-blue-50',    iconColor: 'text-blue-600',    badge: 'Today',    badgeColor: 'bg-blue-50 text-blue-600',    value: teacherStats.totalClassesToday,      label: 'Total Classes Today',    sub: `✓ Completed: ${teacherStats.completedClassesToday}`, subColor: 'text-emerald-600', delay: 0    },
-  { icon: Clock,        iconBg: 'bg-green-50',   iconColor: 'text-green-600',   badge: 'Available',badgeColor: 'bg-green-50 text-green-600',   value: teacherStats.freePeriodsToday,       label: 'Free Periods Today',     sub: 'Ready for relief duty',   subColor: 'text-gray-400',    delay: 0.05 },
-  { icon: FileText,     iconBg: 'bg-amber-50',   iconColor: 'text-amber-600',   badge: 'Pending',  badgeColor: 'bg-amber-50 text-amber-600',   value: teacherStats.pendingLeaveRequests,   label: 'Leave Requests',         sub: 'Awaiting approval',       subColor: 'text-gray-400',    delay: 0.1  },
-  { icon: CheckCircle2, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', badge: 'Monthly',  badgeColor: 'bg-emerald-50 text-emerald-600',value: teacherStats.approvedLeaves,        label: 'Approved Leaves',        sub: 'This month',              subColor: 'text-gray-400',    delay: 0.15 },
-  { icon: Repeat2,      iconBg: 'bg-orange-50',  iconColor: 'text-orange-600',  badge: 'Upcoming', badgeColor: 'bg-orange-50 text-orange-600', value: teacherStats.reliefDutiesToday,      label: 'Relief Duties',          sub: 'Assigned for today',      subColor: 'text-gray-400',    delay: 0.2  },
-  { icon: BookOpen,     iconBg: 'bg-purple-50',  iconColor: 'text-purple-600',  badge: 'Weekly',   badgeColor: 'bg-purple-50 text-purple-600', value: teacherStats.totalTeachingHoursWeek, label: 'Total Teaching Hours',   sub: '+1hr since yesterday',    subColor: 'text-purple-500',  delay: 0.25 },
-  { icon: Star,         iconBg: 'bg-teal-50',    iconColor: 'text-teal-600',    badge: 'Weekly',   badgeColor: 'bg-teal-50 text-teal-600',     value: teacherStats.totalReliefHoursWeek,   label: 'Total Relief Hours',     sub: '+1hr since yesterday',    subColor: 'text-teal-500',    delay: 0.3  },
+  { icon: CalendarDays, iconBg: 'bg-blue-50',    iconColor: 'text-blue-600',    badge: 'Today',    badgeColor: 'bg-blue-50 text-blue-600',     value: teacherStats.totalClassesToday,      label: 'Total Classes Today',  sub: `✓ Completed: ${teacherStats.completedClassesToday}`, subColor: 'text-emerald-600', delay: 0    },
+  { icon: Clock,        iconBg: 'bg-green-50',   iconColor: 'text-green-600',   badge: 'Available',badgeColor: 'bg-green-50 text-green-600',    value: teacherStats.freePeriodsToday,       label: 'Free Periods Today',   sub: 'Ready for relief duty',   subColor: 'text-gray-400',    delay: 0.05 },
+  { icon: FileText,     iconBg: 'bg-amber-50',   iconColor: 'text-amber-600',   badge: 'Pending',  badgeColor: 'bg-amber-50 text-amber-600',    value: teacherStats.pendingLeaveRequests,   label: 'Leave Requests',       sub: 'Awaiting approval',       subColor: 'text-gray-400',    delay: 0.1  },
+  { icon: CheckCircle2, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', badge: 'Monthly',  badgeColor: 'bg-emerald-50 text-emerald-600',value: teacherStats.approvedLeaves,         label: 'Approved Leaves',      sub: 'This month',              subColor: 'text-gray-400',    delay: 0.15 },
+  { icon: Repeat2,      iconBg: 'bg-orange-50',  iconColor: 'text-orange-600',  badge: 'Upcoming', badgeColor: 'bg-orange-50 text-orange-600',  value: teacherStats.reliefDutiesToday,      label: 'Relief Duties',        sub: 'Assigned for today',      subColor: 'text-gray-400',    delay: 0.2  },
+  { icon: BookOpen,     iconBg: 'bg-purple-50',  iconColor: 'text-purple-600',  badge: 'Weekly',   badgeColor: 'bg-purple-50 text-purple-600',  value: teacherStats.totalTeachingHoursWeek, label: 'Total Teaching Hours', sub: '+1hr since yesterday',    subColor: 'text-purple-500',  delay: 0.25 },
+  { icon: Star,         iconBg: 'bg-teal-50',    iconColor: 'text-teal-600',    badge: 'Weekly',   badgeColor: 'bg-teal-50 text-teal-600',      value: teacherStats.totalReliefHoursWeek,   label: 'Total Relief Hours',   sub: '+1hr since yesterday',    subColor: 'text-teal-500',    delay: 0.3  },
 ];
 
 const QUICK_ACTIONS = [
@@ -129,7 +125,8 @@ const QUICK_ACTIONS = [
 
 export default function TeacherHome() {
   const ctx = useOutletContext();
-  const [leaveOpen, setLeaveOpen] = useState(ctx?.leaveModalOpen ?? false);
+  const [leaveOpen, setLeaveOpen]         = useState(ctx?.leaveModalOpen ?? false);
+  const [selectedNotif, setSelectedNotif] = useState(null);
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -206,7 +203,9 @@ export default function TeacherHome() {
               className="text-[10px] font-semibold text-blue-600 hover:underline">View all</button>
           </div>
           <div className="px-4 py-1">
-            {notifications.map((n) => <NotifRow key={n.id} n={n} />)}
+            {notifications.map((n) => (
+              <NotifRow key={n.id} n={n} onClick={setSelectedNotif} />
+            ))}
           </div>
         </div>
       </div>
@@ -225,6 +224,51 @@ export default function TeacherHome() {
           {activeReliefDutiesToday.map((duty) => <ReliefCard key={duty.id} duty={duty} />)}
         </div>
       </div>
+
+      {/* Notification Detail Modal */}
+      <AnimatePresence>
+        {selectedNotif && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setSelectedNotif(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-md p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start gap-3">
+                  {(() => {
+                    const cfg = NOTIF_ICONS[selectedNotif.type] ?? NOTIF_ICONS.announcement;
+                    const Icon = cfg.el;
+                    return (
+                      <div className={`w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center flex-shrink-0`}>
+                        <Icon size={18} className={cfg.color} />
+                      </div>
+                    );
+                  })()}
+                  <div>
+                    <h2 className="text-[14px] font-bold text-gray-900">{selectedNotif.title}</h2>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{selectedNotif.time}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedNotif(null)}
+                  className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="text-[12px] text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-3.5">
+                {selectedNotif.message}
+              </p>
+              <div className="flex justify-end mt-5">
+                <button onClick={() => setSelectedNotif(null)}
+                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Apply Leave modal */}
       <ApplyLeaveModal isOpen={leaveOpen} onClose={handleCloseLeave}
