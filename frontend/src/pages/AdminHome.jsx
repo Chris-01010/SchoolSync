@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   Building2, Users, BookOpen, Plane, AlertCircle, CheckSquare,
   AlertTriangle, RefreshCw, CalendarPlus, ClipboardList, Send, Clock, Radio,
 } from "lucide-react";
+import { api } from "../services/api";
 
 const accentMap = {
   indigo: { iconBg: "bg-indigo-50", iconText: "text-indigo-600" },
@@ -37,18 +39,6 @@ function MetricCard({ title, value, subtext, icon: Icon, accent = "indigo" }) {
   );
 }
 
-const metrics = [
-  { title: "Total Departments",         value: "12",  subtext: "Active departments",    icon: Building2,     accent: "indigo" },
-  { title: "Total Teachers",            value: "156", subtext: "Including HODs",         icon: Users,         accent: "blue"   },
-  { title: "Total Classes",             value: "84",  subtext: "All sections",           icon: BookOpen,      accent: "purple" },
-  { title: "Teachers on Leave",         value: "5",   subtext: "Today",                  icon: Plane,         accent: "orange" },
-  { title: "Pending Leave Requests",    value: "8",   subtext: "Across all depts",       icon: AlertCircle,   accent: "red"    },
-  { title: "Total Relief Duties Today", value: "24",  subtext: "Assigned / Unassigned",  icon: CheckSquare,   accent: "teal"   },
-  { title: "Unassigned Relief Periods", value: "4",   subtext: "Need action",            icon: AlertTriangle, accent: "amber"  },
-  { title: "Timetable Conflict Count",  value: "3",   subtext: "Active conflicts",       icon: AlertTriangle, accent: "red"    },
-  { title: "Active Timetable Updates",  value: "12",  subtext: "Pending publish",        icon: RefreshCw,     accent: "gray"   },
-];
-
 const alerts = [
   { color: "bg-red-500",   title: "Room 101 Conflict Detected", description: "Mathematics Year 10 and Physics Year 12 scheduled simultaneously.", time: "2 mins ago" },
   { color: "bg-red-500",   title: "4 Unassigned Reliefs",       description: "Critical shortage for Period 4. No relief teachers have accepted requests.", time: "15 mins ago" },
@@ -56,12 +46,12 @@ const alerts = [
 ];
 
 const quickActions = [
-  { label: "Create Timetable",  icon: CalendarPlus  },
-  { label: "Manage Relief",     icon: RefreshCw     },
-  { label: "Review Leaves",     icon: ClipboardList },
-  { label: "Manage Users",      icon: Users         },
-  { label: "Manage Depts",      icon: Building2     },
-  { label: "Send Announcement", icon: Send          },
+  { label: "Create Timetable",  icon: CalendarPlus,  path: "/admin/timetables"   },
+  { label: "Manage Relief",     icon: RefreshCw,     path: "/admin/relief"        },
+  { label: "Review Leaves",     icon: ClipboardList, path: "/admin/leave"         },
+  { label: "Manage Users",      icon: Users,         path: "/admin/users"         },
+  { label: "Manage Depts",      icon: Building2,     path: "/admin/departments"   },
+  { label: "Send Announcement", icon: Send,          path: "/admin/announcements" },
 ];
 
 const conflicts = [
@@ -74,18 +64,50 @@ const containerVariants = { hidden: {}, visible: { transition: { staggerChildren
 const itemVariants = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } } };
 
 export default function AdminHome() {
+  const navigate = useNavigate();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchStats = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.get("/admin/stats");
+      setStats(data);
+    } catch (err) {
+      setError(err.message || "Failed to load dashboard stats.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchStats(); }, []);
+
+  const metrics = stats
+    ? [
+        { title: "Staff Present",            value: stats.staff_present_count,    subtext: `of ${stats.total_staff_count} total staff`,  icon: Users,         accent: "blue"   },
+        { title: "Total Staff",              value: stats.total_staff_count,      subtext: "Including HODs",                             icon: Building2,     accent: "indigo" },
+        { title: "Teachers on Leave",        value: stats.active_absences,        subtext: "Active absences today",                      icon: Plane,         accent: "orange" },
+        { title: "Relief Assigned Today",    value: stats.relief_assigned_today,  subtext: "Duties covered",                             icon: CheckSquare,   accent: "teal"   },
+        { title: "Coverage Rate",            value: `${stats.coverage_rate}%`,    subtext: "Current period",                             icon: RefreshCw,     accent: "purple" },
+        { title: "Flagged Issues",           value: stats.flagged_issues_count,   subtext: "Need attention",                             icon: AlertTriangle, accent: "red"    },
+        { title: "Pending Timetable Tasks",  value: stats.pending_timetable_tasks,subtext: "Awaiting action",                            icon: AlertCircle,   accent: "amber"  },
+      ]
+    : [];
+
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
 
       {/* HEADER */}
       <motion.section variants={itemVariants} className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Welcome back, Admin Sarah</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Welcome back, Admin</h1>
           <p className="mt-1 text-sm text-gray-500">Manage institutional timetables and teacher reliefs with precision.</p>
         </div>
         <div className="mt-2 flex items-center gap-2 sm:mt-0">
           <Clock size={14} className="text-gray-400" />
-          <span className="text-xs text-gray-400">Monday, Oct 24th, 2024 / 08:45 AM</span>
+          <span className="text-xs text-gray-400">{new Date().toLocaleString()}</span>
           <span className="mx-1 text-gray-300">&bull;</span>
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 ring-1 ring-inset ring-emerald-500/20">
             <Radio size={10} className="animate-pulse" />
@@ -94,11 +116,22 @@ export default function AdminHome() {
         </div>
       </motion.section>
 
-      {/* 9 METRIC CARDS */}
+      {/* LOADING / ERROR / METRIC CARDS */}
       <motion.section variants={itemVariants}>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {metrics.map((m) => (<MetricCard key={m.title} {...m} />))}
-        </div>
+        {loading && (
+          <div className="flex items-center justify-center py-12 text-sm text-gray-400">Loading dashboard stats…</div>
+        )}
+        {error && (
+          <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-5 py-4">
+            <p className="text-sm font-medium text-red-600">{error}</p>
+            <button onClick={fetchStats} className="ml-4 rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition">Retry</button>
+          </div>
+        )}
+        {!loading && !error && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {metrics.map((m) => (<MetricCard key={m.title} {...m} />))}
+          </div>
+        )}
       </motion.section>
 
       {/* ALERTS + QUICK ACTIONS */}
@@ -130,7 +163,11 @@ export default function AdminHome() {
             {quickActions.map((qa) => {
               const Icon = qa.icon;
               return (
-                <motion.button key={qa.label} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+                <motion.button
+                  key={qa.label}
+                  onClick={() => qa.path && navigate(qa.path)}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.97 }}
                   transition={{ type: "spring", stiffness: 400, damping: 22 }}
                   className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-5 text-center transition-colors hover:border-indigo-400 hover:bg-indigo-50">
                   <Icon size={22} strokeWidth={1.8} className="text-indigo-500 transition group-hover:text-indigo-700" />

@@ -67,8 +67,8 @@ export const notifications = [
   {
     id: 'n1',
     type: 'leave_approved',
-    title: 'Personal Leave Approved',
-    message: 'Your leave for Oct 30 has been granted by the HOD.',
+    title: 'Leave Application Approved',
+    message: 'Your sick leave application for the upcoming day has been approved by the HOD.',
     time: '2h ago',
     read: false,
     icon: 'check',
@@ -76,8 +76,8 @@ export const notifications = [
   {
     id: 'n2',
     type: 'relief_assigned',
-    title: 'New Relief Duty Assigned',
-    message: 'Assigned for Mr. Wilson (Period 6) in Lab 2.',
+    title: 'Substitute Assignment Notification',
+    message: "You have been assigned to cover Dr. Wilson's Period 6 class in Lab 2 tomorrow.",
     time: '4h ago',
     read: false,
     icon: 'relief',
@@ -85,8 +85,8 @@ export const notifications = [
   {
     id: 'n3',
     type: 'announcement',
-    title: 'Departmental Meeting',
-    message: 'Final reminder: Math Dept meeting at 3:30 PM today.',
+    title: 'Departmental Meeting Scheduled',
+    message: 'Mathematics Department meeting at 15:30 the day after tomorrow. Attendance required.',
     time: '5h ago',
     read: true,
     icon: 'info',
@@ -104,6 +104,7 @@ export const activeReliefDutiesToday = [
     department: 'Mathematics Dept',
     avatar: null,
     upcoming: false,
+    lessonPlanUrl: '/mock/lesson-plan.pdf',
   },
   {
     id: 'ar2',
@@ -114,6 +115,7 @@ export const activeReliefDutiesToday = [
     department: null,
     avatar: null,
     upcoming: true,
+    lessonPlanUrl: null,
   },
 ];
 
@@ -224,6 +226,7 @@ export const myReliefDuties = {
       relieving: 'Dr. Patel',
       notes: 'Please cover Chapter 5 exercises',
       status: 'upcoming',
+      lessonPlanUrl: '/mock/lesson-plan.pdf',
     },
   ],
   completed: [
@@ -235,6 +238,7 @@ export const myReliefDuties = {
       relieving: 'Dr. Johnson',
       period: 3,
       status: 'completed',
+      lessonPlanUrl: null,
     },
     {
       id: 'rd3',
@@ -244,6 +248,7 @@ export const myReliefDuties = {
       relieving: 'Dr. Patel',
       period: 1,
       status: 'completed',
+      lessonPlanUrl: '/mock/lesson-plan.pdf',
     },
   ],
 };
