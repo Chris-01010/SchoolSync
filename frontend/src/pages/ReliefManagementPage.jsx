@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { api } from "../services/api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Download,
@@ -65,16 +66,64 @@ const modalContent = {
    =================================================================== */
 
 export default function ReliefManagementPage() {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalRow, setModalRow] = useState(null);
+  const [modalOpen, setModalOpen]       = useState(false);
+  const [modalRow, setModalRow]         = useState(null);
+  const [flaggedRows, setFlaggedRows]   = useState([]);
+  const [teachers, setTeachers]         = useState([]);
+  const [selectedTeacher, setSelectedTeacher] = useState('');
+  const [overrideNote, setOverrideNote] = useState('');
+  const [submitting, setSubmitting]     = useState(false);
+  const [toast, setToast]               = useState(null);
+
+  useEffect(() => {
+    api.get('/api/v1/admin/relief/flagged')
+      .then(data => setFlaggedRows(Array.isArray(data) ? data : []))
+      .catch(err => console.error('Failed to fetch flagged reliefs:', err));
+
+    api.get('/api/v1/teachers')
+      .then(data => setTeachers(Array.isArray(data) ? data : []))
+      .catch(err => console.error('Failed to fetch teachers:', err));
+  }, []);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const openAssign = (row) => {
     setModalRow(row);
+    setSelectedTeacher('');
+    setOverrideNote('');
     setModalOpen(true);
+  };
+
+  const handleOverride = async () => {
+    if (!selectedTeacher) return;
+    setSubmitting(true);
+    try {
+      await api.put(`/api/v1/admin/relief/${modalRow.id}/override`, {
+        new_teacher_id: selectedTeacher,
+        override_note: overrideNote.trim() || null,
+      });
+      setFlaggedRows(prev => prev.filter(r => r.id !== modalRow.id));
+      setModalOpen(false);
+      showToast('Relief assignment overridden successfully.');
+    } catch (err) {
+      showToast(err.message || 'Override failed.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <>
+      {toast && (
+        <div className={`fixed top-4 right-4 z-[200] px-4 py-2 rounded-lg text-white text-[12px] font-semibold shadow-lg ${
+          toast.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+        }`}>
+          {toast.msg}
+        </div>
+      )}
       <motion.div variants={containerV} initial="hidden" animate="visible" className="space-y-7">
 
         {/* ======= HEADER ======= */}
@@ -156,6 +205,33 @@ export default function ReliefManagementPage() {
             />
           </div>
         </motion.div>
+
+{/* ======= FLAGGED RELIEFS ======= */}
+        {flaggedRows.length > 0 && (
+          <motion.div variants={itemV} className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+            <h2 className="text-[13px] font-bold text-amber-800 uppercase tracking-wide mb-3 flex items-center gap-2">
+              <AlertTriangle size={15} className="text-amber-600" />
+              Flagged Relief Requests ({flaggedRows.length})
+            </h2>
+            <div className="space-y-3">
+              {flaggedRows.map(row => (
+                <div key={row.id} className="flex items-center justify-between bg-white border border-amber-100 rounded-lg px-4 py-3">
+                  <div>
+                    <p className="text-[13px] font-bold text-gray-900">{row.relief_teacher_name}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{row.flag_reason || 'No reason provided'}</p>
+                  </div>
+                  <button
+                    onClick={() => openAssign(row)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm hover:bg-indigo-700"
+                  >
+                    Review & Override
+                  </button>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
 
         {/* ======= RELIEF TABLE ======= */}
         <motion.div variants={itemV} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -314,12 +390,11 @@ export default function ReliefManagementPage() {
                     Select Substitute
                   </label>
                   <div className="relative">
-                    <select className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                    <select value={selectedTeacher} onChange={(e) => setSelectedTeacher(e.target.value)} className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
                       <option value="">Choose a teacher...</option>
-                      <option>Mr. Smith</option>
-                      <option>Ms. Lee</option>
-                      <option>Prof. Kumar</option>
-                      <option>Mr. Davis</option>
+                      {teachers.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
                     </select>
                     <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   </div>
@@ -341,13 +416,15 @@ export default function ReliefManagementPage() {
                   </label>
                   <textarea
                     rows={3}
+                    value={overrideNote}
+                    onChange={(e) => setOverrideNote(e.target.value)}
                     placeholder="Reason for override (optional)"
                     className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 placeholder-gray-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
                   />
                 </div>
               </div>
 
-              {/* modal buttons */}
+{/* modal buttons */}
               <div className="mt-6 flex items-center justify-end gap-2.5">
                 <button
                   onClick={() => setModalOpen(false)}
@@ -356,13 +433,14 @@ export default function ReliefManagementPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => setModalOpen(false)}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
+                  onClick={handleOverride}
+                  disabled={!selectedTeacher || submitting}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  Assign Relief
+                  {submitting ? 'Overriding...' : 'Assign Relief'}
                 </button>
               </div>
-            </motion.div>
+              </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
