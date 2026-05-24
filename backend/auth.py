@@ -1,5 +1,6 @@
 import os
 import logging
+from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -8,11 +9,16 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from .database import get_db
+from dotenv import load_dotenv
 from . import models
+from .database import get_db
 from .models import UserRole
 import secrets
 
+# Load .env from this file's directory regardless of where uvicorn is started.
+# Calling load_dotenv twice is safe — python-dotenv won't override values
+# that another module already loaded.
+load_dotenv(Path(__file__).parent / ".env")
 # ─── Logging ───────────────────────────────────────────────────────────────────
 logger = logging.getLogger(__name__)
 
