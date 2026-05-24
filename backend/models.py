@@ -2,9 +2,8 @@ import uuid
 import datetime
 from enum import Enum as PyEnum
 from sqlalchemy import Column, String, Boolean, Integer, Float, Time, Date, SmallInteger, ForeignKey, UniqueConstraint, Enum, JSON, DateTime, Text
-from sqlalchemy.sql import func++
---+
-from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from sqlalchemy.orm import Mapped, relationship
 from .database import Base
 
 # Note: For SQLite, we might need to handle UUIDs as strings. 
@@ -106,11 +105,12 @@ class Teacher(Base):
     total_hours_worked = Column(Integer, default=0)
     
     is_active = Column(Boolean, default=True)
-    blocked_slots = Column(JSON, default=dict) # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
+    blocked_slots_json:Mapped[dict] = Column(JSON, default=dict,name="blocked_slots") # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
 
-    user = relationship("User", back_populates="teacher_profile")
+    user = relationship("User", back_populates="teacher_profile")   
     dept_link = relationship("Department", back_populates="teachers", foreign_keys=[department_id])
     timetable_slots = relationship("TimetableSlot", back_populates="teacher", foreign_keys="TimetableSlot.teacher_id")
+    blocked_slots = relationship("BlockedSlot",back_populates="teacher",cascade="all, delete-orphan")
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -207,12 +207,12 @@ class ReliefAssignment(Base):
 class BlockedSlot(Base):
     __tablename__ = "blocked_slots"
 
-    id = Column(Integer, primary_key=True, index=True)
-    teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=False)
+    id = Column(GUID, primary_key=True, index=True,default=uuid.uuid4)
+    teacher_id = Column(GUID, ForeignKey("teachers.id"), nullable=False)
     day = Column(String, nullable=False)       # e.g. "Monday"
     period = Column(Integer, nullable=False)   # e.g. 3
     reason = Column(String, nullable=True)     # e.g. "Staff meeting"
     created_at = Column(DateTime, server_default=func.now())
 
-    teacher = relationship("Teacher", back_populates="blocked_slots")
+    teacher = relationship("Teacher", foreign_keys=[teacher_id],back_populates="blocked_slots")
 
