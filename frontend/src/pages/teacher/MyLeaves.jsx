@@ -36,6 +36,26 @@ const fmt = (d) => {
   catch { return d; }
 };
 
+// ─── Day / period helpers ─────────────────────────────────────────────────────
+function calcDays(raw) {
+  if (raw.start_date && raw.end_date) {
+    const start = new Date(raw.start_date);
+    const end   = new Date(raw.end_date);
+    return Math.round((end - start) / 86_400_000) + 1; // inclusive
+  }
+  return raw.days ?? 1;
+}
+
+function calcPeriods(raw) {
+  if (raw.is_full_day !== undefined) {
+    return raw.is_full_day ? 'All periods (full day)' : (raw.period_ids?.join(', ') ?? '—');
+  }
+  if (raw.period_start != null && raw.period_end != null) {
+    return `${raw.period_start} – ${raw.period_end}`;
+  }
+  return '—';
+}
+
 // ─── Map backend leave → UI shape ────────────────────────────────────────────
 function mapLeave(raw) {
   const rawStatus = (raw.status || 'pending').toLowerCase();
@@ -43,15 +63,14 @@ function mapLeave(raw) {
   return {
     id: raw.id,
     type: raw.leave_type || 'Leave',
-    from: raw.date || raw.from,
-    to: raw.date || raw.to,
-    days: raw.period_end && raw.period_start ? (raw.period_end - raw.period_start + 1) : (raw.days ?? 1),
+    from: raw.start_date || raw.date || raw.from,
+    to:   raw.end_date   || raw.date || raw.to,
+    days: calcDays(raw),
+    periods: calcPeriods(raw),
     reason: raw.reason || '',
     status,
     clarificationNote: raw.clarification_note || null,
     document: raw.handover_url || null,
-    periodStart: raw.period_start ?? 1,
-    periodEnd: raw.period_end ?? 8,
   };
 }
 
@@ -71,8 +90,8 @@ function ViewDetailsModal({ req, onClose }) {
         <div className="space-y-3 text-[12px]">
           <div className="flex justify-between"><span className="text-gray-400 font-medium">Status</span><StatusBadge status={req.status} /></div>
           <div className="flex justify-between"><span className="text-gray-400 font-medium">Leave Type</span><span className="font-semibold text-gray-800 capitalize">{req.type}</span></div>
-          <div className="flex justify-between"><span className="text-gray-400 font-medium">Date</span><span className="font-semibold text-gray-800">{fmt(req.from)}</span></div>
-          <div className="flex justify-between"><span className="text-gray-400 font-medium">Periods</span><span className="font-semibold text-gray-800">{req.periodStart} – {req.periodEnd}</span></div>
+          <div className="flex justify-between"><span className="text-gray-400 font-medium">Date</span><span className="font-semibold text-gray-800">{fmt(req.from)}{req.to && req.to !== req.from ? ` – ${fmt(req.to)}` : ''}</span></div>
+          <div className="flex justify-between"><span className="text-gray-400 font-medium">Periods</span><span className="font-semibold text-gray-800">{req.periods}</span></div>
           <div className="flex justify-between"><span className="text-gray-400 font-medium">Days</span><span className="font-semibold text-gray-800">{req.days}</span></div>
           <div>
             <p className="text-gray-400 font-medium mb-1">Reason</p>
@@ -110,27 +129,25 @@ function EditModal({ req, onClose, onSaved }) {
   const [error, setError] = useState(null);
 
   const handleSubmit = async () => {
-  setSaving(true);
-  setError(null);
-  try {
-    // Convert DD-MM-YYYY or any format to YYYY-MM-DD
-    const dateVal = new Date(form.date);
-    const isoDate = dateVal.toISOString().split('T')[0];
-    await api.put(`/leaves/${req.id}/edit`, {
-      leave_type: form.leave_type,
-      date: isoDate,
-      reason: form.reason,
-      period_start: req.periodStart ?? 1,
-      period_end: req.periodEnd ?? 8,
-    });
-    onSaved();
-    onClose();
-  } catch (e) {
-    setError(typeof e.message === 'string' ? e.message : 'Failed to update leave.');
-  } finally {
-    setSaving(false);
-  }
-};
+    setSaving(true);
+    setError(null);
+    try {
+      const dateVal = new Date(form.date);
+      const isoDate = dateVal.toISOString().split('T')[0];
+      await api.put(`/leaves/${req.id}/edit`, {
+        leave_type: form.leave_type,
+        date: isoDate,
+        reason: form.reason,
+        is_full_day: true,
+      });
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError(typeof e.message === 'string' ? e.message : 'Failed to update leave.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -227,7 +244,7 @@ const LeaveCard = ({ req, onView, onEdit, onCancel }) => {
           </div>
           <div>
             <p className="text-[13px] font-bold text-gray-900">Leave Request #{String(req.id).slice(0, 8)}</p>
-            <p className="text-[10px] text-gray-400 mt-0.5 capitalize">{req.type} · {fmt(req.from)} · {req.days} day{req.days > 1 ? 's' : ''}</p>
+            <p className="text-[10px] text-gray-400 mt-0.5 capitalize">{req.type} · {fmt(req.from)}{req.to && req.to !== req.from ? ` – ${fmt(req.to)}` : ''} · {req.days} day{req.days > 1 ? 's' : ''}</p>
           </div>
         </div>
         <StatusBadge status={req.status} />
@@ -360,11 +377,11 @@ export default function MyLeaves() {
             const raw = (data.leaveType || 'sick').toLowerCase();
             const leave_type = raw.includes('sick') ? 'sick' : raw.includes('casual') ? 'casual' : 'other';
             await api.post('/leaves/apply', {
-              date: data.startDate || data.fromDate,
-              period_start: data.periodStart ?? 1,
-              period_end: data.periodEnd ?? 8,
+              start_date: data.startDate || data.fromDate,
+              end_date:   data.endDate   || data.toDate || data.startDate || data.fromDate,
               leave_type,
               reason: data.reason || 'No reason provided',
+              is_full_day: true,
               handover_url: data.fileDataUrl || null,
             });
             setApplyOpen(false);
