@@ -555,10 +555,9 @@ export default function TeacherHome() {
 
   // ─── Mock Schedule Preview (per spec) ─────────────────────────────────────
 
-  const todaySchedule =
-    activeReliefDutiesToday =
-      confirmedReliefs.map(
-        (r) => ({
+const todaySchedule =
+  confirmedReliefs.map(
+    (r) => ({
           id: r.id,
 
           type: 'upcoming',
@@ -592,7 +591,7 @@ export default function TeacherHome() {
           upcoming: false,
         })
       );
-
+  const activeReliefDutiesToday = todaySchedule;
   return (
     <div className="space-y-5 max-w-[1280px]">
       {/* Welcome */}
