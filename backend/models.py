@@ -1,5 +1,10 @@
 import uuid
 import datetime
+from enum import Enum as PyEnum
+from sqlalchemy import Column, String, Boolean, Integer, Float, Time, Date, SmallInteger, ForeignKey, UniqueConstraint, Enum, JSON, DateTime, Text
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+from .database import Base
 
 from enum import Enum as PyEnum
 
@@ -80,6 +85,7 @@ class ReliefStatus(str, PyEnum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     FLAGGED = "flagged"
+    OVERRIDDEN = "overridden"
 
 
 class User(Base):
@@ -230,6 +236,13 @@ class Subject(Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey("users.id"))
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False)
+    read_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
 
@@ -442,12 +455,60 @@ class ReliefAssignment(Base):
 class BlockedSlot(Base):
     __tablename__ = "blocked_slots"
 
+<<<<<<< HEAD
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(GUID(), ForeignKey("teachers.id"), nullable=False)
+    day = Column(String, nullable=False)
+    period = Column(Integer, nullable=False)
+    reason = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    teacher = relationship("Teacher")
+
+    day = Column(String, nullable=False)
+
+    period = Column(Integer, nullable=False)
+
+    reason = Column(String, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+=======
     id = Column(GUID, primary_key=True, index=True,default=uuid.uuid4)
     teacher_id = Column(GUID, ForeignKey("teachers.id"), nullable=False)
     day = Column(String, nullable=False)       # e.g. "Monday"
     period = Column(Integer, nullable=False)   # e.g. 3
     reason = Column(String, nullable=True)     # e.g. "Staff meeting"
     created_at = Column(DateTime, server_default=func.now())
+>>>>>>> 5fcd788a60316799bc4e0710943115a91d271c8b
 
-    teacher = relationship("Teacher", foreign_keys=[teacher_id],back_populates="blocked_slots")
+    teacher = relationship(
+        "Teacher",
+        back_populates="blocked_slot_entries"
+    )
+    
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
 
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    performed_by_user_id = Column(
+        GUID(),
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    performed_by_college_id = Column(String, nullable=True)
+
+    action = Column(String, nullable=False)
+
+    target_college_id = Column(String, nullable=True)
+
+    details = Column(JSON, nullable=True)
+
+    timestamp = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )

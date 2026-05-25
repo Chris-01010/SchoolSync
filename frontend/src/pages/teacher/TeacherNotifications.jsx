@@ -106,7 +106,7 @@ export function TeacherNotifications() {
 
     try {
       await api.put(
-        `/teacher/me/notifications/${id}/read`,
+        `/leaves/notifications/${id}/read`,
         {}
       );
     } catch (err) {
@@ -154,7 +154,7 @@ export function TeacherNotifications() {
             )
             .map((n) =>
               api.put(
-                `/teacher/me/notifications/${n.id}/read`,
+                `/teacher/notifications/${n.id}/read`,
                 {}
               )
             )

@@ -42,7 +42,7 @@ export function useTeacherLeaves() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/leaves`, { headers: getHeaders() })
+    fetch(`${BASE}/leaves/my`, { headers: getHeaders() })
       .then(r => r.json())
       .then(d => setData(Array.isArray(d) ? d : []))
       .catch(console.error)
@@ -87,9 +87,9 @@ export function useTeacherNotifications() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/notifications`, { headers: getHeaders() })
+    fetch(`${BASE}/leaves/notifications/`, { headers: getHeaders() })
       .then(r => r.json())
-      .then(d => setData(Array.isArray(d) ? d : []))
+      .then(d => setData(Array.isArray(d?.data) ? d.data : []))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
