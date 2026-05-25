@@ -5,6 +5,7 @@ import TimetableGrid from './TimetableGrid';
 import ReliefRequestCard from './ReliefRequestCard';
 import LeaveApplicationForm from './LeaveApplicationForm';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 
 const flagReasons = ['Overwork', 'Emergency Duty', 'Schedule Conflict', 'Incorrect Allocation'];
 const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -49,7 +50,7 @@ export default function TeacherDashboard() {
   const [isModalOpen, setIsModalOpen]   = useState(false);
   const [activeFlagId, setActiveFlagId] = useState(null);
   const [leaveFormResetKey, setLeaveFormResetKey] = useState(0);
-  const applyBtnRef      = useRef(null);
+  const applyBtnRef        = useRef(null);
   const modalFirstFieldRef = useRef(null);
 
   // ── Fetch all dashboard data ──
@@ -59,10 +60,10 @@ export default function TeacherDashboard() {
     const headers = { 'Authorization': `Bearer ${token}` };
 
     Promise.all([
-      fetch('http://localhost:8000/teacher/me/profile', { headers }).then(r => r.json()),
-      fetch('http://localhost:8000/teacher/me/timetable', { headers }).then(r => r.json()),
-      fetch('http://localhost:8000/teacher/me/relief/pending', { headers }).then(r => r.json()),
-      fetch('http://localhost:8000/teacher/me/relief/confirmed', { headers }).then(r => r.json()),
+      fetch('http://localhost:8000/teacher/me/profile',           { headers }).then(r => r.json()),
+      fetch('http://localhost:8000/teacher/me/timetable',         { headers }).then(r => r.json()),
+      fetch('http://localhost:8000/teacher/me/relief/pending',    { headers }).then(r => r.json()),
+      fetch('http://localhost:8000/teacher/me/relief/confirmed',  { headers }).then(r => r.json()),
     ])
       .then(([profile, timetableData, pendingData, confirmedData]) => {
         setTeacherData(profile);
@@ -107,41 +108,7 @@ export default function TeacherDashboard() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
-  // ── Handle relief response ──
-  const handleRespond = async (id, status, reason) => {
-    const token = localStorage.getItem('schoolsync_token');
-    try {
-      await fetch(`http://localhost:8000/relief-assignments/${id}/respond`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status, flag_reason: reason || null })
-      });
-    } catch (err) {
-      console.error('Relief respond error:', err);
-    }
-
-    if (status === 'accepted') {
-      const req = pending.find(p => p.id === id);
-      if (!req) return;
-      setPending(prev => prev.filter(r => r.id !== id));
-      setConfirmed(prev => [{
-        id: `c_${Date.now()}`,
-        subject: req.subject,
-        class: req.class,
-        day: req.day,
-        period: req.period,
-        originalTeacher: req.absentTeacher
-      }, ...prev]);
-    } else {
-      setPending(prev => prev.filter(r => r.id !== id));
-    }
-    setActiveFlagId(null);
-  };
-
-  const leaveSubmit = (formData) => {
+  const leaveSubmit = () => {
     setIsModalOpen(false);
     setLeaveFormResetKey(k => k + 1);
   };
@@ -161,13 +128,13 @@ export default function TeacherDashboard() {
     </div>
   );
 
-  const teacherName = teacherData?.name ?? user?.email ?? 'Teacher';
-  const teacherDept = teacherData?.department ?? '';
-  const teachingCompleted = teacherData?.teachingHours?.completed ?? 0;
-  const teachingTotal     = teacherData?.teachingHours?.total ?? 30;
-  const reliefCompleted   = teacherData?.reliefHours?.completed ?? 0;
-  const reliefTotal       = teacherData?.reliefHours?.total ?? 5;
-  const remainingCap      = teacherData?.remainingCap ?? 0;
+  const teacherName        = teacherData?.name ?? user?.email ?? 'Teacher';
+  const teacherDept        = teacherData?.department ?? '';
+  const teachingCompleted  = teacherData?.teachingHours?.completed ?? 0;
+  const teachingTotal      = teacherData?.teachingHours?.total ?? 30;
+  const reliefCompleted    = teacherData?.reliefHours?.completed ?? 0;
+  const reliefTotal        = teacherData?.reliefHours?.total ?? 5;
+  const remainingCap       = teacherData?.remainingCap ?? 0;
 
   return (
     <div className="bg-surface-container-lowest min-h-screen">
@@ -215,9 +182,9 @@ export default function TeacherDashboard() {
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* Stats */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatCard title="Teaching Hours"    value={teachingCompleted} total={teachingTotal} fillClassName="bg-secondary" />
-          <StatCard title="Relief Hours"      value={reliefCompleted}   total={reliefTotal}   fillClassName="bg-secondary-container" />
-          <StatCard title="Remaining Capacity" value={remainingCap}     total={teachingTotal} fillClassName="bg-primary-container" />
+          <StatCard title="Teaching Hours"     value={teachingCompleted} total={teachingTotal} fillClassName="bg-secondary" />
+          <StatCard title="Relief Hours"       value={reliefCompleted}   total={reliefTotal}   fillClassName="bg-secondary-container" />
+          <StatCard title="Remaining Capacity" value={remainingCap}      total={teachingTotal} fillClassName="bg-primary-container" />
         </section>
 
         {/* Weekly Timetable + Pending */}
@@ -247,10 +214,9 @@ export default function TeacherDashboard() {
                     <ReliefRequestCard
                       key={req.id}
                       request={req}
-                      flagReasons={flagReasons}
-                      isFlagOpen={activeFlagId === req.id}
-                      onToggleFlag={() => setActiveFlagId(prev => prev === req.id ? null : req.id)}
-                      onRespond={handleRespond}
+                      onResponded={(id) => {
+                        setPending(prev => prev.filter(r => r.id !== id));
+                      }}
                     />
                   ))}
                 </div>

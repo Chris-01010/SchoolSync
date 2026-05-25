@@ -85,6 +85,7 @@ class ReliefStatus(str, PyEnum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     FLAGGED = "flagged"
+    OVERRIDDEN = "overridden"
 
 
 class User(Base):
@@ -208,32 +209,12 @@ class Teacher(Base):
     total_hours_worked = Column(Integer, default=0)
 
     is_active = Column(Boolean, default=True)
+    blocked_slots_json:Mapped[dict] = Column(JSON, default=dict,name="blocked_slots") # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
 
-    blocked_slots = Column(JSON, default=dict)
-
-    user = relationship(
-        "User",
-        back_populates="teacher_profile"
-    )
-
-    dept_link = relationship(
-        "Department",
-        back_populates="teachers",
-        foreign_keys=[department_id]
-    )
-
-    timetable_slots = relationship(
-        "TimetableSlot",
-        back_populates="teacher",
-        foreign_keys="TimetableSlot.teacher_id"
-    )
-
-    blocked_slot_entries = relationship(
-        "BlockedSlot",
-        back_populates="teacher",
-        cascade="all, delete-orphan"
-    )
-
+    user = relationship("User", back_populates="teacher_profile")   
+    dept_link = relationship("Department", back_populates="teachers", foreign_keys=[department_id])
+    timetable_slots = relationship("TimetableSlot", back_populates="teacher", foreign_keys="TimetableSlot.teacher_id")
+    blocked_slots = relationship("BlockedSlot",back_populates="teacher",cascade="all, delete-orphan")
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -474,6 +455,7 @@ class ReliefAssignment(Base):
 class BlockedSlot(Base):
     __tablename__ = "blocked_slots"
 
+<<<<<<< HEAD
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     teacher_id = Column(GUID(), ForeignKey("teachers.id"), nullable=False)
     day = Column(String, nullable=False)
@@ -493,8 +475,40 @@ class BlockedSlot(Base):
         DateTime(timezone=True),
         server_default=func.now()
     )
+=======
+    id = Column(GUID, primary_key=True, index=True,default=uuid.uuid4)
+    teacher_id = Column(GUID, ForeignKey("teachers.id"), nullable=False)
+    day = Column(String, nullable=False)       # e.g. "Monday"
+    period = Column(Integer, nullable=False)   # e.g. 3
+    reason = Column(String, nullable=True)     # e.g. "Staff meeting"
+    created_at = Column(DateTime, server_default=func.now())
+>>>>>>> 5fcd788a60316799bc4e0710943115a91d271c8b
 
     teacher = relationship(
         "Teacher",
         back_populates="blocked_slot_entries"
+    )
+    
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    performed_by_user_id = Column(
+        GUID(),
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    performed_by_college_id = Column(String, nullable=True)
+
+    action = Column(String, nullable=False)
+
+    target_college_id = Column(String, nullable=True)
+
+    details = Column(JSON, nullable=True)
+
+    timestamp = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
     )
