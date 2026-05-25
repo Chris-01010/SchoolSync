@@ -75,176 +75,177 @@ async def notify(db: AsyncSession, user_id: UUID, title: str, content: str):
 
 # ─── Helper: rollover to next candidate (FR-20) ───────────────────────────────
 
-async def _rollover_relief(assignment_id: UUID, db: AsyncSession):
+async def _rollover_relief(assignment_id: UUID):
     """FR-20: when a teacher rejects, assign the next ranked candidate."""
+    from .database import AsyncSessionLocal
     from .relief_engine import rank_candidates
 
-    # Fetch the rejected assignment
-    result = await db.execute(
-        select(models.ReliefAssignment).where(models.ReliefAssignment.id == assignment_id)
-    )
-    assignment = result.scalar_one_or_none()
-    if not assignment or not assignment.slot_id:
-        print(f"[ROLLOVER] Assignment {assignment_id} not found or has no slot.")
-        return
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(
+                select(models.ReliefAssignment).where(models.ReliefAssignment.id == assignment_id)
+            )
+            assignment = result.scalar_one_or_none()
+            if not assignment or not assignment.slot_id:
+                print(f"[ROLLOVER] Assignment {assignment_id} not found or has no slot.")
+                return
 
-    # Fetch the slot
-    slot_result = await db.execute(
-        select(models.TimetableSlot).where(models.TimetableSlot.id == assignment.slot_id)
-    )
-    slot = slot_result.scalar_one_or_none()
-    if not slot:
-        print(f"[ROLLOVER] Slot not found for assignment {assignment_id}.")
-        return
+            slot_result = await db.execute(
+                select(models.TimetableSlot).where(models.TimetableSlot.id == assignment.slot_id)
+            )
+            slot = slot_result.scalar_one_or_none()
+            if not slot:
+                print(f"[ROLLOVER] Slot not found for assignment {assignment_id}.")
+                return
 
-    # Fetch the absent teacher via the absence
-    absence_result = await db.execute(
-        select(models.Absence).where(models.Absence.id == assignment.absence_id)
-    )
-    absence = absence_result.scalar_one_or_none()
-    if not absence:
-        return
+            absence_result = await db.execute(
+                select(models.Absence).where(models.Absence.id == assignment.absence_id)
+            )
+            absence = absence_result.scalar_one_or_none()
+            if not absence:
+                return
 
-    absent_teacher_result = await db.execute(
-        select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
-    )
-    absent_teacher = absent_teacher_result.scalar_one_or_none()
-    if not absent_teacher:
-        return
+            absent_teacher_result = await db.execute(
+                select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+            )
+            absent_teacher = absent_teacher_result.scalar_one_or_none()
+            if not absent_teacher:
+                return
 
-    # Find all teachers already rejected for this slot — skip them
-    rejected_result = await db.execute(
-        select(models.ReliefAssignment.relief_teacher_id).where(
-            models.ReliefAssignment.absence_id == assignment.absence_id,
-            models.ReliefAssignment.slot_id == assignment.slot_id,
-            models.ReliefAssignment.status == models.ReliefStatus.REJECTED,
-        )
-    )
-    rejected_ids = {row[0] for row in rejected_result.all()}
+            rejected_result = await db.execute(
+                select(models.ReliefAssignment.relief_teacher_id).where(
+                    models.ReliefAssignment.absence_id == assignment.absence_id,
+                    models.ReliefAssignment.slot_id == assignment.slot_id,
+                    models.ReliefAssignment.status == models.ReliefStatus.REJECTED,
+                )
+            )
+            rejected_ids = {row[0] for row in rejected_result.all()}
 
-    # Re-rank and pick the next candidate not already rejected
-    ranked = await rank_candidates(
-        absent_teacher=absent_teacher,
-        slot=slot,
-        weekly_counts={},
-        db=db,
-    )
+            ranked = await rank_candidates(
+                absent_teacher=absent_teacher,
+                slot=slot,
+                weekly_counts={},
+                db=db,
+            )
 
-    next_candidate = next(
-        (c for c in ranked if c.teacher.id not in rejected_ids),
-        None
-    )
+            next_candidate = next(
+                (c for c in ranked if c.teacher.id not in rejected_ids),
+                None
+            )
 
-    if not next_candidate:
-        print(f"[ROLLOVER] No more candidates for slot {assignment.slot_id}.")
-        assignment.reason_text = "All candidates exhausted — manual assignment required."
-        await db.commit()
-        return
+            if not next_candidate:
+                print(f"[ROLLOVER] No more candidates for slot {assignment.slot_id}.")
+                assignment.reason_text = "All candidates exhausted — manual assignment required."
+                await db.commit()
+                return
 
-    # Update the existing assignment record to the next candidate
-    assignment.relief_teacher_id = next_candidate.teacher.id
-    assignment.score = next_candidate.total_score
-    assignment.status = models.ReliefStatus.PENDING
-    assignment.acknowledged_at = None
-    assignment.reason_text = f"Rollover: {assignment.reason_text}"
+            assignment.relief_teacher_id = next_candidate.teacher.id
+            assignment.score = next_candidate.total_score
+            assignment.status = models.ReliefStatus.PENDING
+            assignment.acknowledged_at = None
+            assignment.reason_text = f"Rollover: previous teacher rejected."
 
-    await db.commit()
-    print(f"[ROLLOVER] Reassigned slot {assignment.slot_id} to {next_candidate.teacher.name}.")
+            await db.commit()
+            print(f"[ROLLOVER] Reassigned slot {assignment.slot_id} to {next_candidate.teacher.name}.")
 
+        except Exception as e:
+            print(f"[ROLLOVER ERROR] {e}")
+            await db.rollback()
 
 # ─── Helper: dispatch relief ──────────────────────────────────────────────────
 
-async def dispatch_relief_for_absence(absence_id: UUID, db: AsyncSession):
-    from .relief_engine import rank_candidates
+# leave_api.py  — replace the existing dispatch_relief_for_absence function
 
-    # ── Fetch absence ──────────────────────────────────────────────────────
-    result = await db.execute(
-        select(models.Absence).where(models.Absence.id == absence_id)
-    )
-    absence = result.scalar_one_or_none()
-    if not absence:
-        print("[RELIEF] Absence not found.")
-        return
+async def dispatch_relief_for_absence(absence_id: UUID):
+    """Background task — creates its own DB session."""
+    from .database import AsyncSessionLocal          # add this import at top if needed
 
-    # ── Fetch absent teacher ───────────────────────────────────────────────
-    teacher_result = await db.execute(
-        select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
-    )
-    absent_teacher = teacher_result.scalar_one_or_none()
-    if not absent_teacher:
-        print("[RELIEF] Absent teacher profile not found.")
-        return
+    async with AsyncSessionLocal() as db:
+        try:
+            from .relief_engine import rank_candidates
 
-    day_of_week = absence.date.weekday()
+            result = await db.execute(
+                select(models.Absence).where(models.Absence.id == absence_id)
+            )
+            absence = result.scalar_one_or_none()
+            if not absence:
+                print("[RELIEF] Absence not found.")
+                return
 
-    # ── Find vacant slots ──────────────────────────────────────────────────
-    slots_result = await db.execute(
-        select(models.TimetableSlot).where(
-            models.TimetableSlot.teacher_id == absence.teacher_id,
-            models.TimetableSlot.day_of_week == day_of_week,
-            models.TimetableSlot.period >= absence.period_start,
-            models.TimetableSlot.period <= absence.period_end,
-            models.TimetableSlot.is_relief == False,
-        )
-    )
-    vacant_slots = slots_result.scalars().all()
+            teacher_result = await db.execute(
+                select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+            )
+            absent_teacher = teacher_result.scalar_one_or_none()
+            if not absent_teacher:
+                print("[RELIEF] Absent teacher profile not found.")
+                return
 
-    if not vacant_slots:
-        print("[RELIEF] No timetable slots found for this absence.")
-        return
+            day_of_week = absence.date.weekday()
 
-    # ── Build weekly_counts once — used by the fairness scorer ────────────
-    from sqlalchemy import func as sa_func
-    from datetime import timedelta
+            slots_result = await db.execute(
+                select(models.TimetableSlot).where(
+                    models.TimetableSlot.teacher_id == absence.teacher_id,
+                    models.TimetableSlot.day_of_week == day_of_week,
+                    models.TimetableSlot.period >= absence.period_start,
+                    models.TimetableSlot.period <= absence.period_end,
+                    models.TimetableSlot.is_relief == False,
+                )
+            )
+            vacant_slots = slots_result.scalars().all()
 
-    week_start = absence.date - timedelta(days=absence.date.weekday())
-    week_end   = week_start + timedelta(days=6)
+            if not vacant_slots:
+                print("[RELIEF] No timetable slots found for this absence.")
+                return
 
-    counts_result = await db.execute(
-        select(
-            models.ReliefAssignment.relief_teacher_id,
-            sa_func.count(models.ReliefAssignment.id).label("cnt"),
-        )
-        .join(models.Absence, models.ReliefAssignment.absence_id == models.Absence.id)
-        .where(
-            models.Absence.date >= week_start,
-            models.Absence.date <= week_end,
-            models.ReliefAssignment.relief_teacher_id.isnot(None),
-        )
-        .group_by(models.ReliefAssignment.relief_teacher_id)
-    )
-    weekly_counts: dict = {row[0]: row[1] for row in counts_result.all()}
+            from sqlalchemy import func as sa_func
+            from datetime import timedelta
 
-    # ── Score and assign each vacant slot ─────────────────────────────────
-    assigned = 0
-    for slot in vacant_slots:
-        ranked = await rank_candidates(
-            absent_teacher=absent_teacher,
-            slot=slot,
-            weekly_counts=weekly_counts,
-            db=db,
-        )
+            week_start = absence.date - timedelta(days=absence.date.weekday())
+            week_end   = week_start + timedelta(days=6)
 
-        top = ranked[0] if ranked else None
+            counts_result = await db.execute(
+                select(
+                    models.ReliefAssignment.relief_teacher_id,
+                    sa_func.count(models.ReliefAssignment.id).label("cnt"),
+                )
+                .join(models.Absence, models.ReliefAssignment.absence_id == models.Absence.id)
+                .where(
+                    models.Absence.date >= week_start,
+                    models.Absence.date <= week_end,
+                    models.ReliefAssignment.relief_teacher_id.isnot(None),
+                )
+                .group_by(models.ReliefAssignment.relief_teacher_id)
+            )
+            weekly_counts = {row[0]: row[1] for row in counts_result.all()}
 
-        relief_assignment = models.ReliefAssignment(
-            absence_id=absence.id,
-            slot_id=slot.id,
-            relief_teacher_id=top.teacher.id if top else None,
-            score=top.total_score if top else 0,
-            status=models.ReliefStatus.PENDING,
-            reason_text=_build_reason(top) if top else "No eligible teacher found.",
-        )
-        db.add(relief_assignment)
+            assigned = 0
+            for slot in vacant_slots:
+                ranked = await rank_candidates(
+                    absent_teacher=absent_teacher,
+                    slot=slot,
+                    weekly_counts=weekly_counts,
+                    db=db,
+                )
+                top = ranked[0] if ranked else None
+                relief_assignment = models.ReliefAssignment(
+                    absence_id=absence.id,
+                    slot_id=slot.id,
+                    relief_teacher_id=top.teacher.id if top else None,
+                    score=top.total_score if top else 0,
+                    status=models.ReliefStatus.PENDING,
+                    reason_text=_build_reason(top) if top else "No eligible teacher found.",
+                )
+                db.add(relief_assignment)
+                if top:
+                    weekly_counts[top.teacher.id] = weekly_counts.get(top.teacher.id, 0) + 1
+                assigned += 1
 
-        if top:
-            weekly_counts[top.teacher.id] = weekly_counts.get(top.teacher.id, 0) + 1
+            await db.commit()
+            print(f"[RELIEF] Created {assigned} relief assignments for absence {absence_id}.")
 
-        assigned += 1
-
-    await db.commit()
-    print(f"[RELIEF] Created {assigned} relief assignments for absence {absence_id}.")
-
+        except Exception as e:
+            print(f"[RELIEF ERROR] {e}")
+            await db.rollback()
 
 def _build_reason(candidate) -> str:
     b = candidate.breakdown
@@ -460,7 +461,7 @@ async def hod_action_on_leave(
 
     if body.action == HODAction.APPROVE:
         absence.status = models.AbsenceStatus.APPROVED
-        background_tasks.add_task(dispatch_relief_for_absence, absence.id, db)
+        background_tasks.add_task(dispatch_relief_for_absence, absence.id)
         notif_msg = f"Your {absence.leave_type} leave on {absence.date} has been approved."
 
     elif body.action == HODAction.REJECT:
@@ -551,7 +552,7 @@ async def respond_to_relief(
 
     elif body.status == models.ReliefStatus.REJECTED:
         # FR-20: roll over to the next ranked candidate
-        background_tasks.add_task(_rollover_relief, assignment_id, db)
+        background_tasks.add_task(_rollover_relief, assignment_id)
 
     await db.commit()
     await db.refresh(assignment)

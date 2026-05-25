@@ -133,7 +133,7 @@ export default function App() {
               <Route index             element={<HODDashboard />} />
               <Route path="timetables" element={<TimetableGrid />} />
               <Route path="leave"      element={<LeaveManagement />} />
-              <Route path="relief"     element={<ReliefManagement />} />
+              <Route path="relief" element={<ReliefManagementPage />} />
               <Route path="analytics"  element={<AnalyticsPlaceholder />} />
             </Route>
 
