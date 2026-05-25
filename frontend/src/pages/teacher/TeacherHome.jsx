@@ -556,20 +556,21 @@ export default function TeacherHome() {
   // ─── Mock Schedule Preview (per spec) ─────────────────────────────────────
 
   const todaySchedule = confirmedReliefs.map((r) => ({
-  id: r.id,
-  type: 'upcoming',
-  label: `Period ${r.period}`,
-  timeStart: r.start_time || '--:--',
-  timeEnd: r.end_time || '--:--',
-  subject: `${r.subject} (${r.class})`,
-  room: r.room || 'TBD',
-  students: r.students || null,
-  forTeacher: r.originalTeacher,
-  department: r.department || null,
-  upcoming: false,
-}));
+    id: r.id,
+    type: 'upcoming',
+    label: `Period ${r.period}`,
+    timeStart: r.start_time || '--:--',
+    timeEnd: r.end_time || '--:--',
+    subject: `${r.subject} (${r.class})`,
+    room: r.room || 'TBD',
+    students: r.students || null,
+    forTeacher: r.originalTeacher,
+    department: r.department || null,
+    upcoming: false,
+  }));
 
-const activeReliefDutiesToday = todaySchedule;
+
+  const activeReliefDutiesToday = todaySchedule;
 
   return (
     <div className="space-y-5 max-w-[1280px]">

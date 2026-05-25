@@ -69,14 +69,16 @@ class LeaveEditRequest(BaseModel):
 
 async def notify(db: AsyncSession, user_id: UUID, title: str, content: str):
     """Save an in-app notification. Never raises."""
+    from .database import AsyncSessionLocal
     try:
-        notif = models.Notification(
-            user_id=user_id,
-            title=title,
-            content=content,
-        )
-        db.add(notif)
-        await db.commit()
+        async with AsyncSessionLocal() as session:
+            notif = models.Notification(
+                user_id=user_id,
+                title=title,
+                content=content,
+            )
+            session.add(notif)
+            await session.commit()
     except Exception as e:
         print(f"[NOTIFICATION ERROR] {e}")
 
@@ -551,7 +553,7 @@ async def hod_action_on_leave(
             notify,
             db,
             absent_teacher.user_id,
-            f"Leave Request {body.action.value.title()}d",
+            f"Leave Request {'Approved' if body.action == HODAction.APPROVE else 'Rejected' if body.action == HODAction.REJECT else 'Clarification Requested'}",
             notif_msg,
         )
 
