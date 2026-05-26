@@ -48,7 +48,7 @@ from .worker import generate_timetable_task
 
 
 load_dotenv()
-env_path = "C:/Users/Joseph/Documents/Project/SchoolSync/backend/.env"
+env_path = "C:/Users/hp/Desktop/SchoolSync/.env"
 load_dotenv(dotenv_path=env_path)
 
 

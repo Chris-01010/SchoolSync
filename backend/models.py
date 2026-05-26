@@ -214,7 +214,7 @@ class Teacher(Base):
     user = relationship("User", back_populates="teacher_profile")   
     dept_link = relationship("Department", back_populates="teachers", foreign_keys=[department_id])
     timetable_slots = relationship("TimetableSlot", back_populates="teacher", foreign_keys="TimetableSlot.teacher_id")
-    blocked_slots = relationship("BlockedSlot",back_populates="teacher",cascade="all, delete-orphan")
+    blocked_slot_entries = relationship("BlockedSlot",back_populates="teacher",cascade="all, delete-orphan")
 
 class Subject(Base):
     __tablename__ = "subjects"
