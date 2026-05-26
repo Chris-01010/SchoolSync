@@ -158,11 +158,6 @@ export default function ReliefManagementPage() {
       const res = await fetch(`${API}/hod/leaves/pending`, { headers: authHeaders() });
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
-
-      // Also fetch approved absences that may have unassigned relief
-      const res2 = await fetch(`${API}/admin/relief/active`, { headers: authHeaders() });
-      const active = res2.ok ? await res2.json() : [];
-
       setAbsences(data);
       setLastRefresh(new Date());
     } catch (e) {
@@ -192,6 +187,18 @@ export default function ReliefManagementPage() {
     setCandidatesLoading(true);
 
     try {
+      // Step 1: approve the leave if still pending (triggers relief dispatch)
+      if (absence.status === "pending") {
+        await fetch(`${API}/leaves/${absence.id}/action`, {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify({ action: "approve" }),
+        });
+        // small wait for background dispatch to create assignments
+        await new Promise(r => setTimeout(r, 1500));
+      }
+
+      // Step 2: fetch ranked candidates
       const res = await fetch(
         `${API}/relief/candidates/${absence.id}`,
         { headers: authHeaders() }
@@ -199,7 +206,6 @@ export default function ReliefManagementPage() {
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       setCandidates(data.slots || []);
-      // Auto-select first slot
       if (data.slots?.length > 0) setSelectedSlot(data.slots[0]);
     } catch (e) {
       console.error("Failed to fetch candidates:", e);
@@ -208,7 +214,7 @@ export default function ReliefManagementPage() {
       setCandidatesLoading(false);
     }
   };
-
+  
   // ── Start SSE stream for an absence ──────────────────────────────────────
   const startSSE = useCallback((absenceId) => {
     if (sseRef.current) sseRef.current.close();
@@ -383,7 +389,7 @@ export default function ReliefManagementPage() {
                         {new Date(absence.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                       </td>
                       <td className="whitespace-nowrap px-5 py-3.5 text-[13px] font-medium text-gray-900">
-                        {absence.teacher_name || absence.teacher_id?.slice(0, 8) + "..."}
+                        {absence.teacher_name || `Teacher (${absence.leave_type})`}
                       </td>
                       <td className="whitespace-nowrap px-5 py-3.5 text-[13px] text-gray-600 capitalize">
                         {absence.leave_type}
