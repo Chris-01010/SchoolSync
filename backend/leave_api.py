@@ -69,7 +69,15 @@ class LeaveEditRequest(BaseModel):
 
 # ─── Helper: send notification ────────────────────────────────────────────────
 
-async def notify(db: AsyncSession, user_id: UUID, title: str, content: str):
+async def notify(
+    db: AsyncSession,
+    user_id: UUID,
+    title: str,
+    content: str,
+    notification_type: str = "general",
+    action_url: Optional[str] = None,
+):
+    """Save an in-app notification. Never raises."""
     from .database import AsyncSessionLocal
     try:
         async with AsyncSessionLocal() as session:
@@ -77,6 +85,8 @@ async def notify(db: AsyncSession, user_id: UUID, title: str, content: str):
                 user_id=user_id,
                 title=title,
                 content=content,
+                notification_type=notification_type,
+                action_url=action_url,
             )
             session.add(notif)
             await session.commit()
@@ -777,6 +787,8 @@ async def get_notifications(
                 "title": n.title,
                 "content": n.content,
                 "is_read": n.is_read,
+                "notification_type": n.notification_type,
+                "action_url": n.action_url,
                 "read_at": n.read_at.isoformat() if hasattr(n, 'read_at') and n.read_at else None,
                 "created_at": n.created_at.isoformat(),
             }
