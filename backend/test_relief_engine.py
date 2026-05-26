@@ -43,7 +43,7 @@ def make_teacher(db, **kwargs) -> models.Teacher:
         current_relief_hours=0,
         total_hours_worked=0,
         is_active=True,
-        blocked_slots={},
+        blocked_slots_json={},
     )
     defaults.update(kwargs)
     t = models.Teacher(**defaults)
@@ -100,7 +100,7 @@ async def test_f2_excludes_teacher_at_relief_cap(db):
 async def test_f3_excludes_teacher_with_blocked_slot(db):
     """F3: teacher with day 0 period 1 in blocked_slots must be excluded."""
     absent  = make_teacher(db, name="Absent")
-    blocked = make_teacher(db, name="Blocked", blocked_slots={"0": [1]})
+    blocked = make_teacher(db, name="Blocked", blocked_slots_json={"0": [1]})
     await db.commit()
 
     eligible = await filter_eligible_teachers(absent.id, day_of_week=0, period=1, db=db)

@@ -56,16 +56,15 @@ const ADMIN_NAV = [
 
 const BRAND = {
   teacher: { label: 'Teacher Portal', sub: 'Mathematics Dept' },
-  hod:     { label: 'Science Dept',   sub: 'HOD Portal' },
+  hod: { label: 'HOD Portal', sub: 'Department Overview' },
   admin:   { label: 'Admin Portal',   sub: 'Institution-Wide' },
 };
 
 const CTA = {
-  teacher: { label: 'Apply Leave',          action: 'apply-leave' },
-  hod:     { label: 'View School Calendar', action: null },
-  admin:   { label: 'System Settings',      action: null },
+  teacher: { label: 'Apply Leave',   action: 'apply-leave' },
+  hod:     { label: null,            action: null },
+  admin:   { label: 'System Settings', action: null },
 };
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const Sidebar = ({ open, onClose, user, onApplyLeave }) => {

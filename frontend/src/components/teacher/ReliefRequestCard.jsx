@@ -1,11 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, X } from 'lucide-react';
-
-const BASE = 'http://localhost:8000';
-
-function getToken() {
-  return localStorage.getItem('schoolsync_token');
-}
+import { api } from '../services/api';
 
 // ─── Countdown Timer ──────────────────────────────────────────────────────────
 function CountdownTimer({ deadline }) {
@@ -150,34 +145,7 @@ export default function ReliefRequestCard({ request, onResponded }) {
       if (flag_reason) body.flag_reason = flag_reason;
       if (flag_comment) body.flag_comment = flag_comment;
 
-      const res = await fetch(
-        `${BASE}/relief-assignments/${request.id}/respond`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${getToken()}`,
-          },
-          body: JSON.stringify(body),
-        }
-      );
-
-      if (res.status === 409) {
-        showToast('This request has already been taken.', 'error');
-        onResponded?.(request.id);
-        return;
-      }
-      if (res.status === 410) {
-        showToast('This request has expired.', 'error');
-        onResponded?.(request.id);
-        return;
-      }
-      if (!res.ok) {
-        const err = await res.json();
-        showToast(err.detail || 'Something went wrong.', 'error');
-        return;
-      }
-
+      await api.put(`/leaves/relief/${request.id}/respond`, body);
       const messages = {
         accepted: 'Relief request accepted!',
         rejected: 'Relief request rejected.',

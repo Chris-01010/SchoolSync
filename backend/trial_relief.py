@@ -1,4 +1,4 @@
-from relief import rank_relief_candidates
+from .relief import rank_relief_candidates
 import uuid
 import json
 

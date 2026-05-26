@@ -44,12 +44,14 @@ const UpcomingCard = ({ duty }) => (
     </div>
 
     <div className="flex gap-2">
-      <button className="flex-1 py-2 bg-blue-600 text-white text-[11px] font-bold rounded-lg
-                         hover:bg-blue-700 transition-colors">
-        View Lesson Plan
-      </button>
-      <button className="px-3 py-2 border border-gray-200 text-[11px] font-semibold text-gray-600
-                         rounded-lg hover:bg-gray-50 transition-colors">
+      {duty.lessonPlanUrl && (
+        <button className="flex-1 py-2 bg-blue-600 text-white text-[11px] font-bold rounded-lg
+                           hover:bg-blue-700 transition-colors">
+          View Lesson Plan
+        </button>
+      )}
+      <button className={`${duty.lessonPlanUrl ? 'px-3' : 'flex-1'} py-2 border border-gray-200 text-[11px] font-semibold text-gray-600
+                         rounded-lg hover:bg-gray-50 transition-colors`}>
         Details
       </button>
     </div>

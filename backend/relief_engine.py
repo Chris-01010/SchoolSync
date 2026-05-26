@@ -121,7 +121,7 @@ def _is_slot_blocked(teacher: models.Teacher, day_of_week: int, period: int) -> 
     Key = day_of_week as string, value = list of blocked period ints.
     Handles None / malformed JSON without raising.
     """
-    raw = teacher.blocked_slots
+    raw = teacher.blocked_slots_json
     if not raw:
         return False
     try:
