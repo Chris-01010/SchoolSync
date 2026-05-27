@@ -4,6 +4,7 @@ import { Bell, CheckCircle, AlertTriangle, LogOut, ChevronDown } from 'lucide-re
 import TimetableGrid from './TimetableGrid';
 import ReliefRequestCard from './ReliefRequestCard';
 import LeaveApplicationForm from './LeaveApplicationForm';
+import PendingConsumptionPanel from './PendingConsumptionPanel';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 

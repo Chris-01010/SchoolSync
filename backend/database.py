@@ -1,16 +1,10 @@
-from dotenv import load_dotenv
-load_dotenv()
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from dotenv import load_dotenv
-load_dotenv()
 
-
-# Load .env from project root (works regardless of where you run from)
-load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./schoolsync.db")
 

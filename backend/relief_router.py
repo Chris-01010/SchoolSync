@@ -7,9 +7,12 @@ from __future__ import annotations
 import asyncio
 import json
 from uuid import UUID
+from typing import Optional
+import datetime as dt
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +22,18 @@ from .relief_engine import rank_candidates
 
 router = APIRouter()
 
+class RespondRequest(BaseModel):
+    response: str                   # "accepted", "rejected", "flagged"
+    mode: Optional[str] = None      # "swap" or "consume" — required if accepted
+    swap_slot_id: Optional[str] = None
+
+class ConfirmConsumptionRequest(BaseModel):
+    confirm: bool
+
+async def _notify(user_id, title: str, content: str, db: AsyncSession):
+    notif = models.Notification(user_id=user_id, title=title, content=content)
+    db.add(notif)
+    # caller must commit
 
 # ─── Step 3: GET /relief/candidates/{absence_id} ──────────────────────────────
 
@@ -216,3 +231,370 @@ async def stream_relief_candidates(
             "X-Accel-Buffering": "no",
         },
     )
+
+# ─── EPIC-3: POST /relief/assignments/{assignment_id}/respond ─────────────────
+
+@router.post("/assignments/{assignment_id}/respond")
+async def respond_to_relief(
+    assignment_id: UUID,
+    body: RespondRequest,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # Load assignment
+    result = await db.execute(
+        select(models.ReliefAssignment).where(
+            models.ReliefAssignment.id == str(assignment_id)
+        )
+    )
+    assignment = result.scalar_one_or_none()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found.")
+
+    # Auth: only the assigned relief teacher
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == str(current_user.id))
+    )
+    current_teacher = teacher_result.scalar_one_or_none()
+    if not current_teacher or str(current_teacher.id) != str(assignment.relief_teacher_id):
+        raise HTTPException(status_code=403, detail="Not your assignment.")
+
+    if assignment.status != models.ReliefStatus.PENDING:
+        raise HTTPException(status_code=400, detail="Assignment is no longer pending.")
+
+    # ── Reject / Flag (existing flow, unchanged) ──
+    if body.response == "rejected":
+        assignment.status = models.ReliefStatus.REJECTED
+        await db.commit()
+        return {"status": "rejected"}
+
+    if body.response == "flagged":
+        assignment.status = models.ReliefStatus.FLAGGED
+        await db.commit()
+        return {"status": "flagged"}
+
+    if body.response != "accepted":
+        raise HTTPException(status_code=400, detail="response must be accepted, rejected, or flagged.")
+
+    # ── Accepted — require mode ──
+    if body.mode not in ("swap", "consume"):
+        raise HTTPException(status_code=400, detail="mode must be 'swap' or 'consume' when accepting.")
+
+    # ── Load absence first (slot_id is None in seeded data) ──
+    absence_result = await db.execute(
+        select(models.Absence).where(models.Absence.id == str(assignment.absence_id))
+    )
+    absence = absence_result.scalar_one_or_none()
+    if not absence:
+        raise HTTPException(status_code=404, detail="Absence not found.")
+
+    # Find absent slot dynamically from absence date + period
+    day_of_week = absence.date.weekday()
+    slot_result = await db.execute(
+        select(models.TimetableSlot).where(
+            models.TimetableSlot.teacher_id == str(absence.teacher_id),
+            models.TimetableSlot.day_of_week == day_of_week,
+            models.TimetableSlot.period == absence.period_start,
+        )
+    )
+    absent_slot = slot_result.scalar_one_or_none()
+    if not absent_slot:
+        raise HTTPException(status_code=404, detail="Timetable slot not found for this absence.")
+
+    absent_teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.id == str(absence.teacher_id))
+    )
+    absent_teacher = absent_teacher_result.scalar_one_or_none()
+
+    # ── SWAP ──
+    if body.mode == "swap":
+        if not body.swap_slot_id:
+            raise HTTPException(status_code=400, detail="swap_slot_id required for swap mode.")
+
+        swap_result = await db.execute(
+            select(models.TimetableSlot).where(
+                models.TimetableSlot.id == str(body.swap_slot_id)
+            )
+        )
+        swap_slot = swap_result.scalar_one_or_none()
+        if not swap_slot:
+            raise HTTPException(status_code=404, detail="Swap slot not found.")
+
+        # Validations
+        if str(swap_slot.teacher_id) != str(current_teacher.id):
+            raise HTTPException(status_code=400, detail="Swap slot does not belong to you.")
+        if swap_slot.is_relief:
+            raise HTTPException(status_code=400, detail="Cannot swap a relief slot.")
+
+        # Future slot check: day_of_week + period must be after now
+        today = dt.date.today()
+        today_dow = today.weekday()  # 0=Mon
+        if swap_slot.day_of_week < today_dow or (
+            swap_slot.day_of_week == today_dow and swap_slot.period <= absent_slot.period
+        ):
+            raise HTTPException(status_code=422, detail="Can only swap a future period.")
+
+        # Perform swap inside a transaction (AsyncSession auto-begins)
+        # Lock order: lower UUID first to avoid deadlocks
+        ids_ordered = sorted([str(absent_slot.id), str(swap_slot.id)])
+
+        locked = []
+        for sid in ids_ordered:
+            r = await db.execute(
+                select(models.TimetableSlot)
+                .where(models.TimetableSlot.id == sid)
+                .with_for_update()
+            )
+            locked.append(r.scalar_one())
+
+        # Re-identify which is which after locking
+        absent_locked = next(s for s in locked if str(s.id) == str(absent_slot.id))
+        swap_locked = next(s for s in locked if str(s.id) == str(swap_slot.id))
+
+        # Absent slot → now taught by substitute (relief)
+        absent_locked.teacher_id = current_teacher.id
+        absent_locked.is_relief = True
+        absent_locked.original_teacher_id = absence.teacher_id
+
+        # Substitute's slot → vacant
+        swap_locked.teacher_id = None
+        swap_locked.is_relief = False
+        swap_locked.original_teacher_id = current_teacher.id
+
+        assignment.status = models.ReliefStatus.ACCEPTED
+        assignment.assignment_mode = models.AssignmentMode.SWAP
+        assignment.swapped_slot_id = swap_slot.id
+        assignment.acknowledged_at = dt.datetime.utcnow()
+
+        await db.commit()
+        return {"status": "accepted", "mode": "swap", "assignment_id": str(assignment.id)}
+
+    # ── CONSUME ──
+    if body.mode == "consume":
+        r = await db.execute(
+            select(models.TimetableSlot)
+            .where(models.TimetableSlot.id == str(absent_slot.id))
+            .with_for_update()
+        )
+        slot_locked = r.scalar_one()
+
+        slot_locked.teacher_id = current_teacher.id
+        slot_locked.is_relief = True
+        slot_locked.original_teacher_id = absence.teacher_id
+
+        assignment.status = models.ReliefStatus.AWAITING_CONFIRMATION
+        assignment.assignment_mode = models.AssignmentMode.CONSUME
+        assignment.consume_substitute_confirmed = True
+        assignment.consume_absent_confirmed = False
+        assignment.acknowledged_at = dt.datetime.utcnow()
+
+        # In-app notification to absent teacher
+        if absent_teacher:
+            absent_user_result = await db.execute(
+                select(models.User).where(models.User.id == str(absent_teacher.user_id))
+            )
+            absent_user = absent_user_result.scalar_one_or_none()
+            if absent_user:
+                await _notify(
+                    absent_user.id,
+                    "Relief consume request pending",
+                    f"{current_teacher.name} has offered to cover your class as extra work. Please approve or reject.",
+                    db,
+                )
+
+        await db.commit()
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=202,
+            content={"status": "awaiting_confirmation", "assignment_id": str(assignment.id)}
+        )
+
+
+# ─── EPIC-3: POST /relief/assignments/{assignment_id}/confirm-consumption ─────
+
+@router.post("/assignments/{assignment_id}/confirm-consumption")
+async def confirm_consumption(
+    assignment_id: UUID,
+    body: ConfirmConsumptionRequest,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(models.ReliefAssignment).where(
+            models.ReliefAssignment.id == str(assignment_id)
+        )
+    )
+    assignment = result.scalar_one_or_none()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found.")
+
+    if assignment.status != models.ReliefStatus.AWAITING_CONFIRMATION:
+        raise HTTPException(status_code=400, detail="Assignment is not awaiting confirmation.")
+    if assignment.assignment_mode != models.AssignmentMode.CONSUME:
+        raise HTTPException(status_code=400, detail="Not a consume assignment.")
+
+    # Auth: only the absent teacher
+    absence_result = await db.execute(
+        select(models.Absence).where(models.Absence.id == str(assignment.absence_id))
+    )
+    absence = absence_result.scalar_one_or_none()
+
+    absent_teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.id == str(absence.teacher_id))
+    )
+    absent_teacher = absent_teacher_result.scalar_one_or_none()
+
+    if not absent_teacher or str(absent_teacher.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Only the absent teacher can confirm.")
+
+    # Find slot dynamically (slot_id may be None in seeded data)
+    day_of_week = absence.date.weekday()
+    slot_result = await db.execute(
+        select(models.TimetableSlot)
+        .where(
+            models.TimetableSlot.teacher_id == str(assignment.relief_teacher_id),
+            models.TimetableSlot.day_of_week == day_of_week,
+            models.TimetableSlot.period == absence.period_start,
+        )
+        .with_for_update()
+    )
+    slot = slot_result.scalar_one_or_none()
+
+    if body.confirm:
+        # Workload cap check
+        sub_result = await db.execute(
+            select(models.Teacher).where(models.Teacher.id == str(assignment.relief_teacher_id))
+        )
+        substitute = sub_result.scalar_one()
+
+        if (
+            substitute.weekly_relief_cap is not None
+            and substitute.current_relief_hours + 1 > substitute.weekly_relief_cap
+        ):
+            raise HTTPException(status_code=400, detail="Substitute would exceed weekly relief cap.")
+
+        substitute.current_relief_hours += 1
+        substitute.total_hours_worked += 1
+        absent_teacher.total_hours_worked = max(0, absent_teacher.total_hours_worked - 1)
+
+        assignment.status = models.ReliefStatus.ACCEPTED
+        assignment.consume_absent_confirmed = True
+
+        await db.commit()
+        return {"status": "confirmed"}
+
+    else:
+        # Reject: revert slot to absent teacher
+        if slot:
+            slot.teacher_id = absence.teacher_id
+            slot.is_relief = False
+            slot.original_teacher_id = None
+
+        assignment.status = models.ReliefStatus.REJECTED
+
+        await db.commit()
+        return {"status": "rejected"}
+
+
+# ─── EPIC-3: GET /relief/assignments/pending-consumption ──────────────────────
+
+@router.get("/assignments/pending-consumption")
+async def list_pending_consumption(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == str(current_user.id))
+    )
+    current_teacher = teacher_result.scalar_one_or_none()
+    if not current_teacher:
+        return {"assignments": []}
+
+    # Find absences belonging to this teacher
+    absences_result = await db.execute(
+        select(models.Absence).where(models.Absence.teacher_id == str(current_teacher.id))
+    )
+    absences = absences_result.scalars().all()
+    absence_ids = [str(a.id) for a in absences]
+    absence_map = {str(a.id): a for a in absences}
+
+    if not absence_ids:
+        return {"assignments": []}
+
+    assignments_result = await db.execute(
+        select(models.ReliefAssignment).where(
+            models.ReliefAssignment.absence_id.in_(absence_ids),
+            models.ReliefAssignment.status == models.ReliefStatus.AWAITING_CONFIRMATION,
+            models.ReliefAssignment.assignment_mode == models.AssignmentMode.CONSUME,
+        )
+    )
+    assignments = assignments_result.scalars().all()
+
+    output = []
+    for a in assignments:
+        sub_result = await db.execute(
+            select(models.Teacher).where(models.Teacher.id == str(a.relief_teacher_id))
+        )
+        sub = sub_result.scalar_one_or_none()
+
+        # Find slot dynamically from absence
+        absence = absence_map.get(str(a.absence_id))
+        slot = None
+        if absence:
+            day_of_week = absence.date.weekday()
+            slot_result = await db.execute(
+                select(models.TimetableSlot).where(
+                    models.TimetableSlot.day_of_week == day_of_week,
+                    models.TimetableSlot.period == absence.period_start,
+                    models.TimetableSlot.is_relief == True,
+                )
+            )
+            slot = slot_result.scalar_one_or_none()
+
+        output.append({
+            "assignment_id": str(a.id),
+            "substitute_name": sub.name if sub else None,
+            "slot_day": slot.day_of_week if slot else (absence.date.weekday() if absence else None),
+            "slot_period": slot.period if slot else (absence.period_start if absence else None),
+            "assigned_at": str(a.assigned_at),
+        })
+
+    return {"assignments": output}
+
+# ─── EPIC-3: GET /relief/my-slots — swap slot picker data ────────────────────
+
+@router.get("/my-slots")
+async def get_my_future_slots(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == str(current_user.id))
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        return {"slots": []}
+
+    today_dow = dt.date.today().weekday()
+
+    slots_result = await db.execute(
+        select(models.TimetableSlot).where(
+            models.TimetableSlot.teacher_id == str(teacher.id),
+            models.TimetableSlot.is_relief == False,
+            models.TimetableSlot.day_of_week >= today_dow,
+        )
+    )
+    slots = slots_result.scalars().all()
+
+    return {
+        "slots": [
+            {
+                "slot_id": str(s.id),
+                "day_of_week": s.day_of_week,
+                "period": s.period,
+                "subject_id": str(s.subject_id) if s.subject_id else None,
+                "class_id": str(s.class_id) if s.class_id else None,
+            }
+            for s in slots
+        ]
+    }

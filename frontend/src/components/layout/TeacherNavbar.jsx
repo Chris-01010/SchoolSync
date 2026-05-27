@@ -28,7 +28,7 @@ const STATIC_NOTIFS = [
     title: "Substitute Assignment Notification",
     sub: "You have been assigned to cover Dr. Wilson's Period 6 class in Lab 2 on " + fmtDate(tomorrow) + ".",
     time: "4h ago",
-    isRelief: true,
+    isRelief: false,
   },
   {
     Icon: Users,
@@ -80,27 +80,14 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
     return () => clearTimeout(id);
   }, [toastMessage]);
 
-  const mockReliefAssignment = {
-    id: 'mock-relief-001',
-    class_name: '10A Chemistry',
-    period: 4,
-    period_start_time: '13:00',
-    period_end_time: '14:00',
-    original_teacher_name: 'Dr. Patel',
-    day_label: 'Today',
-    subject_name: 'Chemistry',
-    room_name: 'Lab 3',
-  };
-
-  // REPLACE WITH THIS
   const handleReliefClick = () => {
-    const assignment = pendingReliefs.length > 0
-      ? toModalShape(pendingReliefs[0])
-      : mockReliefAssignment;
+    if (pendingReliefs.length === 0) return;
+    const assignment = toModalShape(pendingReliefs[0]);
     setActiveAssignment(assignment);
     setNotifOpen(false);
     setReliefModalOpen(true);
   };
+
   const handleAccept = () => {
     setPendingReliefs((prev) => prev.slice(1));
     setToastMessage({ text: "Assignment accepted", kind: "accept" });
@@ -216,8 +203,7 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
                     return (
                       <div
                         key={i}
-                        onClick={n.isRelief ? handleReliefClick : undefined}
-                        className={"flex items-start gap-2.5 px-4 py-2.5 hover:bg-gray-50 " + (n.isRelief ? "cursor-pointer" : "")}
+                        className="flex items-start gap-2.5 px-4 py-2.5 hover:bg-gray-50"
                       >
                         <div className={"w-7 h-7 rounded-lg " + n.iconBg + " flex items-center justify-center flex-shrink-0 mt-0.5"}>
                           <I size={13} className={n.iconColor} />

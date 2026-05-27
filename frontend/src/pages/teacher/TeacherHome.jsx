@@ -38,6 +38,8 @@ import {
 
 import ApplyLeaveModal from '../../components/teacher/ApplyLeaveModal';
 
+import PendingConsumptionPanel from '../../components/PendingConsumptionPanel';
+
 // ─── Notification Icons ───────────────────────────────────────────────────────
 
 const NOTIF_ICONS = {
@@ -790,6 +792,9 @@ const todaySchedule =
           </div>
         </div>
       </div>
+
+      {/* Pending Consume Approvals */}
+      <PendingConsumptionPanel />
 
       {/* Relief Duties */}
       <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">

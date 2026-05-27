@@ -33,6 +33,7 @@ from . import relief
 from . import auth
 from . import leave_api
 from . import relief_router
+from . import teacher_router
 
 from .email_service import (
     send_verification_email,
@@ -132,6 +133,7 @@ app.include_router(blocked_slots_router, prefix="/api/v1")
 
 app.include_router(leave_api.router, prefix="/leaves", tags=["leaves"])
 app.include_router(relief_router.router, prefix="/relief", tags=["relief"])
+app.include_router(teacher_router.router, prefix="/teacher", tags=["teacher"])
 
 
 # ─── Startup ───────────────────────────────────────────────────────────────────
