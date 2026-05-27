@@ -326,12 +326,11 @@ async def respond_to_relief(
         if swap_slot.is_relief:
             raise HTTPException(status_code=400, detail="Cannot swap a relief slot.")
 
-        # Future slot check: day_of_week + period must be after now
-        today = dt.date.today()
-        today_dow = today.weekday()  # 0=Mon
-        if swap_slot.day_of_week < today_dow or (
-            swap_slot.day_of_week == today_dow and swap_slot.period <= absent_slot.period
-        ):
+        # FIX: timetable slots are weekly-recurring, so day_of_week < today_dow is NOT
+        # "in the past" — it just means earlier in the week, which recurs next week.
+        # Only block slots that are today at or before the current absent period.
+        today_dow = dt.date.today().weekday()
+        if swap_slot.day_of_week == today_dow and swap_slot.period <= absent_slot.period:
             raise HTTPException(status_code=422, detail="Can only swap a future period.")
 
         # Perform swap inside a transaction (AsyncSession auto-begins)
@@ -485,12 +484,32 @@ async def confirm_consumption(
 
     else:
         # Reject: revert slot to absent teacher
-        if slot:
-            slot.teacher_id = absence.teacher_id
-            slot.is_relief = False
-            slot.original_teacher_id = None
+        if not slot:
+            raise HTTPException(status_code=404, detail="Relief slot not found — cannot revert.")
+
+        slot.teacher_id = absence.teacher_id
+        slot.is_relief = False
+        slot.original_teacher_id = None
 
         assignment.status = models.ReliefStatus.REJECTED
+
+        # Notify substitute that their consume request was rejected
+        sub_result = await db.execute(
+            select(models.Teacher).where(models.Teacher.id == str(assignment.relief_teacher_id))
+        )
+        substitute = sub_result.scalar_one_or_none()
+        if substitute:
+            sub_user_result = await db.execute(
+                select(models.User).where(models.User.id == str(substitute.user_id))
+            )
+            sub_user = sub_user_result.scalar_one_or_none()
+            if sub_user:
+                await _notify(
+                    sub_user.id,
+                    "Consume request rejected",
+                    f"{absent_teacher.name} has rejected your consume request. Your slot has been reverted.",
+                    db,
+                )
 
         await db.commit()
         return {"status": "rejected"}
@@ -577,14 +596,20 @@ async def get_my_future_slots(
 
     today_dow = dt.date.today().weekday()
 
+    # FIX: fetch ALL non-relief slots, then exclude only today's already-passed periods.
+    # day_of_week < today_dow is NOT "in the past" for recurring weekly slots —
+    # a Monday slot on Wednesday is valid since it recurs next Monday.
     slots_result = await db.execute(
         select(models.TimetableSlot).where(
             models.TimetableSlot.teacher_id == str(teacher.id),
             models.TimetableSlot.is_relief == False,
-            models.TimetableSlot.day_of_week >= today_dow,
         )
     )
-    slots = slots_result.scalars().all()
+    all_slots = slots_result.scalars().all()
+
+    # Filter out only: today's slots at or before the current period
+    # Since we don't track clock time, conservatively exclude all of today's slots
+    slots = [s for s in all_slots if s.day_of_week != today_dow]
 
     return {
         "slots": [
