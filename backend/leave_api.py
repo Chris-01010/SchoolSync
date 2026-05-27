@@ -503,9 +503,14 @@ async def hod_action_on_leave(
             else "LEAVE_REJECTED" if body.action.value == "reject"
             else "GENERAL"
         )
+        notif_title = (
+            "Leave Request Approved" if body.action == HODAction.APPROVE
+            else "Leave Request Rejected" if body.action == HODAction.REJECT
+            else "Leave Clarification Requested"
+        )
         background_tasks.add_task(
             notify, db, absent_teacher.user_id,
-            f"Leave Request {body.action.value.title()}d",
+            notif_title,
             notif_msg,
             notif_type,
             "/teacher/my-leaves",
