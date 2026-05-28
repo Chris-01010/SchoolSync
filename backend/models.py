@@ -209,20 +209,17 @@ class Teacher(Base):
     total_hours_worked = Column(Integer, default=0)
 
     is_active = Column(Boolean, default=True)
-    blocked_slots_json = Column(JSON, default=dict,name="blocked_slots") # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
+    blocked_slots_json = Column(JSON, default=dict, name="blocked_slots")  # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
 
-    user = relationship("User", back_populates="teacher_profile")   
+    user = relationship("User", back_populates="teacher_profile")
     dept_link = relationship("Department", back_populates="teachers", foreign_keys=[department_id])
     timetable_slots = relationship("TimetableSlot", back_populates="teacher", foreign_keys="TimetableSlot.teacher_id")
-<<<<<<< Updated upstream
-    blocked_slot_entries = relationship("BlockedSlot",back_populates="teacher",cascade="all, delete-orphan")
-=======
     blocked_slot_entries = relationship(
         "BlockedSlot",
         back_populates="teacher",
         cascade="all, delete-orphan"
     )
->>>>>>> Stashed changes
+
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -286,6 +283,7 @@ class Notification(Base):
     action_url = Column(String, nullable=True)
 
     user = relationship("User", back_populates="notifications")
+
 
 class TimetableVersion(Base):
     __tablename__ = "timetable_versions"
@@ -425,16 +423,17 @@ class Absence(Base):
         String,
         nullable=True
     )
+
     is_emergency = Column(
-    Boolean,
-    default=False,
-    server_default=text("false"),
-    nullable=False
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False
     )
 
     emergency_submitted_at = Column(
-    DateTime(timezone=True),
-    nullable=True
+        DateTime(timezone=True),
+        nullable=True
     )
 
     hod_response_deadline = Column(
@@ -492,6 +491,7 @@ class ReliefAssignment(Base):
     acknowledged_at = Column(
         DateTime(timezone=True)
     )
+
     is_emergency = Column(
         Boolean,
         default=False,
@@ -545,7 +545,8 @@ class BlockedSlot(Base):
         "Teacher",
         back_populates="blocked_slot_entries"
     )
-    
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

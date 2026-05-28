@@ -48,11 +48,6 @@ from .worker import generate_timetable_task
 
 
 load_dotenv()
-<<<<<<< Updated upstream
-env_path = "C:/Users/hp/Desktop/SchoolSync/.env"
-load_dotenv(dotenv_path=env_path)
-=======
->>>>>>> Stashed changes
 
 
 # ─── Logging ───────────────────────────────────────────────────────────────────

@@ -2,39 +2,22 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, FileText, Eye, Pencil, X as XIcon, Clock, CheckCircle2,
-<<<<<<< Updated upstream
-  XCircle, MessageSquare, MinusCircle, Upload,
-=======
   XCircle, MessageSquare, MinusCircle,
->>>>>>> Stashed changes
 } from 'lucide-react';
 import ApplyLeaveModal from '../../components/teacher/ApplyLeaveModal';
 import { api } from '../../services/api';
 
-<<<<<<< Updated upstream
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS = {
-  pending:                  { label: 'Pending',        color: 'bg-amber-50 text-amber-700 border-amber-200',   icon: Clock,          dot: 'bg-amber-400'  },
-  approved:                 { label: 'Approved',       color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2, dot: 'bg-emerald-500' },
-  rejected:                 { label: 'Rejected',       color: 'bg-red-50 text-red-600 border-red-200',         icon: XCircle,        dot: 'bg-red-500'    },
-  clarification_requested:  { label: 'Action Needed',  color: 'bg-purple-50 text-purple-700 border-purple-200', icon: MessageSquare, dot: 'bg-purple-500' },
-  clarification:            { label: 'Action Needed',  color: 'bg-purple-50 text-purple-700 border-purple-200', icon: MessageSquare, dot: 'bg-purple-500' },
-  cancelled:                { label: 'Cancelled',      color: 'bg-gray-100 text-gray-500 border-gray-200',     icon: MinusCircle,    dot: 'bg-gray-400'   },
-};
-
-const TABS = ['Active Requests', 'History', 'Clarifications'];
-=======
-const STATUS = {
-  pending:                 { label: 'Pending',      color: 'bg-amber-50 text-amber-700 border-amber-200',      icon: Clock,         dot: 'bg-amber-400'  },
-  approved:                { label: 'Approved',     color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2,  dot: 'bg-emerald-500'},
-  rejected:                { label: 'Rejected',     color: 'bg-red-50 text-red-600 border-red-200',            icon: XCircle,       dot: 'bg-red-500'    },
-  clarification_requested: { label: 'Action Needed',color: 'bg-purple-50 text-purple-700 border-purple-200',   icon: MessageSquare, dot: 'bg-purple-500' },
-  clarification:           { label: 'Action Needed',color: 'bg-purple-50 text-purple-700 border-purple-200',   icon: MessageSquare, dot: 'bg-purple-500' },
-  cancelled:               { label: 'Cancelled',    color: 'bg-gray-100 text-gray-500 border-gray-200',        icon: MinusCircle,   dot: 'bg-gray-400'   },
+  pending:                  { label: 'Pending',       color: 'bg-amber-50 text-amber-700 border-amber-200',        icon: Clock,         dot: 'bg-amber-400'  },
+  approved:                 { label: 'Approved',      color: 'bg-emerald-50 text-emerald-700 border-emerald-200',  icon: CheckCircle2,  dot: 'bg-emerald-500'},
+  rejected:                 { label: 'Rejected',      color: 'bg-red-50 text-red-600 border-red-200',              icon: XCircle,       dot: 'bg-red-500'    },
+  clarification_requested:  { label: 'Action Needed', color: 'bg-purple-50 text-purple-700 border-purple-200',     icon: MessageSquare, dot: 'bg-purple-500' },
+  clarification:            { label: 'Action Needed', color: 'bg-purple-50 text-purple-700 border-purple-200',     icon: MessageSquare, dot: 'bg-purple-500' },
+  cancelled:                { label: 'Cancelled',     color: 'bg-gray-100 text-gray-500 border-gray-200',          icon: MinusCircle,   dot: 'bg-gray-400'   },
 };
 
 const TABS       = ['Active Requests', 'History', 'Clarifications'];
->>>>>>> Stashed changes
 const LEAVE_TYPES = ['sick', 'casual', 'other'];
 
 const StatusBadge = ({ status }) => {
@@ -42,11 +25,7 @@ const StatusBadge = ({ status }) => {
   const Icon = cfg.icon;
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.color}`}>
-<<<<<<< Updated upstream
       <Icon size={10} /> {cfg.label}
-=======
-      <Icon size={10} />{cfg.label}
->>>>>>> Stashed changes
     </span>
   );
 };
@@ -57,25 +36,7 @@ const fmt = (d) => {
   catch { return d; }
 };
 
-<<<<<<< Updated upstream
-// ─── Map backend leave → UI shape ────────────────────────────────────────────
-function mapLeave(raw) {
-  const rawStatus = (raw.status || 'pending').toLowerCase();
-  const status = rawStatus.includes('clarif') ? 'clarification_requested' : rawStatus;
-  return {
-    id: raw.id,
-    type: raw.leave_type || 'Leave',
-    from: raw.date || raw.from,
-    to: raw.date || raw.to,
-    days: raw.period_end && raw.period_start ? (raw.period_end - raw.period_start + 1) : (raw.days ?? 1),
-    reason: raw.reason || '',
-    status,
-    clarificationNote: raw.clarification_note || null,
-    document: raw.handover_url || null,
-    periodStart: raw.period_start ?? 1,
-    periodEnd: raw.period_end ?? 8,
-=======
-// ─── helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function calcDays(raw) {
   if (raw.start_date && raw.end_date) {
     const start = new Date(raw.start_date);
@@ -93,6 +54,7 @@ function calcPeriods(raw) {
   return '—';
 }
 
+// ─── Map backend leave → UI shape ─────────────────────────────────────────────
 function mapLeave(raw) {
   const rawStatus = (raw.status || 'pending').toLowerCase();
   const status    = rawStatus.includes('clarif') ? 'clarification_requested' : rawStatus;
@@ -107,7 +69,6 @@ function mapLeave(raw) {
     status,
     clarificationNote: raw.clarification_note || null,
     document:          raw.handover_url || null,
->>>>>>> Stashed changes
   };
 }
 
@@ -115,12 +76,8 @@ function mapLeave(raw) {
 function ViewDetailsModal({ req, onClose }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-<<<<<<< Updated upstream
       className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
       onClick={onClose}>
-=======
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
->>>>>>> Stashed changes
       <motion.div initial={{ scale: 0.95, y: 8 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
         onClick={e => e.stopPropagation()}
         className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md border border-gray-100 space-y-4">
@@ -131,16 +88,11 @@ function ViewDetailsModal({ req, onClose }) {
         <div className="space-y-3 text-[12px]">
           <div className="flex justify-between"><span className="text-gray-400 font-medium">Status</span><StatusBadge status={req.status} /></div>
           <div className="flex justify-between"><span className="text-gray-400 font-medium">Leave Type</span><span className="font-semibold text-gray-800 capitalize">{req.type}</span></div>
-<<<<<<< Updated upstream
-          <div className="flex justify-between"><span className="text-gray-400 font-medium">Date</span><span className="font-semibold text-gray-800">{fmt(req.from)}</span></div>
-          <div className="flex justify-between"><span className="text-gray-400 font-medium">Periods</span><span className="font-semibold text-gray-800">{req.periodStart} – {req.periodEnd}</span></div>
-=======
           <div className="flex justify-between">
             <span className="text-gray-400 font-medium">Date</span>
             <span className="font-semibold text-gray-800">{fmt(req.from)}{req.to && req.to !== req.from ? ` – ${fmt(req.to)}` : ''}</span>
           </div>
           <div className="flex justify-between"><span className="text-gray-400 font-medium">Periods</span><span className="font-semibold text-gray-800">{req.periods}</span></div>
->>>>>>> Stashed changes
           <div className="flex justify-between"><span className="text-gray-400 font-medium">Days</span><span className="font-semibold text-gray-800">{req.days}</span></div>
           <div>
             <p className="text-gray-400 font-medium mb-1">Reason</p>
@@ -169,48 +121,17 @@ function ViewDetailsModal({ req, onClose }) {
 
 // ─── Edit Modal ───────────────────────────────────────────────────────────────
 function EditModal({ req, onClose, onSaved }) {
-<<<<<<< Updated upstream
   const [form, setForm] = useState({
     leave_type: req.type,
     date: req.from || '',
     reason: req.reason || '',
   });
-=======
-  const [form, setForm] = useState({ leave_type: req.type, date: req.from || '', reason: req.reason || '' });
->>>>>>> Stashed changes
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState(null);
 
   const handleSubmit = async () => {
-<<<<<<< Updated upstream
-  setSaving(true);
-  setError(null);
-  try {
-    // Convert DD-MM-YYYY or any format to YYYY-MM-DD
-    const dateVal = new Date(form.date);
-    const isoDate = dateVal.toISOString().split('T')[0];
-    await api.put(`/leaves/${req.id}/edit`, {
-      leave_type: form.leave_type,
-      date: isoDate,
-      reason: form.reason,
-      period_start: req.periodStart ?? 1,
-      period_end: req.periodEnd ?? 8,
-    });
-    onSaved();
-    onClose();
-  } catch (e) {
-    setError(typeof e.message === 'string' ? e.message : 'Failed to update leave.');
-  } finally {
-    setSaving(false);
-  }
-};
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-      onClick={onClose}>
-=======
-    setSaving(true); setError(null);
+    setSaving(true);
+    setError(null);
     try {
       const isoDate = new Date(form.date).toISOString().split('T')[0];
       await api.put(`/leaves/${req.id}/edit`, {
@@ -219,15 +140,19 @@ function EditModal({ req, onClose, onSaved }) {
         reason:      form.reason,
         is_full_day: true,
       });
-      onSaved(); onClose();
-    } catch (e) { setError(e.message || 'Failed to update leave.'); }
-    finally { setSaving(false); }
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError(e.message || 'Failed to update leave.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
->>>>>>> Stashed changes
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      onClick={onClose}>
       <motion.div initial={{ scale: 0.95, y: 8 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
         onClick={e => e.stopPropagation()}
         className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md border border-gray-100 space-y-4">
@@ -267,7 +192,6 @@ function EditModal({ req, onClose, onSaved }) {
   );
 }
 
-<<<<<<< Updated upstream
 // ─── Cancel Confirm Modal ─────────────────────────────────────────────────────
 function CancelModal({ req, onClose, onCancelled }) {
   const [loading, setLoading] = useState(false);
@@ -288,28 +212,11 @@ function CancelModal({ req, onClose, onCancelled }) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
       onClick={onClose}>
-=======
-// ─── Cancel Modal ─────────────────────────────────────────────────────────────
-function CancelModal({ req, onClose, onCancelled }) {
-  const [loading, setLoading] = useState(false);
-  const handleConfirm = async () => {
-    setLoading(true);
-    try { await api.delete(`/leaves/${req.id}`); } catch { }
-    finally { onCancelled(req.id); onClose(); }
-  };
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
->>>>>>> Stashed changes
       <motion.div initial={{ scale: 0.95, y: 8 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
         onClick={e => e.stopPropagation()}
         className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm border border-gray-100">
         <h3 className="text-[14px] font-bold text-gray-900 mb-2">Cancel Leave Request</h3>
-<<<<<<< Updated upstream
         <p className="text-[12px] text-gray-500 mb-5">Are you sure you want to cancel this leave request? This will remove it from HOD and admin views.</p>
-=======
-        <p className="text-[12px] text-gray-500 mb-5">Are you sure you want to cancel this leave request?</p>
->>>>>>> Stashed changes
         <div className="flex items-center gap-3 justify-end">
           <button onClick={onClose} className="px-4 py-2 text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">No, Keep It</button>
           <button onClick={handleConfirm} disabled={loading}
@@ -326,10 +233,7 @@ function CancelModal({ req, onClose, onCancelled }) {
 const LeaveCard = ({ req, onView, onEdit, onCancel }) => {
   const canEdit   = req.status === 'pending' || req.status === 'clarification_requested';
   const canCancel = req.status === 'pending' || req.status === 'clarification_requested';
-<<<<<<< Updated upstream
 
-=======
->>>>>>> Stashed changes
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} layout
       className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -340,24 +244,16 @@ const LeaveCard = ({ req, onView, onEdit, onCancel }) => {
           </div>
           <div>
             <p className="text-[13px] font-bold text-gray-900">Leave Request #{String(req.id).slice(0, 8)}</p>
-<<<<<<< Updated upstream
-            <p className="text-[10px] text-gray-400 mt-0.5 capitalize">{req.type} · {fmt(req.from)} · {req.days} day{req.days > 1 ? 's' : ''}</p>
-=======
             <p className="text-[10px] text-gray-400 mt-0.5 capitalize">
               {req.type} · {fmt(req.from)}{req.to && req.to !== req.from ? ` – ${fmt(req.to)}` : ''} · {req.days} day{req.days > 1 ? 's' : ''}
             </p>
->>>>>>> Stashed changes
           </div>
         </div>
         <StatusBadge status={req.status} />
       </div>
-<<<<<<< Updated upstream
 
       {req.reason && <p className="text-[11px] text-gray-500 mt-2.5 pl-10 leading-relaxed">{req.reason}</p>}
 
-=======
-      {req.reason && <p className="text-[11px] text-gray-500 mt-2.5 pl-10 leading-relaxed">{req.reason}</p>}
->>>>>>> Stashed changes
       {req.clarificationNote && (
         <div className="mt-2.5 ml-10 p-2.5 bg-purple-50 border border-purple-200 rounded-lg">
           <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Clarification Requested</p>
@@ -386,18 +282,13 @@ const LeaveCard = ({ req, onView, onEdit, onCancel }) => {
   );
 };
 
-<<<<<<< Updated upstream
-// ─── Main component ───────────────────────────────────────────────────────────
-=======
 // ─── Main Component ───────────────────────────────────────────────────────────
->>>>>>> Stashed changes
 export default function MyLeaves() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
   const [activeTab, setActiveTab] = useState(0);
   const [applyOpen, setApplyOpen] = useState(false);
-<<<<<<< Updated upstream
 
   const [viewReq,   setViewReq]   = useState(null);
   const [editReq,   setEditReq]   = useState(null);
@@ -422,27 +313,6 @@ export default function MyLeaves() {
   const handleCancelled = (id) => setRequests(prev => prev.filter(r => r.id !== id));
 
   const filtered = requests.filter((r) => {
-=======
-  const [viewReq, setViewReq]   = useState(null);
-  const [editReq, setEditReq]   = useState(null);
-  const [cancelReq, setCancelReq] = useState(null);
-
-  const loadLeaves = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const resp = await api.get('/leaves/my');
-      const list = Array.isArray(resp) ? resp : (resp?.data || []);
-      setRequests(list.map(mapLeave));
-    } catch (e) { setError(e.message || 'Failed to load leaves'); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { loadLeaves(); }, [loadLeaves]);
-
-  const handleCancelled = (id) => setRequests(prev => prev.filter(r => r.id !== id));
-
-  const filtered = requests.filter(r => {
->>>>>>> Stashed changes
     if (activeTab === 0) return ['pending', 'clarification_requested'].includes(r.status);
     if (activeTab === 1) return ['approved', 'rejected', 'cancelled'].includes(r.status);
     if (activeTab === 2) return r.status === 'clarification_requested';
@@ -488,14 +358,10 @@ export default function MyLeaves() {
               </motion.div>
             ) : (
               filtered.map(req => (
-<<<<<<< Updated upstream
                 <LeaveCard key={req.id} req={req}
                   onView={setViewReq}
                   onEdit={setEditReq}
                   onCancel={setCancelReq} />
-=======
-                <LeaveCard key={req.id} req={req} onView={setViewReq} onEdit={setEditReq} onCancel={setCancelReq} />
->>>>>>> Stashed changes
               ))
             )}
           </AnimatePresence>
@@ -503,45 +369,28 @@ export default function MyLeaves() {
       )}
 
       {/* Apply Modal */}
-<<<<<<< Updated upstream
-      <ApplyLeaveModal isOpen={applyOpen} onClose={() => setApplyOpen(false)}
-=======
       <ApplyLeaveModal
         isOpen={applyOpen}
         onClose={() => setApplyOpen(false)}
->>>>>>> Stashed changes
         onSubmit={async (data) => {
           try {
             const raw = (data.leaveType || 'sick').toLowerCase();
             const leave_type = raw.includes('sick') ? 'sick' : raw.includes('casual') ? 'casual' : 'other';
             await api.post('/leaves/apply', {
-<<<<<<< Updated upstream
-              date: data.startDate || data.fromDate,
-              period_start: data.periodStart ?? 1,
-              period_end: data.periodEnd ?? 8,
-              leave_type,
-              reason: data.reason || 'No reason provided',
-=======
               start_date:   data.fromDate  || data.startDate,
               end_date:     data.toDate    || data.endDate || data.fromDate || data.startDate,
               leave_type,
               reason:       data.reason   || 'No reason provided',
               is_full_day:  true,
->>>>>>> Stashed changes
               handover_url: data.fileDataUrl || null,
             });
             setApplyOpen(false);
             await loadLeaves();
-<<<<<<< Updated upstream
           } catch (err) {
             alert(`Failed to submit leave: ${err.message}`);
           }
-        }} />
-=======
-          } catch (err) { alert(`Failed to submit leave: ${err.message}`); }
         }}
       />
->>>>>>> Stashed changes
 
       <AnimatePresence>
         {viewReq   && <ViewDetailsModal req={viewReq}   onClose={() => setViewReq(null)} />}

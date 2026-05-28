@@ -22,20 +22,12 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=True,
     pool_pre_ping=True,
-<<<<<<< Updated upstream
     # Required when using Supabase's Supavisor pooler with asyncpg
     connect_args={"statement_cache_size": 0} if is_pooler else {},
     **(
         dict(pool_recycle=300, pool_size=5, max_overflow=10)
         if is_postgres else {}
     ),
-=======
-    pool_recycle=300,
-    pool_size=5,
-    max_overflow=10,
-    # Required for Supabase pooler (pgBouncer in transaction mode)
-    connect_args={"statement_cache_size": 0} if "asyncpg" in DATABASE_URL else {},
->>>>>>> Stashed changes
 )
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
