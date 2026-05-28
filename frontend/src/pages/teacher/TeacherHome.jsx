@@ -46,13 +46,11 @@ const NOTIF_ICONS = {
     bg: 'bg-emerald-50',
     color: 'text-emerald-600',
   },
-
   relief_assigned: {
     el: Repeat2,
     bg: 'bg-orange-50',
     color: 'text-orange-500',
   },
-
   announcement: {
     el: Users,
     bg: 'bg-blue-50',
@@ -63,29 +61,10 @@ const NOTIF_ICONS = {
 // ─── Quick Actions ────────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS = [
-  {
-    label: 'My Timetable',
-    icon: CalendarDays,
-    path: '/dashboard/timetable',
-  },
-
-  {
-    label: 'Relief Timetable',
-    icon: Repeat2,
-    path: '/dashboard/relief-timetable',
-  },
-
-  {
-    label: 'My Leaves',
-    icon: FileText,
-    path: '/dashboard/leaves',
-  },
-
-  {
-    label: 'My Relief Duties',
-    icon: Clock,
-    path: '/dashboard/relief-duties',
-  },
+  { label: 'My Timetable',     icon: CalendarDays, path: '/dashboard/timetable' },
+  { label: 'Relief Timetable', icon: Repeat2,      path: '/dashboard/relief-timetable' },
+  { label: 'My Leaves',        icon: FileText,     path: '/dashboard/leaves' },
+  { label: 'My Relief Duties', icon: Clock,        path: '/dashboard/relief-duties' },
 ];
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -227,11 +206,11 @@ const ReliefCard = ({ duty }) => (
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function TeacherHome() {
-  const { data: profile }                     = useTeacherProfile();
-  const { data: notifList = [] }              = useTeacherNotifications();
-  const { data: confirmedReliefs = [] }       = useTeacherReliefConfirmed();
-  const ctx                                   = useOutletContext();
-  const navigate                              = useNavigate();
+  const { data: profile }               = useTeacherProfile();
+  const { data: notifList = [] }        = useTeacherNotifications();
+  const { data: confirmedReliefs = [] } = useTeacherReliefConfirmed();
+  const ctx                             = useOutletContext();
+  const navigate                        = useNavigate();
 
   const [leaveOpen, setLeaveOpen]         = useState(ctx?.leaveModalOpen ?? false);
   const [selectedNotif, setSelectedNotif] = useState(null);
@@ -248,71 +227,145 @@ export default function TeacherHome() {
   const teacherName = profile?.name ?? 'Teacher';
 
   const stats = {
-    totalClassesToday:        0,
-    completedClassesToday:    0,
-    freePeriodsToday:         0,
-    pendingLeaveRequests:     0,
-    approvedLeaves:           0,
-    reliefDutiesToday:        confirmedReliefs.length,
+    totalClassesToday:     0,
+    completedClassesToday: 0,
+    freePeriodsToday:      0,
+    pendingLeaveRequests:  0,
+    approvedLeaves:        0,
+    reliefDutiesToday:     confirmedReliefs.length,
   };
 
   const STATS = [
-    { icon: CalendarDays, iconBg: 'bg-blue-50',    iconColor: 'text-blue-600',   badge: 'Today',    badgeColor: 'bg-blue-50 text-blue-600',      value: stats.totalClassesToday,    label: 'Total Classes Today',   sub: `✓ Completed: ${stats.completedClassesToday}`, subColor: 'text-emerald-600', delay: 0    },
-    { icon: Clock,        iconBg: 'bg-green-50',   iconColor: 'text-green-600',  badge: 'Available',badgeColor: 'bg-green-50 text-green-600',     value: stats.freePeriodsToday,    label: 'Free Periods Today',    sub: 'Ready for relief duty',                       subColor: 'text-gray-400',   delay: 0.05 },
-    { icon: FileText,     iconBg: 'bg-amber-50',   iconColor: 'text-amber-600',  badge: 'Pending',  badgeColor: 'bg-amber-50 text-amber-600',    value: stats.pendingLeaveRequests,label: 'Leave Requests',        sub: 'Awaiting approval',                           subColor: 'text-gray-400',   delay: 0.1  },
-    { icon: CheckCircle2, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600',badge: 'Monthly',  badgeColor: 'bg-emerald-50 text-emerald-600',value: stats.approvedLeaves,      label: 'Approved Leaves',       sub: 'This month',                                  subColor: 'text-gray-400',   delay: 0.15 },
-    { icon: Repeat2,      iconBg: 'bg-orange-50',  iconColor: 'text-orange-600', badge: 'Upcoming', badgeColor: 'bg-orange-50 text-orange-600',   value: stats.reliefDutiesToday,   label: 'Relief Duties',         sub: 'Assigned for today',                          subColor: 'text-gray-400',   delay: 0.2  },
+    { icon: CalendarDays, iconBg: 'bg-blue-50',    iconColor: 'text-blue-600',   badge: 'Today',    badgeColor: 'bg-blue-50 text-blue-600',       value: stats.totalClassesToday,     label: 'Total Classes Today', sub: `✓ Completed: ${stats.completedClassesToday}`, subColor: 'text-emerald-600', delay: 0    },
+    { icon: Clock,        iconBg: 'bg-green-50',   iconColor: 'text-green-600',  badge: 'Available',badgeColor: 'bg-green-50 text-green-600',      value: stats.freePeriodsToday,      label: 'Free Periods Today',  sub: 'Ready for relief duty',                       subColor: 'text-gray-400',    delay: 0.05 },
+    { icon: FileText,     iconBg: 'bg-amber-50',   iconColor: 'text-amber-600',  badge: 'Pending',  badgeColor: 'bg-amber-50 text-amber-600',     value: stats.pendingLeaveRequests,  label: 'Leave Requests',      sub: 'Awaiting approval',                           subColor: 'text-gray-400',    delay: 0.1  },
+    { icon: CheckCircle2, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600',badge: 'Monthly',  badgeColor: 'bg-emerald-50 text-emerald-600', value: stats.approvedLeaves,        label: 'Approved Leaves',     sub: 'This month',                                  subColor: 'text-gray-400',    delay: 0.15 },
+    { icon: Repeat2,      iconBg: 'bg-orange-50',  iconColor: 'text-orange-600', badge: 'Upcoming', badgeColor: 'bg-orange-50 text-orange-600',   value: stats.reliefDutiesToday,     label: 'Relief Duties',       sub: 'Assigned for today',                          subColor: 'text-gray-400',    delay: 0.2  },
   ];
 
-  // ─── Mock Schedule Preview (per spec) ─────────────────────────────────────
-
   const todaySchedule = confirmedReliefs.map((r) => ({
-    id: r.id,
-    type: 'upcoming',
-    label: `Period ${r.period}`,
-    timeStart: r.start_time || '--:--',
-    timeEnd: r.end_time || '--:--',
-    subject: `${r.subject} (${r.class})`,
-    room: r.room || 'TBD',
-    students: r.students || null,
+    id:         r.id,
+    type:       'upcoming',
+    label:      `Period ${r.period}`,
+    timeStart:  r.start_time || '--:--',
+    timeEnd:    r.end_time   || '--:--',
+    subject:    `${r.subject} (${r.class})`,
+    room:       r.room       || 'TBD',
+    students:   r.students   || null,
     forTeacher: r.originalTeacher,
     department: r.department || null,
-    upcoming: false,
+    upcoming:   false,
   }));
-
 
   const activeReliefDutiesToday = todaySchedule;
 
   return (
-    <div className="space-y-5 max-w-[1280px]">
-      {/* Welcome */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex items-start justify-between"
-      >
-        <div>
-          <h1 className="text-[20px] font-bold text-blue-600 leading-tight">
-            Welcome back, {teacherName}
-          </h1>
-          <p className="text-[11px] font-semibold text-gray-400 mt-0.5 uppercase tracking-wider">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase()}
-            {' · '}
-            {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-          </p>
+    // ── Outer shell: fills the content area, clips overflow, positions the fixed bar ──
+    <div className="relative flex flex-col h-full min-h-0">
+
+      {/* ── Scrollable zone ── */}
+      <div className="flex-1 overflow-y-auto pb-[96px] px-4 py-4 space-y-5 max-w-[1280px] w-full mx-auto">
+
+        {/* Welcome */}
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex items-start justify-between"
+        >
+          <div>
+            <h1 className="text-[20px] font-bold text-blue-600 leading-tight">
+              Welcome back, {teacherName}
+            </h1>
+            <p className="text-[11px] font-semibold text-gray-400 mt-0.5 uppercase tracking-wider">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase()}
+              {' · '}
+              {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
+        </motion.div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {STATS.map((s) => <StatCard key={s.label} {...s} />)}
         </div>
-      </motion.div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-        {STATS.map((s) => <StatCard key={s.label} {...s} />)}
+        {/* Schedule + Notifications */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Schedule */}
+          <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <CalendarDays size={14} className="text-gray-400" />
+                <span className="text-[13px] font-bold text-gray-800">Schedule Preview</span>
+              </div>
+              <button
+                onClick={() => navigate('/dashboard/timetable')}
+                className="text-[10px] font-semibold text-blue-600 hover:underline flex items-center gap-1"
+              >
+                View Full Timetable <ChevronRight size={11} />
+              </button>
+            </div>
+            <div className="p-3 space-y-2">
+              {activeReliefDutiesToday.length === 0 ? (
+                <p className="text-[12px] text-gray-400 text-center py-6">No schedule for today</p>
+              ) : (
+                activeReliefDutiesToday.slice(0, 3).map((item) => <ScheduleRow key={item.id} item={item} />)
+              )}
+            </div>
+          </div>
+
+          {/* Notifications */}
+          <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <span className="text-[13px] font-bold text-gray-800">🔔 Notifications</span>
+              <button
+                onClick={() => navigate('/dashboard/notifications')}
+                className="text-[10px] font-semibold text-blue-600 hover:underline"
+              >
+                View all
+              </button>
+            </div>
+            <div className="px-4 py-1">
+              {notifList.length === 0 ? (
+                <p className="text-[12px] text-gray-400 text-center py-6">No notifications</p>
+              ) : (
+                notifList.slice(0, 3).map((n) => <NotifRow key={n.id} n={n} onClick={setSelectedNotif} />)
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Relief Duties */}
+        <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <span className="text-base">⚡</span>
+              <span className="text-[13px] font-bold text-gray-800">Active Relief Duties Today</span>
+            </div>
+            <button
+              onClick={() => navigate('/dashboard/relief-duties')}
+              className="text-[10px] font-semibold text-blue-600 hover:underline"
+            >
+              View all
+            </button>
+          </div>
+          <div className="p-4 flex gap-4 overflow-x-auto">
+            {activeReliefDutiesToday.length === 0 ? (
+              <p className="text-[12px] text-gray-400 py-4">No active relief duties today</p>
+            ) : (
+              activeReliefDutiesToday.map((duty) => <ReliefCard key={duty.id} duty={duty} />)
+            )}
+          </div>
+        </div>
+
       </div>
+      {/* ── end scrollable zone ── */}
 
-      {/* Quick Actions */}
-      <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
-        <h3 className="text-[13px] font-semibold text-gray-800 mb-3">Quick Actions</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* ── Fixed Quick Actions bar ── */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-100 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] px-4 py-2.5">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Quick Actions</p>
+        <div className="grid grid-cols-4 gap-2">
           {QUICK_ACTIONS.map((qa) => {
             const Icon = qa.icon;
             return (
@@ -322,78 +375,16 @@ export default function TeacherHome() {
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.97 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-                className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-5 text-center transition-colors hover:border-blue-300 hover:bg-blue-50/50 shadow-sm"
+                className="group flex flex-col items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2 py-3 text-center transition-colors hover:border-blue-300 hover:bg-blue-50/50"
               >
-                <Icon size={22} strokeWidth={1.8} className="text-blue-500 transition group-hover:text-blue-700" />
-                <span className="text-[11px] font-semibold text-gray-700 group-hover:text-blue-700 leading-tight">{qa.label}</span>
+                <Icon size={20} strokeWidth={1.8} className="text-blue-500 transition group-hover:text-blue-700" />
+                <span className="text-[10px] font-semibold text-gray-700 group-hover:text-blue-700 leading-tight">{qa.label}</span>
               </motion.button>
             );
           })}
         </div>
       </div>
-
-      {/* Schedule + Notifications */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Schedule */}
-        <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <CalendarDays size={14} className="text-gray-400" />
-              <span className="text-[13px] font-bold text-gray-800">Schedule Preview</span>
-            </div>
-            <button onClick={() => navigate('/dashboard/timetable')}
-              className="text-[10px] font-semibold text-blue-600 hover:underline flex items-center gap-1">
-              View Full Timetable <ChevronRight size={11} />
-            </button>
-          </div>
-          <div className="p-3 space-y-2">
-            {activeReliefDutiesToday.length === 0 ? (
-              <p className="text-[12px] text-gray-400 text-center py-6">No schedule for today</p>
-            ) : (
-              activeReliefDutiesToday.slice(0, 3).map((item) => <ScheduleRow key={item.id} item={item} />)
-            )}
-          </div>
-        </div>
-
-        {/* Notifications */}
-        <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <span className="text-[13px] font-bold text-gray-800">🔔 Notifications</span>
-            <button onClick={() => navigate('/dashboard/notifications')}
-              className="text-[10px] font-semibold text-blue-600 hover:underline">
-              View all
-            </button>
-          </div>
-          <div className="px-4 py-1">
-            {notifList.length === 0 ? (
-              <p className="text-[12px] text-gray-400 text-center py-6">No notifications</p>
-            ) : (
-              notifList.slice(0, 3).map((n) => <NotifRow key={n.id} n={n} onClick={setSelectedNotif} />)
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Relief Duties */}
-      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <span className="text-base">⚡</span>
-            <span className="text-[13px] font-bold text-gray-800">Active Relief Duties Today</span>
-          </div>
-          <button onClick={() => navigate('/dashboard/relief-duties')}
-            className="text-[10px] font-semibold text-blue-600 hover:underline">
-            View all
-          </button>
-        </div>
-        <div className="p-4 flex gap-4 overflow-x-auto">
-          {activeReliefDutiesToday.length === 0 ? (
-            <p className="text-[12px] text-gray-400 py-4">No active relief duties today</p>
-          ) : (
-            activeReliefDutiesToday.map((duty) => <ReliefCard key={duty.id} duty={duty} />)
-          )}
-        </div>
-      </div>
+      {/* ── end fixed Quick Actions bar ── */}
 
       {/* Notification Modal */}
       <AnimatePresence>
@@ -425,15 +416,19 @@ export default function TeacherHome() {
                     <p className="text-[10px] text-gray-400 mt-0.5">{selectedNotif.time}</p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedNotif(null)}
-                  className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                <button
+                  onClick={() => setSelectedNotif(null)}
+                  className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
                   <X size={16} />
                 </button>
               </div>
               <p className="text-[12px] text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-3.5">{selectedNotif.message}</p>
               <div className="flex justify-end mt-5">
-                <button onClick={() => setSelectedNotif(null)}
-                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                <button
+                  onClick={() => setSelectedNotif(null)}
+                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
+                >
                   Close
                 </button>
               </div>
@@ -450,7 +445,6 @@ export default function TeacherHome() {
           try {
             const raw = (data.leaveType || 'sick').toLowerCase();
             const leave_type = raw.includes('sick') ? 'sick' : raw.includes('casual') ? 'casual' : 'other';
-
             await api.post('/leaves/apply', {
               start_date:   data.fromDate  || data.startDate,
               end_date:     data.toDate    || data.endDate || data.fromDate || data.startDate,
@@ -459,7 +453,6 @@ export default function TeacherHome() {
               is_full_day:  true,
               handover_url: data.fileDataUrl || null,
             });
-
             handleCloseLeave();
           } catch (err) {
             alert(`Failed to submit leave: ${err.message}`);
