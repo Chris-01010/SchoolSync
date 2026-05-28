@@ -55,11 +55,15 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   const [notifs, setNotifs] = useState([]);
   const dropdownRef = useRef(null);
 
-  useEffect(() => {
+  const fetchNotifs = () => {
     fetch(`${BASE}/leaves/notifications/`, { headers: getHeaders() })
       .then((r) => r.json())
       .then((d) => setNotifs(Array.isArray(d?.data) ? d.data : []))
       .catch(console.error);
+  };
+
+  useEffect(() => {
+    fetchNotifs();
   }, []);
 
   useEffect(() => {
@@ -96,16 +100,17 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
     await fetch(`${BASE}/leaves/notifications/read-all`, {
       method: 'PUT', headers: getHeaders(),
     }).catch(console.error);
-    setNotifs((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    fetchNotifs();
   };
 
   // Click on a notification → close + mark read + navigate
   const handleNotifClick = (n) => {
     setNotifOpen(false);
-    setNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x));
     fetch(`${BASE}/leaves/notifications/${n.id}/read`, {
       method: 'PUT', headers: getHeaders(),
-    }).catch(console.error);
+    })
+    .then(() => fetchNotifs())
+    .catch(console.error);
     const url = getNavUrl(n);
     if (url) navigate(url);
   };

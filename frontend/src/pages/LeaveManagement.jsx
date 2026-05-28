@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download, Search, ChevronDown, CalendarDays,
@@ -26,7 +27,26 @@ const statusLabel = (status) => {
 
 const isActionable = (status) => status === 'pending' || status === 'clarification_requested';
 
+// Inject highlight keyframe once
+const HIGHLIGHT_STYLE_ID = 'leave-highlight-style';
+if (!document.getElementById(HIGHLIGHT_STYLE_ID)) {
+  const style = document.createElement('style');
+  style.id = HIGHLIGHT_STYLE_ID;
+  style.textContent = `
+    @keyframes leaveHighlightFade {
+      0%   { box-shadow: 0 0 0 3px #fbbf24, 0 0 0 6px #fef3c7; background-color: #fefce8; }
+      70%  { box-shadow: 0 0 0 3px #fbbf24, 0 0 0 6px #fef3c7; background-color: #fefce8; }
+      100% { box-shadow: none; background-color: transparent; }
+    }
+    .leave-card-highlight {
+      animation: leaveHighlightFade 3s ease-out forwards;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 export default function LeaveManagement() {
+  const [searchParams]                    = useSearchParams();
   const [leaves, setLeaves]               = useState([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState(null);
@@ -38,6 +58,26 @@ export default function LeaveManagement() {
   const [clarifyMsg, setClarifyMsg]       = useState('');
   const [rejectModal, setRejectModal]     = useState(null);
   const [rejectMsg, setRejectMsg]         = useState('');
+
+  // highlight state — the leave_id to scroll to and animate
+  const [highlightId, setHighlightId]     = useState(null);
+  // once we've attempted scroll (success or not), flip this to avoid retrying
+  const highlightHandled                  = useRef(false);
+  // map of leave id → DOM node ref
+  const cardRefs                          = useRef({});
+
+  // Read URL params on mount — set tab and highlight target
+  useEffect(() => {
+    const tabParam      = searchParams.get('tab');
+    const leaveIdParam  = searchParams.get('leave_id');
+
+    if (tabParam && ['pending', 'approved', 'rejected'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+    if (leaveIdParam) {
+      setHighlightId(leaveIdParam);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchLeaves = useCallback(async () => {
     setLoading(true);
@@ -59,6 +99,36 @@ export default function LeaveManagement() {
   }, []);
 
   useEffect(() => { fetchLeaves(); }, [fetchLeaves]);
+
+  // After fetch completes, attempt scroll + highlight once
+  useEffect(() => {
+    if (loading || !highlightId || highlightHandled.current) return;
+
+    // Check if the leave actually exists in the fetched data
+    const exists = leaves.some((l) => String(l.id) === String(highlightId));
+    if (!exists) {
+      showToast(`Leave request #${highlightId} not found.`, 'error');
+      highlightHandled.current = true;
+      return;
+    }
+
+    // Give React one frame to render the cards after tab switch
+    requestAnimationFrame(() => {
+      const node = cardRefs.current[highlightId];
+      if (node) {
+        node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Small delay so the scroll settles before the glow fires
+        setTimeout(() => {
+          node.classList.add('leave-card-highlight');
+          // Clean up class after animation so re-render doesn't re-trigger
+          node.addEventListener('animationend', () => {
+            node.classList.remove('leave-card-highlight');
+          }, { once: true });
+        }, 400);
+        highlightHandled.current = true;
+      }
+    });
+  }, [loading, highlightId, leaves]);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -198,7 +268,11 @@ export default function LeaveManagement() {
             </div>
           ) : (
             filtered.map((req) => (
-              <motion.div key={req.id} whileHover={{ y: -2 }} transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+              <motion.div
+                key={req.id}
+                ref={(el) => { cardRefs.current[String(req.id)] = el; }}
+                whileHover={{ y: -2 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 22 }}
                 className="overflow-hidden rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
