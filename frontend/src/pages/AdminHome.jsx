@@ -73,7 +73,8 @@ export default function AdminHome() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get("/admin/stats");
+      // admin_dashboard router is mounted at /api/v1/admin
+      const data = await api.get("/api/v1/admin/dashboard/stats");
       setStats(data);
     } catch (err) {
       setError(err.message || "Failed to load dashboard stats.");
@@ -86,13 +87,13 @@ export default function AdminHome() {
 
   const metrics = stats
     ? [
-        { title: "Staff Present",            value: stats.staff_present_count,    subtext: `of ${stats.total_staff_count} total staff`,  icon: Users,         accent: "blue"   },
-        { title: "Total Staff",              value: stats.total_staff_count,      subtext: "Including HODs",                             icon: Building2,     accent: "indigo" },
-        { title: "Teachers on Leave",        value: stats.active_absences,        subtext: "Active absences today",                      icon: Plane,         accent: "orange" },
-        { title: "Relief Assigned Today",    value: stats.relief_assigned_today,  subtext: "Duties covered",                             icon: CheckSquare,   accent: "teal"   },
-        { title: "Coverage Rate",            value: `${stats.coverage_rate}%`,    subtext: "Current period",                             icon: RefreshCw,     accent: "purple" },
-        { title: "Flagged Issues",           value: stats.flagged_issues_count,   subtext: "Need attention",                             icon: AlertTriangle, accent: "red"    },
-        { title: "Pending Timetable Tasks",  value: stats.pending_timetable_tasks,subtext: "Awaiting action",                            icon: AlertCircle,   accent: "amber"  },
+        { title: "Total Departments",        value: stats.total_departments,       subtext: "Active departments",         icon: Building2,     accent: "indigo" },
+        { title: "Total Teachers",           value: stats.total_teachers,          subtext: "Including HODs",             icon: Users,         accent: "blue"   },
+        { title: "Total Classes",            value: stats.total_classes,           subtext: "All sections",               icon: BookOpen,      accent: "purple" },
+        { title: "Teachers on Leave",        value: stats.teachers_on_leave,       subtext: "Today",                      icon: Plane,         accent: "orange" },
+        { title: "Pending Leave Requests",   value: stats.pending_leave_requests,  subtext: "Across all depts",           icon: AlertCircle,   accent: "red"    },
+        { title: "Total Relief Duties Today",value: stats.total_relief_duties,     subtext: "Assigned today",             icon: CheckSquare,   accent: "teal"   },
+        { title: "Unassigned Relief Periods",value: stats.unassigned_relief_periods,subtext: "Need action",              icon: AlertTriangle, accent: "amber"  },
       ]
     : [];
 
@@ -110,17 +111,14 @@ export default function AdminHome() {
           <span className="text-xs text-gray-400">{new Date().toLocaleString()}</span>
           <span className="mx-1 text-gray-300">&bull;</span>
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 ring-1 ring-inset ring-emerald-500/20">
-            <Radio size={10} className="animate-pulse" />
-            LIVE STATUS
+            <Radio size={10} className="animate-pulse" /> LIVE STATUS
           </span>
         </div>
       </motion.section>
 
-      {/* LOADING / ERROR / METRIC CARDS */}
+      {/* METRIC CARDS */}
       <motion.section variants={itemVariants}>
-        {loading && (
-          <div className="flex items-center justify-center py-12 text-sm text-gray-400">Loading dashboard stats…</div>
-        )}
+        {loading && <div className="flex items-center justify-center py-12 text-sm text-gray-400">Loading dashboard stats…</div>}
         {error && (
           <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-5 py-4">
             <p className="text-sm font-medium text-red-600">{error}</p>
@@ -128,7 +126,7 @@ export default function AdminHome() {
           </div>
         )}
         {!loading && !error && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {metrics.map((m) => (<MetricCard key={m.title} {...m} />))}
           </div>
         )}
@@ -163,11 +161,8 @@ export default function AdminHome() {
             {quickActions.map((qa) => {
               const Icon = qa.icon;
               return (
-                <motion.button
-                  key={qa.label}
-                  onClick={() => qa.path && navigate(qa.path)}
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.97 }}
+                <motion.button key={qa.label} onClick={() => qa.path && navigate(qa.path)}
+                  whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                   transition={{ type: "spring", stiffness: 400, damping: 22 }}
                   className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-5 text-center transition-colors hover:border-indigo-400 hover:bg-indigo-50">
                   <Icon size={22} strokeWidth={1.8} className="text-indigo-500 transition group-hover:text-indigo-700" />

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Bell, Settings, Search, Menu, Plus } from 'lucide-react';
-
+import NotificationDropdown from '../shared/NotificationDropdown';
 const Navbar = ({ onMenuClick, user }) => {
   const [searchVal, setSearchVal] = useState('');
 
@@ -37,20 +37,22 @@ const Navbar = ({ onMenuClick, user }) => {
       <div className="flex-1" />
 
       {/* Right actions */}
-      <div className="flex items-center gap-1.5">
-        
-          
-          <button
-          onClick={() => {window.location.href = '/hod/relief#create-relief';
-            
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            + Create Relief
+        <div className="flex items-center gap-1.5">
+
+            <button
+            onClick={() => {window.location.href = '/hod/relief#create-relief';
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              + Create Relief
             </button>
-        <button className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
-          <Settings size={16} />
-        </button>
+
+          {/* Real-time notifications */}
+          <NotificationDropdown notificationsPath="/hod/leave" />
+
+          <button className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
+            <Settings size={16} />
+          </button>
 
         {/* Avatar */}
         <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold ml-1 cursor-pointer select-none">

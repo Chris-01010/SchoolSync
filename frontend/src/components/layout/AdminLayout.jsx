@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import NotificationDropdown from '../shared/NotificationDropdown';
 import {
   Home,
   CalendarDays,
@@ -220,12 +221,7 @@ export default function AdminLayout({ children }) {
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="relative flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100">
-              <Bell size={18} />
-              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-                3
-              </span>
-            </button>
+            <NotificationDropdown notificationsPath="/admin/leave" />
 
             <div className="h-6 w-px bg-gray-200" />
 

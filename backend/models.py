@@ -1,7 +1,7 @@
 import uuid
 import datetime
 from enum import Enum as PyEnum
-from sqlalchemy import Column, String, Boolean, Integer, Float, Time, Date, SmallInteger, ForeignKey, UniqueConstraint, Enum, JSON, DateTime, Text
+from sqlalchemy import Column, String, Boolean, Integer, Float, Time, Date, SmallInteger, ForeignKey, UniqueConstraint, Enum, JSON, DateTime, Text, text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from .database import Base
@@ -214,7 +214,15 @@ class Teacher(Base):
     user = relationship("User", back_populates="teacher_profile")   
     dept_link = relationship("Department", back_populates="teachers", foreign_keys=[department_id])
     timetable_slots = relationship("TimetableSlot", back_populates="teacher", foreign_keys="TimetableSlot.teacher_id")
+<<<<<<< Updated upstream
     blocked_slot_entries = relationship("BlockedSlot",back_populates="teacher",cascade="all, delete-orphan")
+=======
+    blocked_slot_entries = relationship(
+        "BlockedSlot",
+        back_populates="teacher",
+        cascade="all, delete-orphan"
+    )
+>>>>>>> Stashed changes
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -417,6 +425,29 @@ class Absence(Base):
         String,
         nullable=True
     )
+    is_emergency = Column(
+    Boolean,
+    default=False,
+    server_default=text("false"),
+    nullable=False
+    )
+
+    emergency_submitted_at = Column(
+    DateTime(timezone=True),
+    nullable=True
+    )
+
+    hod_response_deadline = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    auto_approved = Column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False
+    )
 
     teacher = relationship("Teacher")
 
@@ -461,17 +492,54 @@ class ReliefAssignment(Base):
     acknowledged_at = Column(
         DateTime(timezone=True)
     )
+    is_emergency = Column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False
+    )
+
+    response_deadline = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
 
 
 class BlockedSlot(Base):
     __tablename__ = "blocked_slots"
 
-    id = Column(GUID, primary_key=True, index=True,default=uuid.uuid4)
-    teacher_id = Column(GUID, ForeignKey("teachers.id"), nullable=False)
-    day = Column(String, nullable=False)       # e.g. "Monday"
-    period = Column(Integer, nullable=False)   # e.g. 3
-    reason = Column(String, nullable=True)     # e.g. "Staff meeting"
-    created_at = Column(DateTime, server_default=func.now())
+    id = Column(
+        GUID(),
+        primary_key=True,
+        index=True,
+        default=uuid.uuid4
+    )
+
+    teacher_id = Column(
+        GUID(),
+        ForeignKey("teachers.id"),
+        nullable=False
+    )
+
+    day = Column(
+        String,
+        nullable=False
+    )
+
+    period = Column(
+        Integer,
+        nullable=False
+    )
+
+    reason = Column(
+        String,
+        nullable=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
 
     teacher = relationship(
         "Teacher",

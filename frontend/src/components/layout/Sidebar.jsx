@@ -39,7 +39,6 @@ const TEACHER_NAV = [
   { label: 'My Leaves',        icon: FileText,     to: '/dashboard/leaves' },
   { label: 'My Relief Duties', icon: Clock,        to: '/dashboard/relief-duties' },
   { label: 'My Workload',      icon: LineChart,    to: '/dashboard/workload' },
-  { label: 'Notifications',    icon: Bell,         to: '/dashboard/notifications' },
   { label: 'Profile',          icon: User,         to: '/dashboard/profile' },
 ];
 

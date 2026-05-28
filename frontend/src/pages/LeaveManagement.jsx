@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Download, Search, ChevronDown, CalendarDays,
-  Eye, MessageSquare, XCircle, CheckCircle, X, FileText,
+  Download, Search, CalendarDays,
+  Eye, MessageSquare, XCircle, CheckCircle, X, AlertTriangle,
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -12,16 +12,19 @@ const itemVariants = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 
 const getInitials = (name) =>
   name?.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '??';
 
+const isEmergency = (leave) =>
+  leave.leave_type?.toLowerCase().includes('emergency') || leave.leave_type === 'other';
+
 const statusBadgeColor = (status) => {
-  if (status === 'approved') return 'bg-green-50 text-green-700 ring-green-500/20';
-  if (status === 'rejected') return 'bg-red-50 text-red-700 ring-red-500/20';
+  if (status === 'approved')                return 'bg-green-50 text-green-700 ring-green-500/20';
+  if (status === 'rejected')                return 'bg-red-50 text-red-700 ring-red-500/20';
   if (status === 'clarification_requested') return 'bg-purple-50 text-purple-700 ring-purple-500/20';
   return 'bg-amber-50 text-amber-700 ring-amber-500/20';
 };
 
 const statusLabel = (status) => {
   if (status === 'clarification_requested') return 'Action Needed';
-  return status;
+  return status?.charAt(0).toUpperCase() + status?.slice(1) || 'Pending';
 };
 
 const isActionable = (status) => status === 'pending' || status === 'clarification_requested';
@@ -73,9 +76,7 @@ export default function LeaveManagement() {
       showToast('Leave approved successfully.');
     } catch (e) {
       showToast(e.message || 'Failed to approve leave.', 'error');
-    } finally {
-      setActionLoading(null);
-    }
+    } finally { setActionLoading(null); }
   };
 
   const handleReject = async () => {
@@ -86,13 +87,10 @@ export default function LeaveManagement() {
       await api.put(`/leaves/${id}/action`, { action: 'reject', note: rejectMsg });
       setLeaves(prev => prev.map(l => l.id === id ? { ...l, status: 'rejected' } : l));
       showToast('Leave rejected.');
-      setRejectModal(null);
-      setRejectMsg('');
+      setRejectModal(null); setRejectMsg('');
     } catch (e) {
       showToast(e.message || 'Failed to reject leave.', 'error');
-    } finally {
-      setActionLoading(null);
-    }
+    } finally { setActionLoading(null); }
   };
 
   const handleClarifySend = async () => {
@@ -103,13 +101,10 @@ export default function LeaveManagement() {
       await api.put(`/leaves/${id}/action`, { action: 'clarify', note: clarifyMsg });
       setLeaves(prev => prev.map(l => l.id === id ? { ...l, status: 'clarification_requested', clarification_note: clarifyMsg } : l));
       showToast(`Clarification sent to ${clarifyModal.name}.`);
-      setClarifyModal(null);
-      setClarifyMsg('');
+      setClarifyModal(null); setClarifyMsg('');
     } catch (e) {
       showToast(e.message || 'Failed to send clarification.', 'error');
-    } finally {
-      setActionLoading(null);
-    }
+    } finally { setActionLoading(null); }
   };
 
   const pendingLeaves  = leaves.filter((l) => l.status === 'pending' || l.status === 'clarification_requested');
@@ -122,17 +117,45 @@ export default function LeaveManagement() {
     { id: 'rejected', label: 'Rejected', count: rejectedLeaves.length },
   ];
 
-  const tabLeaves = activeTab === 'pending'  ? pendingLeaves
-                  : activeTab === 'approved' ? approvedLeaves
-                  : rejectedLeaves;
+  const tabLeaves = activeTab === 'pending' ? pendingLeaves : activeTab === 'approved' ? approvedLeaves : rejectedLeaves;
 
-  const filtered = tabLeaves.filter((l) =>
-    !search || l.teacher_name?.toLowerCase().includes(search.toLowerCase()) ||
-    l.leave_type?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Sort: emergency leaves float to the top
+  const filtered = tabLeaves
+    .filter((l) =>
+      !search || l.teacher_name?.toLowerCase().includes(search.toLowerCase()) ||
+      l.leave_type?.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      const aEmg = isEmergency(a) ? 1 : 0;
+      const bEmg = isEmergency(b) ? 1 : 0;
+      return bEmg - aEmg;
+    });
+
+  const emergencyCount = pendingLeaves.filter(isEmergency).length;
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-7">
+
+      {/* EMERGENCY BANNER */}
+      <AnimatePresence>
+        {emergencyCount > 0 && activeTab === 'pending' && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex items-center gap-3 rounded-xl border border-red-200 bg-gradient-to-r from-red-50 via-red-50 to-orange-50 px-5 py-3.5 shadow-sm"
+          >
+            <span className="relative flex h-3 w-3 flex-shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+            </span>
+            <AlertTriangle size={16} className="flex-shrink-0 text-red-500" />
+            <p className="text-[13px] font-semibold text-red-700">
+              {emergencyCount} emergency leave{emergencyCount > 1 ? 's' : ''} require{emergencyCount === 1 ? 's' : ''} urgent action
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* HEADER */}
       <motion.div variants={itemVariants} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -197,84 +220,115 @@ export default function LeaveManagement() {
               <p className="text-sm font-semibold">All requests processed</p>
             </div>
           ) : (
-            filtered.map((req) => (
-              <motion.div key={req.id} whileHover={{ y: -2 }} transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-                className="overflow-hidden rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-sm font-bold text-gray-600">
-                      {getInitials(req.teacher_name)}
-                    </div>
-                    <div>
-                      <p className="text-base font-bold text-gray-900">{req.teacher_name}</p>
-                      <span className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500 capitalize">
-                        {req.leave_type}
+            filtered.map((req) => {
+              const emergency = isEmergency(req);
+
+              return (
+                <motion.div key={req.id} whileHover={{ y: -2 }} transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                  className={`overflow-hidden rounded-xl border p-5 shadow-sm transition-all ${
+                    emergency
+                      ? 'border-red-300 bg-red-50/60 ring-2 ring-red-200/80'
+                      : 'border-gray-100 bg-white'
+                  }`}>
+
+                  {/* Emergency badge */}
+                  {emergency && (
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                      </span>
+                      <span className="text-[11px] font-bold uppercase tracking-wide text-red-600">
+                        🚨 Emergency Leave
                       </span>
                     </div>
+                  )}
+
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                        emergency
+                          ? 'bg-red-200 text-red-700'
+                          : 'bg-gray-200 text-gray-600'
+                      }`}>
+                        {getInitials(req.teacher_name)}
+                      </div>
+                      <div>
+                        <p className="text-base font-bold text-gray-900">{req.teacher_name}</p>
+                        <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${
+                          emergency
+                            ? 'bg-red-100 text-red-700 ring-1 ring-red-300'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {req.leave_type}
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeColor(req.status)}`}>
+                      {statusLabel(req.status)}
+                    </span>
                   </div>
-                  <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeColor(req.status)}`}>
-                    {statusLabel(req.status)}
-                  </span>
-                </div>
-                <div className="my-4 h-px bg-gray-100" />
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Date</p>
-                    <p className="mt-0.5 text-sm font-bold text-gray-900">{req.date}</p>
+                  <div className={`my-4 h-px ${emergency ? 'bg-red-200' : 'bg-gray-100'}`} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Date</p>
+                      <p className="mt-0.5 text-sm font-bold text-gray-900">{req.start_date || req.date || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Periods</p>
+                      <p className="mt-0.5 text-sm font-bold text-gray-900">
+                        {req.is_full_day ? 'Full Day' : `${req.period_start} – ${req.period_end}`}
+                      </p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Reason</p>
+                      <p className="mt-0.5 text-sm text-gray-700">{req.reason || '—'}</p>
+                    </div>
+                    {req.clarification_note && (
+                      <div className="col-span-2 p-2.5 bg-purple-50 border border-purple-200 rounded-lg">
+                        <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Clarification Requested</p>
+                        <p className="text-[11px] text-purple-900 mt-1">{req.clarification_note}</p>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Periods</p>
-                    <p className="mt-0.5 text-sm font-bold text-gray-900">{req.period_start} – {req.period_end}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Reason</p>
-                    <p className="mt-0.5 text-sm text-gray-700">{req.reason || '—'}</p>
-                  </div>
-                  {req.clarification_note && (
-                    <div className="col-span-2 p-2.5 bg-purple-50 border border-purple-200 rounded-lg">
-                      <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Clarification Requested</p>
-                      <p className="text-[11px] text-purple-900 mt-1">{req.clarification_note}</p>
+
+                  {isActionable(req.status) && (
+                    <div className="mt-5 flex items-center gap-2.5">
+                      <button className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-500 transition hover:text-blue-600">
+                        <Eye size={13} /> View Details
+                      </button>
+                      <div className="flex-1" />
+                      <button onClick={() => { setClarifyModal({ id: req.id, name: req.teacher_name }); setClarifyMsg(''); }}
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50">
+                        <MessageSquare size={13} /> Clarify
+                      </button>
+                      <button onClick={() => { setRejectModal({ id: req.id, name: req.teacher_name }); setRejectMsg(''); }}
+                        disabled={!!actionLoading}
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-red-600 shadow-sm transition hover:bg-red-50 disabled:opacity-50">
+                        <XCircle size={13} /> Reject
+                      </button>
+                      <button onClick={() => handleApprove(req.id)} disabled={!!actionLoading}
+                        className={`inline-flex items-center gap-1 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-sm transition disabled:opacity-50 ${
+                          emergency
+                            ? 'bg-red-600 hover:bg-red-700'
+                            : 'bg-blue-600 hover:bg-blue-700'
+                        }`}>
+                        <CheckCircle size={13} />
+                        {actionLoading === `approve-${req.id}` ? '…' : 'Approve'}
+                      </button>
                     </div>
                   )}
-                </div>
 
-                {/* ACTION BUTTONS */}
-                {isActionable(req.status) && (
-                  <div className="mt-5 flex items-center gap-2.5">
-                    <button className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-500 transition hover:text-blue-600">
-                      <Eye size={13} /> View Details
-                    </button>
-                    <div className="flex-1" />
-                    <button
-                      onClick={() => { setClarifyModal({ id: req.id, name: req.teacher_name }); setClarifyMsg(''); }}
-                      className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50">
-                      <MessageSquare size={13} /> Clarify
-                    </button>
-                    <button
-                      onClick={() => { setRejectModal({ id: req.id, name: req.teacher_name }); setRejectMsg(''); }}
-                      disabled={!!actionLoading}
-                      className="inline-flex items-center gap-1 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-red-600 shadow-sm transition hover:bg-red-50 disabled:opacity-50">
-                      <XCircle size={13} /> Reject
-                    </button>
-                    <button
-                      onClick={() => handleApprove(req.id)}
-                      disabled={!!actionLoading}
-                      className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50">
-                      <CheckCircle size={13} />
-                      {actionLoading === `approve-${req.id}` ? '…' : 'Approve'}
-                    </button>
-                  </div>
-                )}
-
-                {!isActionable(req.status) && (
-                  <div className="mt-5 flex items-center gap-1 text-[12px] font-medium text-gray-400">
-                    {req.status === 'approved'
-                      ? <><CheckCircle size={13} className="text-green-500" /> Approved</>
-                      : <><XCircle size={13} className="text-red-400" /> Rejected</>}
-                  </div>
-                )}
-              </motion.div>
-            ))
+                  {!isActionable(req.status) && (
+                    <div className="mt-5 flex items-center gap-1 text-[12px] font-medium text-gray-400">
+                      {req.status === 'approved'
+                        ? <><CheckCircle size={13} className="text-green-500" /> Approved</>
+                        : <><XCircle size={13} className="text-red-400" /> Rejected</>}
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })
           )}
         </motion.div>
       )}
@@ -292,16 +346,13 @@ export default function LeaveManagement() {
                   <h2 className="text-[15px] font-bold text-gray-900">Request Clarification</h2>
                   <p className="text-[11px] text-gray-400 mt-0.5">Send a message to {clarifyModal.name}</p>
                 </div>
-                <button onClick={() => setClarifyModal(null)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
-                  <X size={16} />
-                </button>
+                <button onClick={() => setClarifyModal(null)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"><X size={16} /></button>
               </div>
               <textarea value={clarifyMsg} onChange={e => setClarifyMsg(e.target.value)}
                 placeholder="Type your clarification message here…" rows={4}
                 className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 resize-none" />
               <div className="flex justify-end gap-2 mt-4">
-                <button onClick={() => setClarifyModal(null)}
-                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+                <button onClick={() => setClarifyModal(null)} className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
                 <button onClick={handleClarifySend} disabled={!clarifyMsg.trim()}
                   className="px-4 py-2 text-[12px] font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">Send Message</button>
               </div>
@@ -323,16 +374,13 @@ export default function LeaveManagement() {
                   <h2 className="text-[15px] font-bold text-gray-900">Reject Leave Request</h2>
                   <p className="text-[11px] text-gray-400 mt-0.5">Provide a reason for rejecting {rejectModal.name}'s request</p>
                 </div>
-                <button onClick={() => setRejectModal(null)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
-                  <X size={16} />
-                </button>
+                <button onClick={() => setRejectModal(null)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"><X size={16} /></button>
               </div>
               <textarea value={rejectMsg} onChange={e => setRejectMsg(e.target.value)}
                 placeholder="Reason for rejection…" rows={4}
                 className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/20 resize-none" />
               <div className="flex justify-end gap-2 mt-4">
-                <button onClick={() => setRejectModal(null)}
-                  className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+                <button onClick={() => setRejectModal(null)} className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
                 <button onClick={handleReject} disabled={!rejectMsg.trim() || !!actionLoading}
                   className="px-4 py-2 text-[12px] font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
                   {actionLoading?.startsWith('reject-') ? 'Rejecting…' : 'Confirm Reject'}
@@ -348,14 +396,11 @@ export default function LeaveManagement() {
         {toast && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
             className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl text-[12px] font-semibold text-white ${toast.type === 'error' ? 'bg-red-600' : 'bg-gray-900'}`}>
-            {toast.type === 'error'
-              ? <XCircle size={14} className="text-red-200" />
-              : <CheckCircle size={14} className="text-green-400" />}
+            {toast.type === 'error' ? <XCircle size={14} className="text-red-200" /> : <CheckCircle size={14} className="text-green-400" />}
             {toast.msg}
           </motion.div>
         )}
       </AnimatePresence>
-
     </motion.div>
   );
 }
