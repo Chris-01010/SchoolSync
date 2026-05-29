@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, CheckCircle, AlertTriangle, LogOut, ChevronDown } from 'lucide-react';
+import { Bell, CheckCircle, AlertTriangle } from 'lucide-react';
 
 import TimetableGrid from './TimetableGrid';
 import ReliefRequestCard from './ReliefRequestCard';
@@ -7,7 +7,6 @@ import LeaveApplicationForm from './LeaveApplicationForm';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
-const flagReasons = ['Overwork', 'Emergency Duty', 'Schedule Conflict', 'Incorrect Allocation'];
 const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 const ProgressBar = ({ value, total, fillClassName }) => {
@@ -39,40 +38,75 @@ const StatCard = ({ title, value, total, fillClassName }) => {
 export default function TeacherDashboard() {
   const { user } = useAuth();
 
-  // ── Real data state ──
-  const [teacherData, setTeacherData]   = useState(null);
-  const [timetable, setTimetable]       = useState({});
-  const [pending, setPending]           = useState([]);
-  const [confirmed, setConfirmed]       = useState([]);
+  const [teacherData, setTeacherData]     = useState(null);
+  const [timetable, setTimetable]         = useState({});
+  const [pending, setPending]             = useState([]);
+  const [confirmed, setConfirmed]         = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
-  // ── UI state ──
-  const [isModalOpen, setIsModalOpen]   = useState(false);
-  const [activeFlagId, setActiveFlagId] = useState(null);
+  const [isModalOpen, setIsModalOpen]     = useState(false);
   const [leaveFormResetKey, setLeaveFormResetKey] = useState(0);
   const applyBtnRef        = useRef(null);
   const modalFirstFieldRef = useRef(null);
 
-  // ── Fetch all dashboard data ──
+  // ── Fetch all dashboard data using real endpoints ──
   useEffect(() => {
     const token = localStorage.getItem('schoolsync_token');
     if (!token) return;
     const headers = { 'Authorization': `Bearer ${token}` };
 
+    const BASE = 'http://localhost:8000';
+
+    const safeFetch = (url) =>
+      fetch(url, { headers })
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null);
+
     Promise.all([
-      fetch('http://localhost:8000/teacher/me/profile',           { headers }).then(r => r.json()),
-      fetch('http://localhost:8000/teacher/me/timetable',         { headers }).then(r => r.json()),
-      fetch('http://localhost:8000/teacher/me/relief/pending',    { headers }).then(r => r.json()),
-      fetch('http://localhost:8000/teacher/me/relief/confirmed',  { headers }).then(r => r.json()),
-    ])
-      .then(([profile, timetableData, pendingData, confirmedData]) => {
-        setTeacherData(profile);
-        setTimetable(timetableData);
-        setPending(Array.isArray(pendingData) ? pendingData : []);
-        setConfirmed(Array.isArray(confirmedData) ? confirmedData : []);
+      safeFetch(`${BASE}/auth/me`),                      // profile
+      safeFetch(`${BASE}/timetable/view?scope=teacher`), // timetable
+      safeFetch(`${BASE}/leaves/relief/my/pending`),     // pending relief duties for this teacher
+      safeFetch(`${BASE}/leaves/relief/my/confirmed`),   // confirmed relief duties
+    ]).then(([profile, timetableData, pendingData, confirmedData]) => {
+      // Build teacherData from /auth/me + supplement with teacher profile if available
+      if (profile) {
+        setTeacherData({
+          name:          profile.name || profile.email || profile.college_id,
+          department:    profile.department || '',
+          teachingHours: { completed: 0, total: 30 },
+          reliefHours:   {
+            completed: Array.isArray(confirmedData) ? confirmedData.length : 0,
+            total: 5,
+          },
+          remainingCap: 0,
+        });
+      }
+
+      if (timetableData?.timetable) setTimetable(timetableData.timetable);
+      else if (timetableData && typeof timetableData === 'object') setTimetable(timetableData);
+
+      setPending(Array.isArray(pendingData) ? pendingData : []);
+      setConfirmed(Array.isArray(confirmedData) ? confirmedData : []);
+    })
+    .catch(err => console.error('Dashboard fetch error:', err))
+    .finally(() => setIsLoadingData(false));
+  }, []);
+
+  // ── Also fetch teacher profile details for name/dept ──
+  useEffect(() => {
+    const token = localStorage.getItem('schoolsync_token');
+    if (!token) return;
+    fetch('http://localhost:8000/leaves/my', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        // leaves/my returns teacher name in data array if available
+        if (data?.data?.[0]?.teacher_name) {
+          setTeacherData(prev => prev ? { ...prev, name: data.data[0].teacher_name } : prev);
+        }
       })
-      .catch(err => console.error('Dashboard fetch error:', err))
-      .finally(() => setIsLoadingData(false));
+      .catch(() => {});
   }, []);
 
   // ── Focus trap for modal ──
@@ -99,15 +133,6 @@ export default function TeacherDashboard() {
     else applyBtnRef.current?.focus?.();
   }, [isModalOpen]);
 
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (typeof e.target?.closest === 'function' && e.target.closest('[data-flag-dropdown="true"]')) return;
-      setActiveFlagId(null);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
-
   const leaveSubmit = () => {
     setIsModalOpen(false);
     setLeaveFormResetKey(k => k + 1);
@@ -117,24 +142,23 @@ export default function TeacherDashboard() {
     return [...confirmed].sort((a, b) => {
       const da = dayOrder.indexOf(a.day);
       const db = dayOrder.indexOf(b.day);
-      return da !== db ? da - db : a.period - b.period;
+      return da !== db ? da - db : (a.period || 0) - (b.period || 0);
     });
   }, [confirmed]);
 
-  // ── Loading state ──
   if (isLoadingData) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
-  const teacherName        = teacherData?.name ?? user?.email ?? 'Teacher';
-  const teacherDept        = teacherData?.department ?? '';
-  const teachingCompleted  = teacherData?.teachingHours?.completed ?? 0;
-  const teachingTotal      = teacherData?.teachingHours?.total ?? 30;
-  const reliefCompleted    = teacherData?.reliefHours?.completed ?? 0;
-  const reliefTotal        = teacherData?.reliefHours?.total ?? 5;
-  const remainingCap       = teacherData?.remainingCap ?? 0;
+  const teacherName       = teacherData?.name ?? user?.email ?? 'Teacher';
+  const teacherDept       = teacherData?.department ?? '';
+  const teachingCompleted = teacherData?.teachingHours?.completed ?? 0;
+  const teachingTotal     = teacherData?.teachingHours?.total ?? 30;
+  const reliefCompleted   = teacherData?.reliefHours?.completed ?? 0;
+  const reliefTotal       = teacherData?.reliefHours?.total ?? 5;
+  const remainingCap      = teacherData?.remainingCap ?? 0;
 
   return (
     <div className="bg-surface-container-lowest min-h-screen">
@@ -159,9 +183,11 @@ export default function TeacherDashboard() {
               aria-label="Notifications"
             >
               <Bell size={20} className="text-primary-600" />
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-secondary text-white text-[12px] font-bold flex items-center justify-center">
-                2
-              </span>
+              {pending.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-secondary text-white text-[12px] font-bold flex items-center justify-center">
+                  {pending.length}
+                </span>
+              )}
             </button>
 
             <button
@@ -187,7 +213,7 @@ export default function TeacherDashboard() {
           <StatCard title="Remaining Capacity" value={remainingCap}      total={teachingTotal} fillClassName="bg-primary-container" />
         </section>
 
-        {/* Weekly Timetable + Pending */}
+        {/* Weekly Timetable + Relief */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
             <h2 className="text-[24px] font-bold text-slate-900">Weekly Timetable</h2>
@@ -198,18 +224,18 @@ export default function TeacherDashboard() {
           </div>
 
           <div className="space-y-4">
-            {/* Pending Relief */}
+            {/* Pending Relief Requests */}
             <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-3">
                 <h2 className="text-[18px] font-bold text-slate-900">Pending Relief Requests</h2>
                 <span className="text-[12px] font-bold text-slate-500">{pending.length}</span>
               </div>
               {pending.length === 0 ? (
-                <div className="mt-6 flex items-center justify-center text-center py-10">
+                <div className="flex items-center justify-center py-10">
                   <p className="text-[14px] font-semibold text-slate-500">No pending requests</p>
                 </div>
               ) : (
-                <div className="mt-4 space-y-3">
+                <div className="space-y-3">
                   {pending.map(req => (
                     <ReliefRequestCard
                       key={req.id}
@@ -223,32 +249,38 @@ export default function TeacherDashboard() {
               )}
             </section>
 
-            {/* Confirmed Relief */}
+            {/* Confirmed Relief Duties */}
             <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-3">
                 <h2 className="text-[18px] font-bold text-slate-900">Confirmed Relief Duties</h2>
-                <span className="text-[12px] font-bold text-slate-500">{confirmed.length}</span>
+                <span className="text-[12px] font-bold text-slate-500">{confirmedSorted.length}</span>
               </div>
-              <div className="mt-4 space-y-3">
-                {confirmedSorted.length === 0 ? (
-                  <div className="text-center py-10">
-                    <p className="text-[14px] font-semibold text-slate-500">No confirmed duties yet</p>
-                  </div>
-                ) : (
-                  confirmedSorted.map(d => (
+              {confirmedSorted.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-[14px] font-semibold text-slate-500">No confirmed duties yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {confirmedSorted.map(d => (
                     <div key={d.id} className="flex items-start gap-3 bg-surface-container-low border border-outline-variant rounded-lg p-3">
                       <div className="w-10 h-10 rounded-lg bg-secondary-fixed border border-secondary flex items-center justify-center">
                         <CheckCircle size={20} className="text-secondary" />
                       </div>
                       <div>
-                        <p className="text-[14px] font-bold text-slate-900">{d.subject} · {d.class}</p>
-                        <p className="text-[12px] font-semibold text-slate-600">{d.day} · Period {d.period}</p>
-                        <p className="text-[12px] font-semibold text-slate-500">Original Teacher: {d.originalTeacher}</p>
+                        <p className="text-[14px] font-bold text-slate-900">
+                          {d.subject || '—'} · {d.class || '—'}
+                        </p>
+                        <p className="text-[12px] font-semibold text-slate-600">
+                          {d.day} · Period {d.period}
+                        </p>
+                        <p className="text-[12px] font-semibold text-slate-500">
+                          Original Teacher: {d.originalTeacher || '—'}
+                        </p>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
           </div>
         </section>

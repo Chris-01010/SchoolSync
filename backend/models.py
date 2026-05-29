@@ -87,6 +87,15 @@ class ReliefStatus(str, PyEnum):
     FLAGGED = "flagged"
     OVERRIDDEN = "overridden"
 
+class NotificationType(str, PyEnum):
+    LEAVE_REQUEST    = "LEAVE_REQUEST"
+    LEAVE_APPROVED   = "LEAVE_APPROVED"
+    LEAVE_REJECTED   = "LEAVE_REJECTED"
+    RELIEF_REQUEST   = "RELIEF_REQUEST"
+    RELIEF_ACCEPTED  = "RELIEF_ACCEPTED"
+    RELIEF_REJECTED  = "RELIEF_REJECTED"
+    ANNOUNCEMENT     = "ANNOUNCEMENT"
+    GENERAL          = "GENERAL"
 
 class User(Base):
     __tablename__ = "users"
@@ -233,9 +242,9 @@ class Subject(Base):
         back_populates="subjects"
     )
 
-
 class Notification(Base):
     __tablename__ = "notifications"
+
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     user_id = Column(GUID(), ForeignKey("users.id"))
     title = Column(String, nullable=False)
@@ -243,30 +252,10 @@ class Notification(Base):
     is_read = Column(Boolean, default=False)
     read_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    action_url = Column(String, nullable=True)
+    notification_type = Column(Enum(NotificationType), nullable=True, default=NotificationType.GENERAL)
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-
-    user_id = Column(
-        GUID(),
-        ForeignKey("users.id")
-    )
-
-    title = Column(String, nullable=False)
-
-    content = Column(Text, nullable=False)
-
-    is_read = Column(Boolean, default=False)
-
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now()
-    )
-
-    user = relationship(
-        "User",
-        back_populates="notifications"
-    )
-
+    user = relationship("User", back_populates="notifications")
 
 class TimetableVersion(Base):
     __tablename__ = "timetable_versions"
@@ -464,7 +453,7 @@ class BlockedSlot(Base):
 
     teacher = relationship(
         "Teacher",
-        back_populates="blocked_slot_entries"
+        back_populates="blocked_slots"
     )
     
 class AuditLog(Base):

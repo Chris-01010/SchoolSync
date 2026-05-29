@@ -57,6 +57,7 @@ class AdminOverrideRequest(BaseModel):
 
 class HODAssignReliefRequest(BaseModel):
     relief_teacher_id: UUID
+    slot_id: Optional[UUID] = None
     note: Optional[str] = None
 
 
@@ -86,156 +87,160 @@ async def notify(db: AsyncSession, user_id: UUID, title: str, content: str):
 
 # ─── Helper: rollover to next candidate (FR-20) ───────────────────────────────
 
-async def _rollover_relief(assignment_id: UUID, db: AsyncSession):
+async def _rollover_relief(assignment_id: UUID):
     from .relief_engine import rank_candidates
+    from .database import AsyncSessionLocal
 
-    result = await db.execute(
-        select(models.ReliefAssignment).where(models.ReliefAssignment.id == assignment_id)
-    )
-    assignment = result.scalar_one_or_none()
-    if not assignment or not assignment.slot_id:
-        print(f"[ROLLOVER] Assignment {assignment_id} not found or has no slot.")
-        return
-
-    slot_result = await db.execute(
-        select(models.TimetableSlot).where(models.TimetableSlot.id == assignment.slot_id)
-    )
-    slot = slot_result.scalar_one_or_none()
-    if not slot:
-        print(f"[ROLLOVER] Slot not found for assignment {assignment_id}.")
-        return
-
-    absence_result = await db.execute(
-        select(models.Absence).where(models.Absence.id == assignment.absence_id)
-    )
-    absence = absence_result.scalar_one_or_none()
-    if not absence:
-        return
-
-    absent_teacher_result = await db.execute(
-        select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
-    )
-    absent_teacher = absent_teacher_result.scalar_one_or_none()
-    if not absent_teacher:
-        return
-
-    rejected_result = await db.execute(
-        select(models.ReliefAssignment.relief_teacher_id).where(
-            models.ReliefAssignment.absence_id == assignment.absence_id,
-            models.ReliefAssignment.slot_id == assignment.slot_id,
-            models.ReliefAssignment.status == models.ReliefStatus.REJECTED,
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(models.ReliefAssignment).where(models.ReliefAssignment.id == assignment_id)
         )
-    )
-    rejected_ids = {row[0] for row in rejected_result.all()}
+        assignment = result.scalar_one_or_none()
+        if not assignment or not assignment.slot_id:
+            print(f"[ROLLOVER] Assignment {assignment_id} not found or has no slot.")
+            return
 
-    ranked = await rank_candidates(
-        absent_teacher=absent_teacher,
-        slot=slot,
-        weekly_counts={},
-        db=db,
-    )
+        slot_result = await db.execute(
+            select(models.TimetableSlot).where(models.TimetableSlot.id == assignment.slot_id)
+        )
+        slot = slot_result.scalar_one_or_none()
+        if not slot:
+            print(f"[ROLLOVER] Slot not found for assignment {assignment_id}.")
+            return
 
-    next_candidate = next(
-        (c for c in ranked if c.teacher.id not in rejected_ids), None
-    )
+        absence_result = await db.execute(
+            select(models.Absence).where(models.Absence.id == assignment.absence_id)
+        )
+        absence = absence_result.scalar_one_or_none()
+        if not absence:
+            return
 
-    if not next_candidate:
-        print(f"[ROLLOVER] No more candidates for slot {assignment.slot_id}.")
-        assignment.reason_text = "All candidates exhausted — manual assignment required."
+        absent_teacher_result = await db.execute(
+            select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+        )
+        absent_teacher = absent_teacher_result.scalar_one_or_none()
+        if not absent_teacher:
+            return
+
+        rejected_result = await db.execute(
+            select(models.ReliefAssignment.relief_teacher_id).where(
+                models.ReliefAssignment.absence_id == assignment.absence_id,
+                models.ReliefAssignment.slot_id == assignment.slot_id,
+                models.ReliefAssignment.status == models.ReliefStatus.REJECTED,
+            )
+        )
+        rejected_ids = {row[0] for row in rejected_result.all()}
+
+        ranked = await rank_candidates(
+            absent_teacher=absent_teacher,
+            slot=slot,
+            weekly_counts={},
+            db=db,
+        )
+
+        next_candidate = next(
+            (c for c in ranked if c.teacher.id not in rejected_ids), None
+        )
+
+        if not next_candidate:
+            print(f"[ROLLOVER] No more candidates for slot {assignment.slot_id}.")
+            assignment.reason_text = "All candidates exhausted — manual assignment required."
+            await db.commit()
+            return
+
+        assignment.relief_teacher_id = next_candidate.teacher.id
+        assignment.score = next_candidate.total_score
+        assignment.status = models.ReliefStatus.PENDING
+        assignment.acknowledged_at = None
+        assignment.reason_text = f"Rollover: previous teacher rejected."
         await db.commit()
-        return
-
-    assignment.relief_teacher_id = next_candidate.teacher.id
-    assignment.score = next_candidate.total_score
-    assignment.status = models.ReliefStatus.PENDING
-    assignment.acknowledged_at = None
-    assignment.reason_text = f"Rollover: previous teacher rejected."
-    await db.commit()
-    print(f"[ROLLOVER] Reassigned slot {assignment.slot_id} to {next_candidate.teacher.name}.")
+        print(f"[ROLLOVER] Reassigned slot {assignment.slot_id} to {next_candidate.teacher.name}.")
 
 
 # ─── Helper: dispatch relief ──────────────────────────────────────────────────
 
-async def dispatch_relief_for_absence(absence_id: UUID, db: AsyncSession):
+async def dispatch_relief_for_absence(absence_id: UUID):
     from .relief_engine import rank_candidates
     from sqlalchemy import func as sa_func
     from datetime import timedelta
+    from .database import AsyncSessionLocal
 
-    result = await db.execute(
-        select(models.Absence).where(models.Absence.id == absence_id)
-    )
-    absence = result.scalar_one_or_none()
-    if not absence:
-        print("[RELIEF] Absence not found.")
-        return
-
-    teacher_result = await db.execute(
-        select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
-    )
-    absent_teacher = teacher_result.scalar_one_or_none()
-    if not absent_teacher:
-        print("[RELIEF] Absent teacher profile not found.")
-        return
-
-    day_of_week = absence.date.weekday()
-
-    slots_result = await db.execute(
-        select(models.TimetableSlot).where(
-            models.TimetableSlot.teacher_id == absence.teacher_id,
-            models.TimetableSlot.day_of_week == day_of_week,
-            models.TimetableSlot.period >= absence.period_start,
-            models.TimetableSlot.period <= absence.period_end,
-            models.TimetableSlot.is_relief == False,
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(models.Absence).where(models.Absence.id == absence_id)
         )
-    )
-    vacant_slots = slots_result.scalars().all()
+        absence = result.scalar_one_or_none()
+        if not absence:
+            print("[RELIEF] Absence not found.")
+            return
 
-    if not vacant_slots:
-        print("[RELIEF] No timetable slots found for this absence.")
-        return
-
-    week_start = absence.date - timedelta(days=absence.date.weekday())
-    week_end = week_start + timedelta(days=6)
-
-    counts_result = await db.execute(
-        select(
-            models.ReliefAssignment.relief_teacher_id,
-            sa_func.count(models.ReliefAssignment.id).label("cnt"),
+        teacher_result = await db.execute(
+            select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
         )
-        .join(models.Absence, models.ReliefAssignment.absence_id == models.Absence.id)
-        .where(
-            models.Absence.date >= week_start,
-            models.Absence.date <= week_end,
-            models.ReliefAssignment.relief_teacher_id.isnot(None),
-        )
-        .group_by(models.ReliefAssignment.relief_teacher_id)
-    )
-    weekly_counts = {row[0]: row[1] for row in counts_result.all()}
+        absent_teacher = teacher_result.scalar_one_or_none()
+        if not absent_teacher:
+            print("[RELIEF] Absent teacher profile not found.")
+            return
 
-    assigned = 0
-    for slot in vacant_slots:
-        ranked = await rank_candidates(
-            absent_teacher=absent_teacher,
-            slot=slot,
-            weekly_counts=weekly_counts,
-            db=db,
-        )
-        top = ranked[0] if ranked else None
-        relief_assignment = models.ReliefAssignment(
-            absence_id=absence.id,
-            slot_id=slot.id,
-            relief_teacher_id=top.teacher.id if top else None,
-            score=top.total_score if top else 0,
-            status=models.ReliefStatus.PENDING,
-            reason_text=_build_reason(top) if top else "No eligible teacher found.",
-        )
-        db.add(relief_assignment)
-        if top:
-            weekly_counts[top.teacher.id] = weekly_counts.get(top.teacher.id, 0) + 1
-        assigned += 1
+        day_of_week = absence.date.weekday()
 
-    await db.commit()
-    print(f"[RELIEF] Created {assigned} relief assignments for absence {absence_id}.")
+        slots_result = await db.execute(
+            select(models.TimetableSlot).where(
+                models.TimetableSlot.teacher_id == absence.teacher_id,
+                models.TimetableSlot.day_of_week == day_of_week,
+                models.TimetableSlot.period >= absence.period_start,
+                models.TimetableSlot.period <= absence.period_end,
+                models.TimetableSlot.is_relief == False,
+            )
+        )
+        vacant_slots = slots_result.scalars().all()
+
+        if not vacant_slots:
+            print("[RELIEF] No timetable slots found for this absence.")
+            return
+
+        week_start = absence.date - timedelta(days=absence.date.weekday())
+        week_end = week_start + timedelta(days=6)
+
+        counts_result = await db.execute(
+            select(
+                models.ReliefAssignment.relief_teacher_id,
+                sa_func.count(models.ReliefAssignment.id).label("cnt"),
+            )
+            .join(models.Absence, models.ReliefAssignment.absence_id == models.Absence.id)
+            .where(
+                models.Absence.date >= week_start,
+                models.Absence.date <= week_end,
+                models.ReliefAssignment.relief_teacher_id.isnot(None),
+            )
+            .group_by(models.ReliefAssignment.relief_teacher_id)
+        )
+        weekly_counts = {row[0]: row[1] for row in counts_result.all()}
+
+        assigned = 0
+        for slot in vacant_slots:
+            ranked = await rank_candidates(
+                absent_teacher=absent_teacher,
+                slot=slot,
+                weekly_counts=weekly_counts,
+                db=db,
+            )
+            top = ranked[0] if ranked else None
+            relief_assignment = models.ReliefAssignment(
+                absence_id=absence.id,
+                slot_id=slot.id,
+                relief_teacher_id=top.teacher.id if top else None,
+                score=top.total_score if top else 0,
+                status=models.ReliefStatus.PENDING,
+                reason_text=_build_reason(top) if top else "No eligible teacher found.",
+            )
+            db.add(relief_assignment)
+            if top:
+                weekly_counts[top.teacher.id] = weekly_counts.get(top.teacher.id, 0) + 1
+            assigned += 1
+
+        await db.commit()
+        print(f"[RELIEF] Created {assigned} relief assignments for absence {absence_id}.")
 
 
 def _build_reason(candidate) -> str:
@@ -408,6 +413,49 @@ async def get_pending_leaves(
         ],
     }
 
+@router.get("/approved")
+async def get_approved_leaves(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.role not in (models.UserRole.HOD, models.UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="HOD or Admin access required.")
+
+    hod_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    hod = hod_result.scalar_one_or_none()
+
+    query = (
+        select(models.Absence)
+        .options(selectinload(models.Absence.teacher))
+        .where(models.Absence.status == models.AbsenceStatus.APPROVED)
+        .order_by(models.Absence.date.asc())
+    )
+
+    if current_user.role == models.UserRole.HOD and hod and hod.department_id:
+        query = query.join(models.Teacher).where(
+            models.Teacher.department_id == hod.department_id
+        )
+
+    result = await db.execute(query)
+    absences = result.scalars().all()
+
+    return {
+        "success": True,
+        "data": [
+            {
+                "id": str(a.id),
+                "teacher_name": a.teacher.name if a.teacher else "Unknown",
+                "date": str(a.date),
+                "leave_type": a.leave_type,
+                "period_start": a.period_start,
+                "period_end": a.period_end,
+                "status": a.status,
+            }
+            for a in absences
+        ],
+    }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HOD: Approve / Reject / Clarify
@@ -466,9 +514,11 @@ async def hod_action_on_leave(
 
     if body.action == HODAction.APPROVE:
         absence.status = models.AbsenceStatus.APPROVED
-        background_tasks.add_task(dispatch_relief_for_absence, absence.id, db)
+        background_tasks.add_task(dispatch_relief_for_absence, absence.id)
         notif_msg = f"Your {absence.leave_type} leave on {absence.date} has been approved."
-
+        from .relief_router import notify_absence_updated
+        notify_absence_updated(str(absence.id))
+        
     elif body.action == HODAction.REJECT:
         absence.status = models.AbsenceStatus.REJECTED
         absence.resolution_report_url = None
@@ -557,9 +607,11 @@ async def respond_to_relief(
             )
 
     elif body.status == models.ReliefStatus.REJECTED:
-        background_tasks.add_task(_rollover_relief, assignment_id, db)
+        background_tasks.add_task(_rollover_relief, assignment_id)
 
     await db.commit()
+    from .relief_router import notify_absence_updated
+    notify_absence_updated(str(assignment.absence_id))  # push SSE on accept/reject
     await db.refresh(assignment)
 
     return {
@@ -727,6 +779,8 @@ async def cancel_leave(
 async def assign_relief_teacher(
     absence_id: UUID,
     request: HODAssignReliefRequest,
+    background_tasks: BackgroundTasks,
+    current_user: models.User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -738,18 +792,228 @@ async def assign_relief_teacher(
 
     relief_assignment = models.ReliefAssignment(
         absence_id=absence.id,
+        slot_id=request.slot_id,
         relief_teacher_id=request.relief_teacher_id,
-        status=models.ReliefStatus.ACCEPTED,
+        status=models.ReliefStatus.PENDING,
     )
     db.add(relief_assignment)
     await db.commit()
+    await db.refresh(relief_assignment)
+
+    # Fetch the assigned teacher to notify them
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.id == request.relief_teacher_id)
+    )
+    relief_teacher = teacher_result.scalar_one_or_none()
+
+    if relief_teacher and relief_teacher.user_id:
+        # Get slot details for the notification message
+        slot_info = ""
+        if request.slot_id:
+            slot_result = await db.execute(
+                select(models.TimetableSlot).where(models.TimetableSlot.id == request.slot_id)
+            )
+            slot = slot_result.scalar_one_or_none()
+            if slot:
+                day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+                day = day_names[slot.day_of_week] if 0 <= slot.day_of_week <= 4 else ""
+                slot_info = f" — {day}, Period {slot.period}"
+
+        background_tasks.add_task(
+            notify, db, relief_teacher.user_id,
+            "Relief Duty Assigned",
+            f"You have been assigned a relief duty on {absence.date}{slot_info}. "
+            f"Please accept or reject from your dashboard.",
+        )
+
+    from .relief_router import notify_absence_updated
+    notify_absence_updated(str(absence_id))
 
     return {
         "message": "Relief assigned successfully",
         "absence_id": str(absence.id),
+        "assignment_id": str(relief_assignment.id),
         "relief_teacher_id": str(request.relief_teacher_id),
     }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# TEACHER: Get my pending relief assignments (duties assigned TO me)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/relief/my/pending")
+async def get_my_pending_relief(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found.")
+
+    result = await db.execute(
+        select(models.ReliefAssignment)
+        .where(
+            models.ReliefAssignment.relief_teacher_id == teacher.id,
+            models.ReliefAssignment.status == models.ReliefStatus.PENDING,
+        )
+        .order_by(models.ReliefAssignment.assigned_at.desc())
+    )
+    assignments = result.scalars().all()
+
+    output = []
+    for a in assignments:
+        # Fetch absence details
+        absence_result = await db.execute(
+            select(models.Absence).where(models.Absence.id == a.absence_id)
+        )
+        absence = absence_result.scalar_one_or_none()
+        if not absence:
+            continue
+
+        # Fetch absent teacher
+        absent_teacher_result = await db.execute(
+            select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+        )
+        absent_teacher = absent_teacher_result.scalar_one_or_none()
+
+        # Fetch slot details
+        slot_info = {}
+        if a.slot_id:
+            slot_result = await db.execute(
+                select(models.TimetableSlot).where(models.TimetableSlot.id == a.slot_id)
+            )
+            slot = slot_result.scalar_one_or_none()
+            if slot:
+                # Fetch subject and class names
+                subject_name = None
+                class_name = None
+                if slot.subject_id:
+                    subj_result = await db.execute(
+                        select(models.Subject).where(models.Subject.id == slot.subject_id)
+                    )
+                    subj = subj_result.scalar_one_or_none()
+                    subject_name = subj.name if subj else None
+                if slot.class_id:
+                    cls_result = await db.execute(
+                        select(models.ClassRoom).where(models.ClassRoom.id == slot.class_id)
+                    )
+                    cls = cls_result.scalar_one_or_none()
+                    class_name = cls.name if cls else None
+
+                slot_info = {
+                    "period":      slot.period,
+                    "day_of_week": slot.day_of_week,
+                    "subject":     subject_name,
+                    "class":       class_name,
+                }
+
+        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+        day_str = day_names[slot_info.get("day_of_week", 0)] if slot_info else str(absence.date)
+
+        output.append({
+            "id":             str(a.id),
+            "absence_id":     str(a.absence_id),
+            "absentTeacher":  absent_teacher.name if absent_teacher else "Unknown",
+            "subject":        slot_info.get("subject", ""),
+            "class":          slot_info.get("class", ""),
+            "period":         slot_info.get("period", ""),
+            "day":            day_str,
+            "date":           str(absence.date),
+            "score":          a.score,
+            "status":         a.status,
+            "deadline":       None,  # extend if you add a deadline field
+        })
+
+    return output
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TEACHER: Get my confirmed/accepted relief duties
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/relief/my/confirmed")
+async def get_my_confirmed_relief(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found.")
+
+    result = await db.execute(
+        select(models.ReliefAssignment)
+        .where(
+            models.ReliefAssignment.relief_teacher_id == teacher.id,
+            models.ReliefAssignment.status == models.ReliefStatus.ACCEPTED,
+        )
+        .order_by(models.ReliefAssignment.acknowledged_at.desc())
+    )
+    assignments = result.scalars().all()
+
+    output = []
+    for a in assignments:
+        absence_result = await db.execute(
+            select(models.Absence).where(models.Absence.id == a.absence_id)
+        )
+        absence = absence_result.scalar_one_or_none()
+        if not absence:
+            continue
+
+        absent_teacher_result = await db.execute(
+            select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+        )
+        absent_teacher = absent_teacher_result.scalar_one_or_none()
+
+        slot_info = {}
+        if a.slot_id:
+            slot_result = await db.execute(
+                select(models.TimetableSlot).where(models.TimetableSlot.id == a.slot_id)
+            )
+            slot = slot_result.scalar_one_or_none()
+            if slot:
+                subject_name = None
+                class_name = None
+                if slot.subject_id:
+                    subj_result = await db.execute(
+                        select(models.Subject).where(models.Subject.id == slot.subject_id)
+                    )
+                    subj = subj_result.scalar_one_or_none()
+                    subject_name = subj.name if subj else None
+                if slot.class_id:
+                    cls_result = await db.execute(
+                        select(models.ClassRoom).where(models.ClassRoom.id == slot.class_id)
+                    )
+                    cls = cls_result.scalar_one_or_none()
+                    class_name = cls.name if cls else None
+
+                slot_info = {
+                    "period":      slot.period,
+                    "day_of_week": slot.day_of_week,
+                    "subject":     subject_name,
+                    "class":       class_name,
+                }
+
+        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+        day_str = day_names[slot_info.get("day_of_week", 0)] if slot_info else str(absence.date)
+
+        output.append({
+            "id":              str(a.id),
+            "absence_id":      str(a.absence_id),
+            "originalTeacher": absent_teacher.name if absent_teacher else "Unknown",
+            "subject":         slot_info.get("subject", ""),
+            "class":           slot_info.get("class", ""),
+            "period":          slot_info.get("period", ""),
+            "day":             day_str,
+            "date":            str(absence.date),
+            "status":          a.status,
+        })
+
+    return output
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Notifications
