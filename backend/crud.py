@@ -130,8 +130,34 @@ async def update_department(dept_id: UUID, payload: DepartmentCreate, db: AsyncS
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found.")
 
+    old_hod_id = dept.hod_id
+    new_hod_id = payload.hod_id if hasattr(payload, 'hod_id') else None
+
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(dept, field, value)
+
+    # If HOD changed, update user roles
+    if new_hod_id and str(new_hod_id) != str(old_hod_id):
+        # Demote old HOD to teacher
+        if old_hod_id:
+            old_teacher_res = await db.execute(select(Teacher).where(Teacher.id == old_hod_id))
+            old_teacher = old_teacher_res.scalar_one_or_none()
+            if old_teacher:
+                old_user_res = await db.execute(select(User).where(User.id == old_teacher.user_id))
+                old_user = old_user_res.scalar_one_or_none()
+                if old_user:
+                    old_user.role = UserRole.TEACHER
+
+        # Promote new HOD
+        new_teacher_res = await db.execute(select(Teacher).where(Teacher.id == new_hod_id))
+        new_teacher = new_teacher_res.scalar_one_or_none()
+        if new_teacher:
+            new_user_res = await db.execute(select(User).where(User.id == new_teacher.user_id))
+            new_user = new_user_res.scalar_one_or_none()
+            if new_user:
+                new_user.role = UserRole.HOD
+            # Also update teacher's department
+            new_teacher.department_id = dept_id
 
     await db.commit()
     await db.refresh(dept)

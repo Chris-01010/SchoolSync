@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { CalendarDays, ClipboardCheck, UserCheck, BarChart3 } from 'lucide-react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -15,7 +17,7 @@ import {
 
 // ─── Mock / fallback data ───────────────────────────────────────────────────
 const MOCK_STATS = {
-  department_name: 'Science',
+  department_name: 'CS',
   pending_approvals_count: 3,
   missing_reliefs: 1,
   teacher_workload_AlertTriangle: true,
@@ -86,7 +88,7 @@ const HODDashboard = ({ user }) => {
   const [stats, setStats] = useState(MOCK_STATS);
   const [pendingLeaves, setPendingLeaves] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
+  const navigate = useNavigate();
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -173,7 +175,33 @@ const HODDashboard = ({ user }) => {
           </motion.div>
         ))}
       </div>
-
+      {/* ── Quick Actions ──────────────────────────────────────────────── */}
+      <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
+        <h3 className="text-[13px] font-semibold text-gray-800 mb-3">Quick Actions</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Timetables',        icon: CalendarDays, path: '/hod/timetables' },
+            { label: 'Leave Approvals',   icon: ClipboardCheck, path: '/hod/leave'    },
+            { label: 'Relief Management', icon: UserCheck,    path: '/hod/relief'     },
+            { label: 'Analytics',         icon: BarChart3,    path: '/hod/analytics'  },
+          ].map((qa) => {
+            const Icon = qa.icon;
+            return (
+              <motion.button
+                key={qa.label}
+                onClick={() => navigate(qa.path)}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-5 text-center transition-colors hover:border-blue-300 hover:bg-blue-50/50 shadow-sm"
+              >
+                <Icon size={22} strokeWidth={1.8} className="text-blue-500 transition group-hover:text-blue-700" />
+                <span className="text-[11px] font-semibold text-gray-700 group-hover:text-blue-700 leading-tight">{qa.label}</span>
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>  
       {/* ── Main Grid ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 

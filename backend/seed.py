@@ -1,16 +1,17 @@
 import asyncio
 import uuid
 from datetime import time, date, timedelta
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.database import engine, Base, AsyncSessionLocal
-from backend import models
-from backend import auth
+from .database import engine, Base, AsyncSessionLocal
+from . import models
+from . import auth
 
 
 async def seed_data():
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
         await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as db:
