@@ -224,6 +224,9 @@ export default function TeacherDashboard() {
               )}
             </section>
 
+            {/* Pending Consumption Approvals */}
+            <PendingConsumptionPanel />
+
             {/* Confirmed Relief */}
             <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
               <div className="flex items-center justify-between">
