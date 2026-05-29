@@ -453,7 +453,7 @@ class BlockedSlot(Base):
 
     teacher = relationship(
         "Teacher",
-        back_populates="blocked_slots"
+        back_populates="blocked_slot_entries"
     )
     
 class AuditLog(Base):
