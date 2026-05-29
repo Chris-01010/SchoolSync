@@ -22,7 +22,6 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=True,
     pool_pre_ping=True,
-    # Required when using Supabase's Supavisor pooler with asyncpg
     connect_args={"statement_cache_size": 0} if is_pooler else {},
     **(
         dict(pool_recycle=300, pool_size=5, max_overflow=10)
