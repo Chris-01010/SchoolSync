@@ -183,7 +183,7 @@ const itemVariants = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 
 
 export default function TimetablePage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "hod";
 
   const [activeTab, setActiveTab] = useState("Dept-Wise");
   const [versions, setVersions] = useState([]);
@@ -199,35 +199,47 @@ export default function TimetablePage() {
   const [modal, setModal] = useState(null); // { mode: 'assign'|'edit', slot, day, period }
 
   const fetchVersions = async () => {
-    try {
-      const data = await api.get("/timetable/versions");
-      setVersions(Array.isArray(data) ? data : []);
-    } catch (err) { console.error(err); }
-  };
+  try {
+    const data = await api.get("/api/v1/admin/dashboard/stats");
+    // versions not a separate endpoint — skip for now
+    setVersions([]);
+  } catch (err) { console.error(err); }
+};
 
   const fetchSlots = async () => {
-    try {
-      setLoading(true);
-      const data = await api.get("/timetable/slots");
-      setSlots(Array.isArray(data) ? data : []);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+  try {
+    setLoading(true);
+    setError(null);
+    // Get HOD's department timetable using scope=class or all slots
+    const data = await api.get("/timetable/view?scope=teacher&scope_id=" + (user?.teacher_id || ""));
+    const timetable = data?.timetable ?? {};
+    const allSlots = Object.values(timetable).flat();
+    setSlots(allSlots);
+  } catch (err) {
+    setError("Failed to load timetable");
+  } finally { setLoading(false); }
+};
 
   const fetchMeta = async () => {
-    try {
-      const [teachersData, subjectsData, metaData] = await Promise.all([
-        api.get("/api/v1/teachers"),
-        api.get("/api/v1/subjects"),
-        api.get("/timetable/meta"),
-      ]);
-      const tMap = {};
+  try {
+    const [teachersData, subjectsData, roomsData, classesData] = await Promise.all([
+      api.get("/api/v1/teachers"),
+      api.get("/api/v1/subjects"),
+      api.get("/api/v1/rooms/"),
+      api.get("/api/v1/classes").catch(() => []),
+    ]);
+    const tMap = {};
       if (Array.isArray(teachersData)) teachersData.forEach(t => tMap[t.id] = t.name);
       setTeacherMap(tMap);
       const sMap = {};
       if (Array.isArray(subjectsData)) subjectsData.forEach(s => sMap[s.id] = s.name);
       setSubjectMap(sMap);
-      setMeta(metaData || { teachers: [], classes: [], rooms: [], subjects: [] });
+      setMeta({
+        teachers: Array.isArray(teachersData) ? teachersData : [],
+        subjects: Array.isArray(subjectsData) ? subjectsData : [],
+        rooms:    Array.isArray(roomsData)    ? roomsData    : (roomsData?.data ?? []),
+        classes:  Array.isArray(classesData)  ? classesData  : (classesData?.data ?? []),
+      });
     } catch (err) { console.error(err); }
   };
 

@@ -1,87 +1,73 @@
 import { useState, useEffect } from 'react';
-
 const BASE = 'http://localhost:8000';
-
 function getHeaders() {
   const token = localStorage.getItem('schoolsync_token');
   return { 'Authorization': `Bearer ${token}` };
 }
-
 export function useTeacherProfile() {
-  const [data, setData] = useState(null);
+  const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/profile`, { headers: getHeaders() })
+    fetch(`${BASE}/api/v1/teachers/me`, { headers: getHeaders() })
       .then(r => r.json())
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
-
   return { data, loading };
 }
-
 export function useTeacherTimetable() {
-  const [data, setData] = useState({});
+  const [data, setData]       = useState({});
   const [loading, setLoading] = useState(true);
-
+  const [error, setError]     = useState(null);
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/timetable`, { headers: getHeaders() })
-      .then(r => r.json())
-      .then(setData)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    async function load() {
+      try {
+        // Step 1: get teacher profile to obtain teacher.id (not user.id)
+        const profileRes = await fetch(`${BASE}/api/v1/teachers/me`, { headers: getHeaders() });
+        const profile    = await profileRes.json();
+        const teacherId  = profile?.id;
+        if (!teacherId) throw new Error('Teacher profile not found');
+        // Step 2: fetch timetable with that UUID
+        const res  = await fetch(
+          `${BASE}/timetable/view?scope=teacher&scope_id=${teacherId}`,
+          { headers: getHeaders() }
+        );
+        const json = await res.json();
+        setData(json?.timetable ?? {});
+      } catch (e) {
+        setError(e.message);
+        setData({});
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
-
-  return { data, loading };
+  return { data, loading, error };
 }
-
 export function useTeacherLeaves() {
-  const [data, setData] = useState([]);
+  const [data, setData]       = useState([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     fetch(`${BASE}/leaves/my`, { headers: getHeaders() })
       .then(r => r.json())
-      .then(d => setData(Array.isArray(d) ? d : []))
+      .then(d => {
+        const list = Array.isArray(d) ? d : (d?.data ?? []);
+        setData(list);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
-
   return { data, loading };
 }
-
+// No backend endpoint yet — return empty silently to avoid 404s
 export function useTeacherReliefPending() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch(`${BASE}/teacher/me/relief/pending`, { headers: getHeaders() })
-      .then(r => r.json())
-      .then(d => setData(Array.isArray(d) ? d : []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  return { data, loading };
+  return { data: [], loading: false };
 }
-
 export function useTeacherReliefConfirmed() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch(`${BASE}/teacher/me/relief/confirmed`, { headers: getHeaders() })
-      .then(r => r.json())
-      .then(d => setData(Array.isArray(d) ? d : []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  return { data, loading };
+  return { data: [], loading: false };
 }
-
 export function useTeacherNotifications() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);

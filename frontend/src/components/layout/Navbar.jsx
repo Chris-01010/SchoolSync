@@ -8,7 +8,6 @@ function getHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
-// Map notification_type → navigation URL for HOD
 function getNavUrl(n) {
   switch (n.notification_type) {
     case 'LEAVE_REQUEST':
@@ -44,43 +43,34 @@ const Navbar = ({ onMenuClick, user }) => {
       .catch(console.error);
   }, []);
 
-  // Click outside → close
   useEffect(() => {
     const handler = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target))
         setOpen(false);
-      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // ESC key → close
   useEffect(() => {
-    const handler = (e) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
+    const handler = (e) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
   const markAllRead = async () => {
     await fetch(`${BASE}/leaves/notifications/read-all`, {
-      method: 'PUT',
-      headers: getHeaders(),
+      method: 'PUT', headers: getHeaders(),
     }).catch(console.error);
     setNotifs((prev) => prev.map((n) => ({ ...n, is_read: true })));
   };
 
   const handleNotifClick = async (n) => {
-    // 1. Close dropdown immediately
     setOpen(false);
-    // 2. Mark as read (don't await — don't block navigation)
     setNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x));
     fetch(`${BASE}/leaves/notifications/${n.id}/read`, {
       method: 'PUT', headers: getHeaders(),
     }).catch(console.error);
-    // 3. Navigate
     const url = getNavUrl(n);
     if (url) navigate(url);
   };
@@ -150,7 +140,7 @@ const Navbar = ({ onMenuClick, user }) => {
                     <div
                       key={n.id}
                       onClick={() => handleNotifClick(n)}
-                      className={`px-4 py-3 cursor-pointer hover:bg-gray-50 active:opacity-70 transition-colors ${
+                      className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${
                         !n.is_read ? 'bg-blue-50/40' : ''
                       }`}
                     >
