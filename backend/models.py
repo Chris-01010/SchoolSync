@@ -1,5 +1,10 @@
 import uuid
 import datetime
+from enum import Enum as PyEnum
+from sqlalchemy import Column, String, Boolean, Integer, Float, Time, Date, SmallInteger, ForeignKey, UniqueConstraint, Enum, JSON, DateTime, Text
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+from .database import Base
 
 from enum import Enum as PyEnum
 
@@ -21,7 +26,7 @@ from sqlalchemy import (
 )
 
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship, Mapped
+from sqlalchemy.orm import relationship
 from sqlalchemy.types import TypeDecorator, CHAR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
@@ -210,7 +215,7 @@ class Teacher(Base):
     total_hours_worked = Column(Integer, default=0)
 
     is_active = Column(Boolean, default=True)
-    blocked_slots_json:Mapped[dict] = Column(JSON, default=dict,name="blocked_slots") # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
+    blocked_slots_json = Column(JSON, default=dict,name="blocked_slots") # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
 
     user = relationship("User", back_populates="teacher_profile")   
     dept_link = relationship("Department", back_populates="teachers", foreign_keys=[department_id])
@@ -235,6 +240,18 @@ class Subject(Base):
     )
 
 
+# AFTER (clean — single definition with type field added)
+class NotificationType(str, PyEnum):
+    LEAVE_REQUEST    = "leave_request"
+    LEAVE_APPROVED   = "leave_approved"
+    LEAVE_REJECTED   = "leave_rejected"
+    RELIEF_REQUEST   = "relief_request"
+    RELIEF_ACCEPTED  = "relief_accepted"
+    RELIEF_REJECTED  = "relief_rejected"
+    ANNOUNCEMENT     = "announcement"
+    GENERAL          = "general"
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 
@@ -242,25 +259,31 @@ class Notification(Base):
 
     user_id = Column(
         GUID(),
-        ForeignKey("users.id")
+        ForeignKey("users.id"),
+        nullable=False,
+    )
+
+    notification_type = Column(
+        Enum(NotificationType),
+        default=NotificationType.GENERAL,
+        nullable=False,
     )
 
     title = Column(String, nullable=False)
-
     content = Column(Text, nullable=False)
 
     is_read = Column(Boolean, default=False)
 
+    read_at = Column(DateTime(timezone=True), nullable=True)
+
     created_at = Column(
         DateTime(timezone=True),
-        server_default=func.now()
+        server_default=func.now(),
     )
 
-    user = relationship(
-        "User",
-        back_populates="notifications"
-    )
+    action_url = Column(String, nullable=True)
 
+    user = relationship("User", back_populates="notifications")
 
 class TimetableVersion(Base):
     __tablename__ = "timetable_versions"

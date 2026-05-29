@@ -154,7 +154,7 @@ export default function TeacherDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               className="relative p-2 rounded-lg border border-outline-variant bg-surface-container-low"
               aria-label="Notifications"
@@ -168,7 +168,7 @@ export default function TeacherDashboard() {
             <button
               ref={applyBtnRef}
               onClick={() => setIsModalOpen(true)}
-              className="bg-secondary hover:opacity-95 text-white rounded-lg px-4 py-2 text-[14px] font-semibold shadow-sm"
+              className="bg-secondary hover:opacity-95 text-white rounded-lg px-3 py-2 text-[13px] font-semibold shadow-sm hidden sm:block"
             >
               Apply for Leave
             </button>
@@ -264,7 +264,7 @@ export default function TeacherDashboard() {
           {['Home', 'Schedule', 'Relief', 'Profile'].map((label, idx) => (
             <button
               key={label}
-              className={`py-3 flex flex-col items-center justify-center gap-1 ${idx === 0 ? 'bg-secondary-container/10 text-secondary font-bold' : 'text-slate-500'}`}
+              className={`py-3 min-h-[44px] flex flex-col items-center justify-center gap-1 ${idx === 0 ? 'bg-secondary-container/10 text-secondary font-bold' : 'text-slate-500'}`}
               aria-label={label}
             >
               <span className="material-symbols-outlined" style={{ fontSize: 22 }}>

@@ -71,6 +71,14 @@ const NotFound = () => (
   </div>
 );
 
+// ─── Placeholders ─────────────────────────────────────────────────────────────
+const AnalyticsPlaceholder = () => (
+  <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-3">
+    <h2 className="text-xl font-bold text-gray-900">HOD Analytics</h2>
+    <p className="text-[14px] font-medium text-gray-500">Coming soon</p>
+  </div>
+);
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
@@ -109,8 +117,8 @@ export default function App() {
               <Route index             element={<HODDashboard />} />
               <Route path="timetables" element={<TimetableGrid />} />
               <Route path="leave"      element={<LeaveManagement />} />
-              <Route path="relief"     element={<ReliefManagement />} />
-              <Route path="analytics"  element={<HODAnalyticsPage />} />
+              <Route path="relief" element={<ReliefManagementPage />} />
+              <Route path="analytics"  element={<AnalyticsPlaceholder />} />
             </Route>
 
             {/* ── Teacher Portal ───────────────────────────────────────────── */}

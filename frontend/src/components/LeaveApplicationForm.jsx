@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
-const leaveTypeOptions = ['Sick Leave', 'Casual Leave', 'Emergency Leave'];
+const leaveTypeOptions = [
+  { value: 'sick',   label: 'Sick Leave' },
+  { value: 'casual', label: 'Casual Leave' },
+  { value: 'other',  label: 'Emergency Leave' },
+];
 
 export default function LeaveApplicationForm({
   isOpen,
@@ -100,14 +104,13 @@ onSubmit(payload);
                 onChange={(e) => setLeaveForm((p) => ({ ...p, leaveType: e.target.value }))}
                 className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-secondary/20 focus:border-secondary font-semibold"
               >
-                <option value="" disabled>
-                  Select Leave Type
+               <option value="" disabled>Select Leave Type</option>
+               {leaveTypeOptions.map((t) => (
+
+                <option key={t.value} value={t.value}>
+                  {t.label}
                 </option>
-                {leaveTypeOptions.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
+               ))}
               </select>
             </div>
 

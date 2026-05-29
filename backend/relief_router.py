@@ -53,7 +53,6 @@ async def get_relief_candidates(
         {"id": absence_id_str}
     )
     row = r.fetchone()
-    print(f"DEBUG raw row={row}")
     if not row:
         raise HTTPException(status_code=404, detail="Absence not found.")
 
@@ -62,7 +61,6 @@ async def get_relief_candidates(
         select(models.Absence).where(models.Absence.id == row[0])
     )
     absence = result.scalar_one_or_none()
-    print(f"DEBUG ORM absence={absence}")
     if not absence:
         raise HTTPException(status_code=404, detail="Absence not found.")
 
@@ -104,8 +102,6 @@ async def get_relief_candidates(
         )
     )
     vacant_slots = slots_result.scalars().all()
-
-    print(f"DEBUG day_of_week={day_of_week} period_start={absence.period_start} period_end={absence.period_end} slots={len(vacant_slots)}")
 
     if not vacant_slots:
         return {"success": True, "absence_id": str(absence_id), "slots": []}
@@ -369,7 +365,22 @@ async def respond_to_relief(
         return {"status": "accepted", "mode": "swap", "assignment_id": str(assignment.id)}
 
     # ── CONSUME ──
+    # ── CONSUME ──
     if body.mode == "consume":
+        # Clash check: relief teacher must not already have a slot on this day/period
+        clash_result = await db.execute(
+            select(models.TimetableSlot).where(
+                models.TimetableSlot.teacher_id == str(current_teacher.id),
+                models.TimetableSlot.day_of_week == day_of_week,
+                models.TimetableSlot.period == absence.period_start,
+            )
+        )
+        if clash_result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=400,
+                detail="You already have a class at this time and cannot consume this slot."
+            )
+
         r = await db.execute(
             select(models.TimetableSlot)
             .where(models.TimetableSlot.id == str(absent_slot.id))

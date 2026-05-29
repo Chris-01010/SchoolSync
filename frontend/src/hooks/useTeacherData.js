@@ -42,7 +42,7 @@ export function useTeacherLeaves() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/leaves`, { headers: getHeaders() })
+    fetch(`${BASE}/leaves/my`, { headers: getHeaders() })
       .then(r => r.json())
       .then(d => setData(Array.isArray(d) ? d : []))
       .catch(console.error)
@@ -85,14 +85,27 @@ export function useTeacherReliefConfirmed() {
 export function useTeacherNotifications() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/notifications`, { headers: getHeaders() })
+    fetch(`${BASE}/leaves/notifications/`, { headers: getHeaders() })
       .then(r => r.json())
-      .then(d => setData(Array.isArray(d) ? d : []))
+      .then(d => {
+        const raw = Array.isArray(d?.data) ? d.data : [];
+        setData(raw.map(n => ({
+          ...n,
+          // normalize to what the component expects
+          read: n.is_read,
+          message: n.content,
+          type: n.notification_type ?? 'announcement',
+          time: n.created_at
+            ? new Date(n.created_at).toLocaleString('en-IN', {
+                day: 'numeric', month: 'short',
+                hour: '2-digit', minute: '2-digit',
+              })
+            : '',
+        })));
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
-
   return { data, loading };
 }
