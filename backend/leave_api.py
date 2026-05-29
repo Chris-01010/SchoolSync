@@ -956,8 +956,95 @@ async def assign_relief_teacher(
     return {
         "message": "Relief assigned successfully",
         "absence_id": str(absence.id),
-        "relief_teacher_id": str(request.relief_teacher_id),
+"relief_teacher_id": str(request.relief_teacher_id),
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HOD: Today's department timetable (including vacant slots after swap)
+# GET /leaves/hod/timetable/today
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/hod/timetable/today")
+async def get_hod_timetable_today(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.role not in (models.UserRole.HOD, models.UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="HOD or Admin access required.")
+
+    hod_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    hod = hod_result.scalar_one_or_none()
+    if not hod or not hod.department_id:
+        raise HTTPException(status_code=404, detail="HOD department not found.")
+
+    teachers_result = await db.execute(
+        select(models.Teacher).where(
+            models.Teacher.department_id == hod.department_id,
+            models.Teacher.is_active == True,
+        )
+    )
+    dept_teachers = teachers_result.scalars().all()
+    dept_teacher_ids = [str(t.id) for t in dept_teachers]
+    teacher_map = {str(t.id): t for t in dept_teachers}
+
+    if not dept_teacher_ids:
+        return {"slots": []}
+
+    import datetime as _dt
+    today_dow = _dt.date.today().weekday()
+
+    slots_result = await db.execute(
+        select(models.TimetableSlot).where(
+            models.TimetableSlot.day_of_week == today_dow,
+        ).where(
+            models.TimetableSlot.teacher_id.in_(dept_teacher_ids) |
+            models.TimetableSlot.original_teacher_id.in_(dept_teacher_ids)
+        )
+    )
+    slots = slots_result.scalars().all()
+
+    output = []
+    for s in slots:
+        if s.teacher_id is None:
+            status_val = "vacant"
+            teacher_name = None
+            original_name = (
+                teacher_map[str(s.original_teacher_id)].name
+                if s.original_teacher_id and str(s.original_teacher_id) in teacher_map
+                else None
+            )
+        elif s.is_relief:
+            status_val = "relief"
+            t = teacher_map.get(str(s.teacher_id))
+            teacher_name = t.name if t else None
+            original_name = (
+                teacher_map[str(s.original_teacher_id)].name
+                if s.original_teacher_id and str(s.original_teacher_id) in teacher_map
+                else None
+            )
+        else:
+            status_val = "scheduled"
+            t = teacher_map.get(str(s.teacher_id))
+            teacher_name = t.name if t else None
+            original_name = None
+
+        output.append({
+            "slot_id": str(s.id),
+            "period": s.period,
+            "day_of_week": s.day_of_week,
+            "teacher_name": teacher_name,
+            "original_teacher_name": original_name,
+            "status": status_val,
+            "subject_id": str(s.subject_id) if s.subject_id else None,
+            "class_id": str(s.class_id) if s.class_id else None,
+            "is_relief": s.is_relief,
+        })
+
+    output.sort(key=lambda x: x["period"])
+    return {"slots": output}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import { Bell, CheckCircle, LogOut, X, CheckCircle2, Repeat2, Users } from 'luci
 import TimetableGrid from './TimetableGrid';
 import ReliefRequestCard from './ReliefRequestCard';
 import LeaveApplicationForm from './LeaveApplicationForm';
+import PendingConsumptionPanel from './PendingConsumptionPanel';
 import { useAuth } from '../context/AuthContext';
 import { useTeacherNotifications } from '../hooks/useTeacherData';
 
@@ -398,6 +399,9 @@ export default function TeacherDashboard() {
                 </div>
               )}
             </section>
+
+            {/* Pending Consumption Approvals */}
+            <PendingConsumptionPanel />
 
             {/* Confirmed Relief */}
             <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">

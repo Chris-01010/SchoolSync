@@ -86,6 +86,12 @@ class ReliefStatus(str, PyEnum):
     REJECTED = "rejected"
     FLAGGED = "flagged"
     OVERRIDDEN = "overridden"
+    AWAITING_CONFIRMATION = "awaiting_confirmation"
+
+
+class AssignmentMode(str, PyEnum):
+    SWAP = "swap"
+    CONSUME = "consume"
 
 
 class User(Base):
@@ -319,7 +325,8 @@ class TimetableSlot(Base):
 
     teacher_id = Column(
         GUID(),
-        ForeignKey("teachers.id")
+        ForeignKey("teachers.id"),
+        nullable=True
     )
 
     class_id = Column(
@@ -492,6 +499,20 @@ class ReliefAssignment(Base):
         DateTime(timezone=True)
     )
 
+    assignment_mode = Column(
+        Enum(AssignmentMode),
+        nullable=True
+    )
+
+    swapped_slot_id = Column(
+        GUID(),
+        ForeignKey("timetable_slots.id"),
+        nullable=True
+    )
+
+    consume_substitute_confirmed = Column(Boolean, default=False)
+    consume_absent_confirmed = Column(Boolean, default=False)
+
     is_emergency = Column(
         Boolean,
         default=False,
@@ -503,6 +524,12 @@ class ReliefAssignment(Base):
         DateTime(timezone=True),
         nullable=True
     )
+
+    # Relationships
+    absence = relationship("Absence")
+    relief_teacher = relationship("Teacher", foreign_keys=[relief_teacher_id])
+    slot = relationship("TimetableSlot", foreign_keys=[slot_id])
+    swapped_slot = relationship("TimetableSlot", foreign_keys=[swapped_slot_id])
 
 
 class BlockedSlot(Base):
