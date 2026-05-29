@@ -154,7 +154,7 @@ export function TeacherNotifications() {
             )
             .map((n) =>
               api.put(
-                `/teacher/notifications/${n.id}/read`,
+                `/leaves/notifications/${n.id}/read`,
                 {}
               )
             )

@@ -26,7 +26,7 @@ from sqlalchemy import (
 )
 
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship, Mapped
+from sqlalchemy.orm import relationship
 from sqlalchemy.types import TypeDecorator, CHAR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
@@ -218,12 +218,12 @@ class Teacher(Base):
     total_hours_worked = Column(Integer, default=0)
 
     is_active = Column(Boolean, default=True)
-    blocked_slots_json:Mapped[dict] = Column(JSON, default=dict,name="blocked_slots") # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
+    blocked_slots_json = Column(JSON, default=dict,name="blocked_slots") # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
 
     user = relationship("User", back_populates="teacher_profile")   
     dept_link = relationship("Department", back_populates="teachers", foreign_keys=[department_id])
     timetable_slots = relationship("TimetableSlot", back_populates="teacher", foreign_keys="TimetableSlot.teacher_id")
-    blocked_slots = relationship("BlockedSlot",back_populates="teacher",cascade="all, delete-orphan")
+    blocked_slot_entries = relationship("BlockedSlot",back_populates="teacher",cascade="all, delete-orphan")
 
 class Subject(Base):
     __tablename__ = "subjects"
