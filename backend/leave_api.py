@@ -1,14 +1,18 @@
-# backend/leave_api.py
-
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, date
+from typing import Optional, List
 from uuid import UUID
 from pydantic import BaseModel
 from enum import Enum
 from sqlalchemy.orm import selectinload
+from datetime import datetime, timedelta, timezone
+import asyncio
+import json
+from fastapi import Query
+from fastapi.responses import StreamingResponse
+from .notification_hub import hub
 
 from .database import get_db
 from . import models
@@ -20,39 +24,42 @@ router = APIRouter()
 # ─── Schemas ──────────────────────────────────────────────────────────────────
 
 class LeaveType(str, Enum):
-    SICK = "sick"
-    CASUAL = "casual"
-    OTHER = "other"
+    SICK    = "sick"
+    CASUAL  = "casual"
+    OTHER   = "other"
 
 
 class HODAction(str, Enum):
     APPROVE = "approve"
-    REJECT = "reject"
+    REJECT  = "reject"
     CLARIFY = "clarify"
 
 
 class LeaveApplyRequest(BaseModel):
-    date: str
-    period_start: int
-    period_end: int
-    leave_type: LeaveType
-    reason: str
+    start_date:   Optional[str] = None
+    end_date:     Optional[str] = None
+    is_full_day:  bool = True
+    leave_type:   LeaveType
+    reason:       str
     handover_url: Optional[str] = None
+    date:         Optional[str] = None
+    period_start: Optional[int] = None
+    period_end:   Optional[int] = None
 
 
 class HODActionRequest(BaseModel):
     action: HODAction
-    note: Optional[str] = None
+    note:   Optional[str] = None
 
 
 class ReliefRespondRequest(BaseModel):
-    status: models.ReliefStatus
-    flag_reason: Optional[str] = None
-
+    status:       models.ReliefStatus
+    flag_reason:  Optional[str] = None
+    flag_comment: Optional[str] = None
 
 class AdminOverrideRequest(BaseModel):
     relief_teacher_id: UUID
-    override_note: Optional[str] = None
+    override_note:     Optional[str] = None
 
 
 class HODAssignReliefRequest(BaseModel):
@@ -62,24 +69,25 @@ class HODAssignReliefRequest(BaseModel):
 
 
 class LeaveEditRequest(BaseModel):
-    date: str
-    leave_type: LeaveType
-    reason: str
+    date:         str
+    leave_type:   LeaveType
+    reason:       str
     handover_url: Optional[str] = None
 
 
-# ─── Helper: send notification ────────────────────────────────────────────────
+# ─── Helper: send notification + broadcast via SSE ────────────────────────────
 
 async def notify(
     db: AsyncSession,
     user_id: UUID,
     title: str,
     content: str,
-    notification_type: str = "general",
+    notification_type: str = "GENERAL",
     action_url: Optional[str] = None,
 ):
-    """Save an in-app notification. Never raises."""
+    """Save an in-app notification AND broadcast to connected SSE clients."""
     from .database import AsyncSessionLocal
+    from .notification_hub import hub
     try:
         async with AsyncSessionLocal() as session:
             notif = models.Notification(
@@ -91,11 +99,66 @@ async def notify(
             )
             session.add(notif)
             await session.commit()
+            await session.refresh(notif)
+
+            payload = {
+                "id": str(notif.id),
+                "title": notif.title,
+                "content": notif.content,
+                "is_read": False,
+                "notification_type": notification_type,
+                "action_url": action_url,
+                "read_at": None,
+                "created_at": notif.created_at.isoformat() if notif.created_at else None,
+            }
+
+            await hub.broadcast(str(user_id), payload)
     except Exception as e:
         print(f"[NOTIFICATION ERROR] {e}")
 
 
-# ─── Helper: rollover to next candidate (FR-20) ───────────────────────────────
+async def notify_all_admins(
+    db: AsyncSession,
+    title: str,
+    content: str,
+    notification_type: str = "GENERAL",
+    action_url: Optional[str] = None,
+):
+    """Broadcast a notification to every admin user (view-only monitoring)."""
+    from .database import AsyncSessionLocal
+    from .notification_hub import hub
+    try:
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(models.User).where(models.User.role == models.UserRole.ADMIN)
+            )
+            admins = result.scalars().all()
+            for admin in admins:
+                notif = models.Notification(
+                    user_id=admin.id,
+                    title=title,
+                    content=content,
+                    notification_type=notification_type,
+                    action_url=action_url,
+                )
+                session.add(notif)
+                await session.commit()
+                payload = {
+                    "id": str(notif.id),
+                    "title": title,
+                    "content": content,
+                    "is_read": False,
+                    "notification_type": notification_type,
+                    "action_url": action_url,
+                    "read_at": None,
+                    "created_at": notif.created_at.isoformat() if notif.created_at else None,
+                }
+                await hub.broadcast(str(admin.id), payload)
+    except Exception as e:
+        print(f"[ADMIN NOTIF ERROR] {e}")
+
+
+# ─── Helper: rollover relief ──────────────────────────────────────────────────
 
 async def _rollover_relief(assignment_id: UUID):
     from .relief_engine import rank_candidates
@@ -281,26 +344,40 @@ async def apply_leave(
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher profile not found.")
 
+    raw_date = body.start_date or body.date
+    if not raw_date:
+        raise HTTPException(status_code=400, detail="start_date is required.")
+
+    absence_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+
+    p_start = body.period_start if body.period_start is not None else 1
+    p_end   = body.period_end   if body.period_end   is not None else 8
+
     absence = models.Absence(
-        teacher_id=teacher.id,
-        date=datetime.strptime(body.date, "%Y-%m-%d").date(),
-        period_start=body.period_start,
-        period_end=body.period_end,
-        leave_type=body.leave_type.value,
-        reason=body.reason,
-        handover_url=body.handover_url,
-        status=models.AbsenceStatus.PENDING,
+        teacher_id   = teacher.id,
+        date         = absence_date,
+        period_start = p_start,
+        period_end   = p_end,
+        leave_type   = body.leave_type.value,
+        reason       = body.reason,
+        handover_url = body.handover_url,
+        status       = models.AbsenceStatus.PENDING,
     )
     db.add(absence)
     await db.commit()
     await db.refresh(absence)
 
+    # Notify teacher (confirmation)
     background_tasks.add_task(
         notify, db, current_user.id,
         "Leave Request Submitted",
-        f"Your {body.leave_type.value} leave on {body.date} has been submitted and is pending HOD approval.",
+        f"Your {body.leave_type.value} leave on {raw_date} has been submitted and is pending HOD approval.",
+        "GENERAL",
+        "/dashboard/leaves",
     )
 
+    # Notify HOD
+    dept = None
     if teacher.department_id:
         dept_result = await db.execute(
             select(models.Department).where(models.Department.id == teacher.department_id)
@@ -315,18 +392,30 @@ async def apply_leave(
                 background_tasks.add_task(
                     notify, db, hod.user_id,
                     "New Leave Request",
-                    f"{teacher.name} has applied for {body.leave_type.value} leave on {body.date}.",
+                    f"{teacher.name} has applied for {body.leave_type.value} leave on {raw_date}.",
+                    "LEAVE_REQUEST",
+                    "/hod/leave",
                 )
+
+    # Notify all admins (view-only monitoring)
+    dept_name = dept.name if dept else "Unknown Department"
+    background_tasks.add_task(
+        notify_all_admins, db,
+        "Leave Request Submitted",
+        f"{teacher.name} from {dept_name} has requested {body.leave_type.value} leave on {raw_date}.",
+        "LEAVE_REQUEST",
+        f"/admin/leave-monitoring?leave_id={str(absence.id)}",
+    )
 
     return {
         "success": True,
         "message": "Leave request submitted successfully.",
         "data": {
-            "id": str(absence.id),
-            "date": str(absence.date),
+            "id":         str(absence.id),
+            "date":       str(absence.date),
             "leave_type": absence.leave_type,
-            "status": absence.status,
-            "reason": absence.reason,
+            "status":     absence.status,
+            "reason":     absence.reason,
         },
     }
 
@@ -356,20 +445,120 @@ async def get_my_leaves(
 
     return {
         "success": True,
-        "count": len(leaves),
+        "count":   len(leaves),
         "data": [
             {
-                "id": str(l.id),
-                "date": str(l.date),
-                "leave_type": l.leave_type,
-                "reason": l.reason,
-                "status": l.status,
-                "period_start": l.period_start,
-                "period_end": l.period_end,
+                "id":                 str(l.id),
+                "date":               str(l.date),
+                "start_date":         str(l.date),
+                "end_date":           str(l.date),
+                "leave_type":         l.leave_type,
+                "reason":             l.reason,
+                "status":             l.status,
+                "is_full_day":        True,
+                "period_start":       l.period_start,
+                "period_end":         l.period_end,
                 "clarification_note": getattr(l, "clarification_note", None),
             }
             for l in leaves
         ],
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TEACHER: Emergency leave
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/emergency", status_code=201)
+async def apply_emergency_leave(
+    body: dict,
+    background_tasks: BackgroundTasks,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    from backend.worker import auto_approve_emergency_leave
+
+    result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found")
+
+    raw_date = body.get("date")
+    if not raw_date:
+        raise HTTPException(status_code=400, detail="date is required")
+
+    try:
+        absence_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
+
+    now = datetime.now(timezone.utc)
+    hod_deadline = now + timedelta(minutes=15)
+
+    p_start = body.get("period_start", 1)
+    p_end = body.get("period_end", 8)
+
+    absence = models.Absence(
+        teacher_id=teacher.id,
+        date=absence_date,
+        period_start=p_start,
+        period_end=p_end,
+        leave_type="Emergency",
+        reason=body.get("reason"),
+        handover_url=body.get("handover_url"),
+        status=models.AbsenceStatus.PENDING,
+        is_emergency=True,
+        emergency_submitted_at=now,
+        hod_response_deadline=hod_deadline,
+        auto_approved=False
+    )
+    db.add(absence)
+    await db.commit()
+    await db.refresh(absence)
+
+    task = auto_approve_emergency_leave.apply_async(
+        args=[str(absence.id)],
+        eta=hod_deadline
+    )
+
+    # Notify HODs
+    try:
+        hod_result = await db.execute(
+            select(models.User).where(models.User.role == models.UserRole.HOD)
+        )
+        hods = hod_result.scalars().all()
+        for hod in hods:
+            await notify(
+                db, hod.id,
+                "🚨 Emergency Leave Request",
+                f"{teacher.name} submitted an emergency leave request for {raw_date}. Auto-approves in 15 minutes.",
+                "LEAVE_REQUEST",
+                "/hod/leave",
+            )
+    except Exception as e:
+        print(f"[HOD NOTIFICATION ERROR] {e}")
+
+    # Notify teacher (confirmation)
+    background_tasks.add_task(
+        notify, db, current_user.id,
+        "Emergency Leave Submitted",
+        f"Your emergency leave for {raw_date} has been submitted. HOD has 15 minutes to respond.",
+        "LEAVE_REQUEST",
+        "/dashboard/leaves",
+    )
+
+    return {
+        "success": True,
+        "message": "Emergency leave submitted successfully",
+        "data": {
+            "absence_id": str(absence.id),
+            "status": absence.status,
+            "is_emergency": absence.is_emergency,
+            "auto_approval_deadline": hod_deadline.isoformat(),
+            "celery_task_id": task.id
+        }
     }
 
 
@@ -406,17 +595,19 @@ async def get_pending_leaves(
 
     return {
         "success": True,
-        "count": len(leaves),
+        "count":   len(leaves),
         "data": [
             {
-                "id": str(l.id),
-                "teacher_name": l.teacher.name if l.teacher else "Unknown Teacher",
-                "date": str(l.date),
-                "leave_type": l.leave_type,
-                "reason": l.reason,
-                "status": l.status,
-                "period_start": l.period_start,
-                "period_end": l.period_end,
+                "id":                 str(l.id),
+                "teacher_name":       l.teacher.name if l.teacher else "Unknown Teacher",
+                "start_date":         str(l.date),
+                "end_date":           str(l.date),
+                "leave_type":         l.leave_type,
+                "reason":             l.reason,
+                "status":             l.status,
+                "is_full_day":        True,
+                "period_start":       l.period_start,
+                "period_end":         l.period_end,
                 "clarification_note": getattr(l, "clarification_note", None),
             }
             for l in leaves
@@ -479,6 +670,10 @@ async def hod_action_on_leave(
     current_user: models.User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Block admin — view-only access
+    if current_user.role == models.UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admins have view-only access to leave requests.")
+
     if body.action in (HODAction.REJECT, HODAction.CLARIFY) and not body.note:
         raise HTTPException(
             status_code=400,
@@ -492,14 +687,8 @@ async def hod_action_on_leave(
     if not absence:
         raise HTTPException(status_code=404, detail="Leave request not found.")
 
-    if absence.status not in (
-        models.AbsenceStatus.PENDING,
-        models.AbsenceStatus.CLARIFICATION_REQUESTED,
-    ):
-        raise HTTPException(
-            status_code=409,
-            detail=f"This request is already {absence.status}.",
-        )
+    if absence.status not in (models.AbsenceStatus.PENDING, models.AbsenceStatus.CLARIFICATION_REQUESTED):
+        raise HTTPException(status_code=409, detail=f"This request is already {absence.status}.")
 
     teacher_result = await db.execute(
         select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
@@ -512,54 +701,75 @@ async def hod_action_on_leave(
     hod = hod_result.scalar_one_or_none()
 
     if (
-        hod
-        and absent_teacher
+        hod and absent_teacher
         and current_user.role == models.UserRole.HOD
         and absent_teacher.department_id != hod.department_id
     ):
-        raise HTTPException(
-            status_code=403,
-            detail="You can only manage leaves in your department.",
-        )
+        raise HTTPException(status_code=403, detail="You can only manage leaves in your department.")
+
+    notif_msg  = ""
+    notif_type = "GENERAL"
 
     if body.action == HODAction.APPROVE:
         absence.status = models.AbsenceStatus.APPROVED
         background_tasks.add_task(dispatch_relief_for_absence, absence.id)
         notif_msg = f"Your {absence.leave_type} leave on {absence.date} has been approved."
+        notif_type = "LEAVE_APPROVED"
         from .relief_router import notify_absence_updated
         notify_absence_updated(str(absence.id))
-        
+
     elif body.action == HODAction.REJECT:
         absence.status = models.AbsenceStatus.REJECTED
         absence.resolution_report_url = None
-        notif_msg = f"Your leave request was rejected. HOD note: {body.note}"
+        notif_msg  = f"Your leave request was rejected. HOD note: {body.note}"
+        notif_type = "LEAVE_REJECTED"
 
     elif body.action == HODAction.CLARIFY:
         absence.status = models.AbsenceStatus.CLARIFICATION_REQUESTED
         if hasattr(absence, 'clarification_note'):
             absence.clarification_note = body.note
-        notif_msg = f"Your HOD needs clarification on your leave request: {body.note}"
+        notif_msg  = f"Your HOD needs clarification on your leave request: {body.note}"
+        notif_type = "GENERAL"
 
     await db.commit()
     await db.refresh(absence)
 
+    notif_title = (
+        "Leave Request Approved"      if body.action == HODAction.APPROVE
+        else "Leave Request Rejected" if body.action == HODAction.REJECT
+        else "Clarification Requested"
+    )
+
+    # Notify the teacher
     if absent_teacher and absent_teacher.user_id:
         background_tasks.add_task(
             notify, db, absent_teacher.user_id,
-            f"Leave Request {body.action.value.title()}d",
-            notif_msg,
+            notif_title, notif_msg, notif_type, "/dashboard/leaves",
         )
+
+    # Notify all admins (view-only monitoring)
+    hod_name     = hod.name if hod else "HOD"
+    teacher_name = absent_teacher.name if absent_teacher else "Teacher"
+    if body.action == HODAction.APPROVE:
+        admin_content = f"{teacher_name}'s leave on {absence.date} was APPROVED by HOD {hod_name}."
+        admin_type    = "LEAVE_APPROVED"
+    elif body.action == HODAction.REJECT:
+        admin_content = f"{teacher_name}'s leave on {absence.date} was REJECTED by HOD {hod_name}. Reason: {body.note}"
+        admin_type    = "LEAVE_REJECTED"
+    else:
+        admin_content = f"{hod_name} requested clarification on {teacher_name}'s leave for {absence.date}."
+        admin_type    = "LEAVE_REQUEST"
+
+    background_tasks.add_task(
+        notify_all_admins, db,
+        notif_title, admin_content, admin_type,
+        f"/admin/leave-monitoring?leave_id={str(absence.id)}",
+    )
 
     return {
         "success": True,
         "message": f"Leave {body.action.value}d successfully.",
-        "data": {
-            "id": str(absence.id),
-            "status": absence.status,
-            "date": str(absence.date),
-            "leave_type": absence.leave_type,
-            "note": body.note,
-        },
+        "data": {"id": str(absence.id), "status": absence.status, "date": str(absence.date), "leave_type": absence.leave_type, "note": body.note},
     }
 
 
@@ -588,36 +798,75 @@ async def respond_to_relief(
     assignment = result.scalar_one_or_none()
     if not assignment:
         raise HTTPException(status_code=404, detail="Relief assignment not found.")
-
     if assignment.relief_teacher_id != teacher.id:
         raise HTTPException(status_code=403, detail="This relief is not assigned to you.")
-
     if assignment.status != models.ReliefStatus.PENDING:
         raise HTTPException(status_code=409, detail=f"Already {assignment.status}.")
 
     assignment.status = body.status
 
     if body.status == models.ReliefStatus.ACCEPTED:
-        assignment.acknowledged_at = datetime.utcnow()
+        assignment.acknowledged_at    = datetime.utcnow()
         teacher.current_relief_hours += 1
-        teacher.total_hours_worked += 1
+        teacher.total_hours_worked   += 1
+
+        if teacher.department_id:
+            dept_result = await db.execute(
+                select(models.Department).where(models.Department.id == teacher.department_id)
+            )
+            dept = dept_result.scalar_one_or_none()
+            if dept and dept.hod_id:
+                hod_teacher_result = await db.execute(
+                    select(models.Teacher).where(models.Teacher.id == dept.hod_id)
+                )
+                hod_teacher = hod_teacher_result.scalar_one_or_none()
+                if hod_teacher and hod_teacher.user_id:
+                    background_tasks.add_task(
+                        notify, db, hod_teacher.user_id,
+                        "Relief Accepted",
+                        f"{teacher.name} has accepted the relief duty.",
+                        "RELIEF_REQUEST",
+                        "/hod/relief",
+                    )
 
     elif body.status == models.ReliefStatus.FLAGGED:
         if not body.flag_reason:
             raise HTTPException(status_code=400, detail="flag_reason is required when flagging.")
-        assignment.flag_reason = body.flag_reason
-        admins_result = await db.execute(
-            select(models.User).where(models.User.role == models.UserRole.ADMIN)
+        assignment.flag_reason = (
+            f"{body.flag_reason} — {body.flag_comment}"
+            if body.flag_comment
+            else body.flag_reason
         )
         for admin in admins_result.scalars().all():
             background_tasks.add_task(
                 notify, db, admin.id,
                 "Relief Assignment Flagged",
                 f"{teacher.name} flagged a relief assignment. Reason: {body.flag_reason}",
+                "RELIEF_REQUEST",
+                "/admin/relief",
             )
 
     elif body.status == models.ReliefStatus.REJECTED:
         background_tasks.add_task(_rollover_relief, assignment_id)
+
+        if teacher.department_id:
+            dept_result = await db.execute(
+                select(models.Department).where(models.Department.id == teacher.department_id)
+            )
+            dept = dept_result.scalar_one_or_none()
+            if dept and dept.hod_id:
+                hod_teacher_result = await db.execute(
+                    select(models.Teacher).where(models.Teacher.id == dept.hod_id)
+                )
+                hod_teacher = hod_teacher_result.scalar_one_or_none()
+                if hod_teacher and hod_teacher.user_id:
+                    background_tasks.add_task(
+                        notify, db, hod_teacher.user_id,
+                        "Relief Declined",
+                        f"{teacher.name} has declined the relief duty. Reassignment in progress.",
+                        "RELIEF_REQUEST",
+                        "/hod/relief",
+                    )
 
     await db.commit()
     from .relief_router import notify_absence_updated
@@ -635,10 +884,7 @@ async def respond_to_relief(
 # ADMIN: Override relief assignment
 # ─────────────────────────────────────────────────────────────────────────────
 
-@router.put(
-    "/relief/{assignment_id}/override",
-    dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))]
-)
+@router.put("/relief/{assignment_id}/override", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def override_relief(
     assignment_id: UUID,
     body: AdminOverrideRequest,
@@ -666,12 +912,13 @@ async def override_relief(
     await db.commit()
     await db.refresh(assignment)
 
-    if new_teacher.user_id:
-        background_tasks.add_task(
-            notify, db, new_teacher.user_id,
-            "Relief Assignment (Admin Override)",
-            "An admin has assigned you to a relief duty. Please check your schedule.",
-        )
+    background_tasks.add_task(
+        notify, db, new_teacher.user_id,
+        "Relief Assignment (Admin Override)",
+        "An admin has assigned you to a relief duty. Please check your schedule.",
+        "RELIEF_REQUEST",
+        "/dashboard/relief-duties",
+    )
 
     return {
         "success": True,
@@ -704,39 +951,26 @@ async def edit_leave(
     absence = result.scalar_one_or_none()
     if not absence:
         raise HTTPException(status_code=404, detail="Leave request not found.")
-
     if absence.teacher_id != teacher.id:
         raise HTTPException(status_code=403, detail="Not your leave request.")
+    if absence.status not in (models.AbsenceStatus.PENDING, models.AbsenceStatus.CLARIFICATION_REQUESTED):
+        raise HTTPException(status_code=409, detail="Only pending or clarification-requested leaves can be edited.")
 
-    if absence.status not in (
-        models.AbsenceStatus.PENDING,
-        models.AbsenceStatus.CLARIFICATION_REQUESTED,
-    ):
-        raise HTTPException(
-            status_code=409,
-            detail="Only pending or clarification-requested leaves can be edited."
-        )
+    raw_date = body.start_date or body.date
+    if not raw_date:
+        raise HTTPException(status_code=400, detail="start_date is required.")
 
-    absence.date = datetime.strptime(body.date, "%Y-%m-%d").date()
-    absence.period_start = body.period_start
-    absence.period_end = body.period_end
-    absence.leave_type = body.leave_type.value
-    absence.reason = body.reason
+    absence.date         = datetime.strptime(raw_date, "%Y-%m-%d").date()
+    absence.period_start = body.period_start if body.period_start is not None else 1
+    absence.period_end   = body.period_end   if body.period_end   is not None else 8
+    absence.leave_type   = body.leave_type.value
+    absence.reason       = body.reason
     absence.handover_url = body.handover_url
     await db.commit()
     await db.refresh(absence)
-
-    return {
-        "success": True,
-        "message": "Leave request updated successfully.",
-        "data": {
-            "id": str(absence.id),
-            "date": str(absence.date),
-            "leave_type": absence.leave_type,
-            "reason": absence.reason,
-            "status": absence.status,
-        },
-    }
+    return {"success": True, "message": "Leave request updated successfully.",
+            "data": {"id": str(absence.id), "date": str(absence.date), "leave_type": absence.leave_type,
+                     "reason": absence.reason, "status": absence.status}}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -762,18 +996,10 @@ async def cancel_leave(
     absence = result.scalar_one_or_none()
     if not absence:
         raise HTTPException(status_code=404, detail="Leave request not found.")
-
     if absence.teacher_id != teacher.id:
         raise HTTPException(status_code=403, detail="Not your leave request.")
-
-    if absence.status not in (
-        models.AbsenceStatus.PENDING,
-        models.AbsenceStatus.CLARIFICATION_REQUESTED,
-    ):
-        raise HTTPException(
-            status_code=409,
-            detail="Only pending or clarification-requested leaves can be cancelled."
-        )
+    if absence.status not in (models.AbsenceStatus.PENDING, models.AbsenceStatus.CLARIFICATION_REQUESTED):
+        raise HTTPException(status_code=409, detail="Only pending or clarification-requested leaves can be cancelled.")
 
     await db.delete(absence)
     await db.commit()
@@ -1029,6 +1255,55 @@ async def get_my_confirmed_relief(
 # Notifications
 # ─────────────────────────────────────────────────────────────────────────────
 
+@router.get("/notifications/stream-sse")
+async def notification_stream_sse(
+    token: str = Query(..., description="JWT access token"),
+    db: AsyncSession = Depends(get_db),
+):
+    from .notification_hub import hub
+
+    try:
+        payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+        college_id = payload.get("sub")
+        if not college_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        result = await db.execute(
+            select(models.User).where(models.User.college_id == college_id)
+        )
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user_id = str(user.id)
+    queue = hub.connect(user_id)
+
+    async def event_generator():
+        try:
+            yield "event: connected\ndata: {\"status\": \"connected\"}\n\n"
+            while True:
+                try:
+                    notif_payload = await asyncio.wait_for(queue.get(), timeout=30)
+                    yield f"data: {json.dumps(notif_payload)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            hub.disconnect(user_id, queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.get("/notifications/")
 async def get_notifications(
     current_user: models.User = Depends(auth.get_current_user),
@@ -1047,14 +1322,14 @@ async def get_notifications(
         "unread_count": unread_count,
         "data": [
             {
-                "id": str(n.id),
-                "title": n.title,
-                "content": n.content,
-                "is_read": n.is_read,
-                "notification_type": n.notification_type,
-                "action_url": n.action_url,
-                "read_at": n.read_at.isoformat() if hasattr(n, 'read_at') and n.read_at else None,
-                "created_at": n.created_at.isoformat(),
+                "id":                str(n.id),
+                "title":             n.title,
+                "content":           n.content,
+                "is_read":           n.is_read,
+                "notification_type": n.notification_type if hasattr(n, 'notification_type') else "GENERAL",
+                "action_url":        n.action_url if hasattr(n, 'action_url') else None,
+                "read_at":           n.read_at.isoformat() if hasattr(n, 'read_at') and n.read_at else None,
+                "created_at":        n.created_at.isoformat(),
             }
             for n in notifications
         ],

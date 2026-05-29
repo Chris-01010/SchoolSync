@@ -24,23 +24,14 @@ import { useTeacherNotifications } from '../../hooks/useTeacherData';
 // ─── Notification Icons ───────────────────────────────────────────────────────
 
 const ICON_MAP = {
-  leave_approved: {
-    icon: CheckCircle2,
-    bg: 'bg-emerald-50',
-    color: 'text-emerald-600',
-  },
-
-  relief_assigned: {
-    icon: Repeat2,
-    bg: 'bg-orange-50',
-    color: 'text-orange-500',
-  },
-
-  announcement: {
-    icon: Users,
-    bg: 'bg-blue-50',
-    color: 'text-blue-500',
-  },
+  leave_request:   { icon: CheckCircle2, bg: 'bg-amber-50',   color: 'text-amber-600'   },
+  leave_approved:  { icon: CheckCircle2, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  leave_rejected:  { icon: X,            bg: 'bg-red-50',     color: 'text-red-500'     },
+  relief_request:  { icon: Repeat2,      bg: 'bg-orange-50',  color: 'text-orange-500'  },
+  relief_accepted: { icon: Repeat2,      bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  relief_rejected: { icon: Repeat2,      bg: 'bg-red-50',     color: 'text-red-500'     },
+  announcement:    { icon: Users,        bg: 'bg-blue-50',    color: 'text-blue-500'    },
+  general:         { icon: Bell,         bg: 'bg-gray-50',    color: 'text-gray-500'    },
 };
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
@@ -341,13 +332,11 @@ export function TeacherNotifications() {
                     </p>
 
                     <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
-                      {
-                        n.message
-                      }
+                      {n.message || 'Tap to view details'}
                     </p>
 
                     <p className="text-[10px] text-gray-400 mt-1">
-                      {n.time}
+                      {n.time || ''}
                     </p>
                   </div>
 
@@ -457,9 +446,7 @@ export function TeacherNotifications() {
               </div>
 
               <p className="text-[12px] text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-3.5">
-                {
-                  selectedNotif.message
-                }
+                {selectedNotif.message || 'No additional details available for this notification.'}
               </p>
 
               <div className="flex justify-end mt-5">
