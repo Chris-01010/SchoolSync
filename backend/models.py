@@ -1,7 +1,7 @@
 import uuid
 import datetime
 from enum import Enum as PyEnum
-from sqlalchemy import Column, String, Boolean, Integer, Float, Time, Date, SmallInteger, ForeignKey, UniqueConstraint, Enum, JSON, DateTime, Text
+from sqlalchemy import Column, String, Boolean, Integer, Float, Time, Date, SmallInteger, ForeignKey, UniqueConstraint, Enum, JSON, DateTime, Text, text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from .database import Base
@@ -215,12 +215,17 @@ class Teacher(Base):
     total_hours_worked = Column(Integer, default=0)
 
     is_active = Column(Boolean, default=True)
-    blocked_slots_json = Column(JSON, default=dict,name="blocked_slots") # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
+    blocked_slots_json = Column(JSON, default=dict, name="blocked_slots")  # e.g. {"0": [1, 2]} - Day 0, Periods 1 & 2 blocked
 
-    user = relationship("User", back_populates="teacher_profile")   
+    user = relationship("User", back_populates="teacher_profile")
     dept_link = relationship("Department", back_populates="teachers", foreign_keys=[department_id])
     timetable_slots = relationship("TimetableSlot", back_populates="teacher", foreign_keys="TimetableSlot.teacher_id")
-    blocked_slot_entries = relationship("BlockedSlot",back_populates="teacher",cascade="all, delete-orphan")
+    blocked_slot_entries = relationship(
+        "BlockedSlot",
+        back_populates="teacher",
+        cascade="all, delete-orphan"
+    )
+
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -284,6 +289,7 @@ class Notification(Base):
     action_url = Column(String, nullable=True)
 
     user = relationship("User", back_populates="notifications")
+
 
 class TimetableVersion(Base):
     __tablename__ = "timetable_versions"
@@ -425,6 +431,30 @@ class Absence(Base):
         nullable=True
     )
 
+    is_emergency = Column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False
+    )
+
+    emergency_submitted_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    hod_response_deadline = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    auto_approved = Column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False
+    )
+
     teacher = relationship("Teacher")
 
 
@@ -483,6 +513,18 @@ class ReliefAssignment(Base):
     consume_substitute_confirmed = Column(Boolean, default=False)
     consume_absent_confirmed = Column(Boolean, default=False)
 
+    is_emergency = Column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False
+    )
+
+    response_deadline = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
     # Relationships
     absence = relationship("Absence")
     relief_teacher = relationship("Teacher", foreign_keys=[relief_teacher_id])
@@ -493,18 +535,45 @@ class ReliefAssignment(Base):
 class BlockedSlot(Base):
     __tablename__ = "blocked_slots"
 
-    id = Column(GUID, primary_key=True, index=True,default=uuid.uuid4)
-    teacher_id = Column(GUID, ForeignKey("teachers.id"), nullable=False)
-    day = Column(String, nullable=False)       # e.g. "Monday"
-    period = Column(Integer, nullable=False)   # e.g. 3
-    reason = Column(String, nullable=True)     # e.g. "Staff meeting"
-    created_at = Column(DateTime, server_default=func.now())
+    id = Column(
+        GUID(),
+        primary_key=True,
+        index=True,
+        default=uuid.uuid4
+    )
+
+    teacher_id = Column(
+        GUID(),
+        ForeignKey("teachers.id"),
+        nullable=False
+    )
+
+    day = Column(
+        String,
+        nullable=False
+    )
+
+    period = Column(
+        Integer,
+        nullable=False
+    )
+
+    reason = Column(
+        String,
+        nullable=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
 
     teacher = relationship(
         "Teacher",
         back_populates="blocked_slot_entries"
     )
-    
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
