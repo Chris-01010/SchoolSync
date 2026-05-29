@@ -294,6 +294,8 @@ async def apply_leave(
         notify, db, current_user.id,
         "Leave Request Submitted",
         f"Your {body.leave_type.value} leave on {body.date} has been submitted and is pending HOD approval.",
+        "GENERAL",
+        "/teacher/my-leaves",
     )
 
     if teacher.department_id:
@@ -311,6 +313,8 @@ async def apply_leave(
                     notify, db, hod.user_id,
                     "New Leave Request",
                     f"{teacher.name} has applied for {body.leave_type.value} leave on {body.date}.",
+                    "LEAVE_REQUEST",
+                    "/hod/leave-approvals",
                 )
 
     return {
@@ -494,10 +498,22 @@ async def hod_action_on_leave(
     await db.refresh(absence)
 
     if absent_teacher and absent_teacher.user_id:
+        notif_type = (
+            "LEAVE_APPROVED" if body.action.value == "approve"
+            else "LEAVE_REJECTED" if body.action.value == "reject"
+            else "GENERAL"
+        )
+        notif_title = (
+            "Leave Request Approved" if body.action == HODAction.APPROVE
+            else "Leave Request Rejected" if body.action == HODAction.REJECT
+            else "Leave Clarification Requested"
+        )
         background_tasks.add_task(
             notify, db, absent_teacher.user_id,
-            f"Leave Request {body.action.value.title()}d",
+            notif_title,
             notif_msg,
+            notif_type,
+            "/teacher/my-leaves",
         )
 
     return {
@@ -559,12 +575,13 @@ async def respond_to_relief(
         admins_result = await db.execute(
             select(models.User).where(models.User.role == models.UserRole.ADMIN)
         )
-        for admin in admins_result.scalars().all():
-            background_tasks.add_task(
-                notify, db, admin.id,
-                "Relief Assignment Flagged",
-                f"{teacher.name} flagged a relief assignment. Reason: {body.flag_reason}",
-            )
+        background_tasks.add_task(
+            notify, db, admin.id,
+            "Relief Assignment Flagged",
+            f"{teacher.name} flagged a relief assignment. Reason: {body.flag_reason}",
+            "relief_request",
+            "/hod/relief",
+        )
 
     elif body.status == models.ReliefStatus.REJECTED:
         background_tasks.add_task(_rollover_relief, assignment_id, db)
@@ -614,11 +631,12 @@ async def override_relief(
     await db.commit()
     await db.refresh(assignment)
 
-    if new_teacher.user_id:
-        background_tasks.add_task(
+    background_tasks.add_task(
             notify, db, new_teacher.user_id,
             "Relief Assignment (Admin Override)",
             "An admin has assigned you to a relief duty. Please check your schedule.",
+            "relief_request",
+            "/teacher/relief",
         )
 
     return {
