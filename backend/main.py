@@ -33,6 +33,7 @@ from . import relief
 from . import auth
 from . import leave_api
 from . import relief_router
+from . import leave_balance_api
 
 from .email_service import (
     send_verification_email,
@@ -132,6 +133,7 @@ app.include_router(blocked_slots_router, prefix="/api/v1")
 
 app.include_router(leave_api.router, prefix="/leaves", tags=["leaves"])
 app.include_router(relief_router.router, prefix="/relief", tags=["relief"])
+app.include_router(leave_balance_api.router, prefix="/leave-balance", tags=["leave-balance"])
 
 
 # ─── Startup ───────────────────────────────────────────────────────────────────
@@ -433,6 +435,17 @@ async def signup(
         )
 
         db.add(teacher_profile)
+        await db.commit()
+
+        leave_balance = models.TeacherLeaveBalance(
+            teacher_id=teacher_profile.id,
+            academic_year=leave_balance_api.get_current_academic_year(),
+            balance=0.0,
+            used_ytd=0.0,
+            carry_over=0.0,
+            last_credited_month=None,
+        )
+        db.add(leave_balance)
         await db.commit()
 
     token = secrets.token_urlsafe(32)

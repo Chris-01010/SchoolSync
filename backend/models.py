@@ -216,6 +216,12 @@ class Teacher(Base):
     timetable_slots = relationship("TimetableSlot", back_populates="teacher", foreign_keys="TimetableSlot.teacher_id")
     blocked_slot_entries = relationship("BlockedSlot",back_populates="teacher",cascade="all, delete-orphan")
 
+    leave_balance = relationship(
+        "TeacherLeaveBalance",
+        back_populates="teacher",
+        uselist=False,  # one-to-one
+    )
+
 class Subject(Base):
     __tablename__ = "subjects"
 
@@ -500,4 +506,56 @@ class AuditLog(Base):
     timestamp = Column(
         DateTime(timezone=True),
         server_default=func.now()
+    )
+
+class TeacherLeaveBalance(Base):
+    __tablename__ = "teacher_leave_balances"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    teacher_id = Column(
+        GUID(),
+        ForeignKey("teachers.id"),
+        nullable=False,
+        unique=True,  # one active balance row per teacher
+    )
+
+    academic_year = Column(
+        String(9),
+        nullable=False,
+        default="2026-27",  # Format: "YYYY-YY"
+    )
+
+    balance = Column(
+        Float,
+        nullable=False,
+        default=0.0,  # current available days (includes carry-over)
+    )
+
+    used_ytd = Column(
+        Float,
+        nullable=False,
+        default=0.0,  # total days deducted this academic year
+    )
+
+    carry_over = Column(
+        Float,
+        nullable=False,
+        default=0.0,  # unused days brought from previous month
+    )
+
+    last_credited_month = Column(
+        Integer,
+        nullable=True,  # 1–12; null = never credited yet
+    )
+
+    last_updated = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    teacher = relationship(
+        "Teacher",
+        back_populates="leave_balance",
     )

@@ -205,6 +205,7 @@ export default function TeacherDashboard() {
   const [pending, setPending]             = useState([]);
   const [confirmed, setConfirmed]         = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [leaveBalance, setLeaveBalance]   = useState(null);
 
   // ── Notification state ──
   const [localNotifs, setLocalNotifs]       = useState([]);
@@ -228,21 +229,21 @@ export default function TeacherDashboard() {
     if (!token) return;
     const headers = { Authorization: `Bearer ${token}` };
 
+    // AFTER
     Promise.all([
       fetch(`${BASE}/teacher/me/profile`,          { headers }).then(r => r.json()),
       fetch(`${BASE}/teacher/me/timetable`,        { headers }).then(r => r.json()),
       fetch(`${BASE}/teacher/me/relief/pending`,   { headers }).then(r => r.json()),
       fetch(`${BASE}/teacher/me/relief/confirmed`, { headers }).then(r => r.json()),
+      fetch(`${BASE}/leave-balance/me`,            { headers }).then(r => r.json()),
     ])
-      .then(([profile, timetableData, pendingData, confirmedData]) => {
+      .then(([profile, timetableData, pendingData, confirmedData, balanceData]) => {
         setTeacherData(profile);
         setTimetable(timetableData);
         setPending(Array.isArray(pendingData) ? pendingData : []);
         setConfirmed(Array.isArray(confirmedData) ? confirmedData : []);
+        setLeaveBalance(balanceData?.data ?? null);
       })
-      .catch(err => console.error('Dashboard fetch error:', err))
-      .finally(() => setIsLoadingData(false));
-  }, []);
 
   // ── Focus trap ──
   useEffect(() => {
@@ -369,12 +370,79 @@ export default function TeacherDashboard() {
 
           <div className="space-y-4">
             {/* 🔔 Notifications Panel — wired to real API */}
+            
             <NotificationsPanel
               notifs={localNotifs}
               onMarkRead={markRead}
               onMarkAllRead={markAllRead}
               onSelect={setSelectedNotif}
             />
+
+            <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="material-symbols-outlined text-primary-600" style={{ fontSize: 18 }}>
+                  event_available
+                </span>
+                <h2 className="text-[13px] font-black text-slate-800 uppercase tracking-wide">
+                  Leave Balance
+                </h2>
+              </div>
+
+              {!leaveBalance ? (
+                <p className="text-[12px] text-slate-400 text-center py-4">
+                  No balance data yet
+                </p>
+              ) : (
+                <>
+                  <div className="flex items-end justify-between">
+                    <div>
+                      <p className="text-[38px] font-bold text-slate-900 leading-none">
+                        {leaveBalance.balance.toFixed(1)}
+                      </p>
+                      <p className="text-[12px] font-semibold text-slate-500 mt-1">
+                        days available
+                      </p>
+                    </div>
+                    {leaveBalance.balance < 2 && (
+                      <span className="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-wide">
+                        Low
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="my-3 h-px bg-slate-100" />
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="text-slate-500 font-medium">Carry-over</span>
+                      <span className="font-bold text-slate-700">
+                        {leaveBalance.carry_over.toFixed(1)} days
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="text-slate-500 font-medium">Used this year</span>
+                      <span className="font-bold text-slate-700">
+                        {leaveBalance.used_ytd.toFixed(1)} days
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="text-slate-500 font-medium">Academic year</span>
+                      <span className="font-bold text-slate-700">
+                        {leaveBalance.academic_year}
+                      </span>
+                    </div>
+                  </div>
+
+                  {leaveBalance.balance < 2 && (
+                    <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+                      <p className="text-[11px] font-semibold text-amber-700">
+                        ⚠️ Balance is low. Next credit on the 1st of next month.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
 
             {/* Pending Relief */}
             <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">

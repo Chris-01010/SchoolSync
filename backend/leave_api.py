@@ -481,6 +481,20 @@ async def hod_action_on_leave(
     if body.action == HODAction.APPROVE:
         absence.status = models.AbsenceStatus.APPROVED
         background_tasks.add_task(dispatch_relief_for_absence, absence.id, db)
+        balance_result = await db.execute(
+            select(models.TeacherLeaveBalance).where(
+                models.TeacherLeaveBalance.teacher_id == absence.teacher_id
+            )
+        )
+        leave_balance = balance_result.scalar_one_or_none()
+        if leave_balance:
+            days_to_deduct = 1.0
+            leave_balance.balance = round(
+                max(0.0, leave_balance.balance - days_to_deduct), 1
+            )
+            leave_balance.used_ytd = round(
+                leave_balance.used_ytd + days_to_deduct, 1
+            )
         notif_msg = f"Your {absence.leave_type} leave on {absence.date} has been approved."
 
     elif body.action == HODAction.REJECT:
