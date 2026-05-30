@@ -214,10 +214,17 @@ export default function TeacherHome() {
 
   const [leaveOpen, setLeaveOpen]         = useState(ctx?.leaveModalOpen ?? false);
   const [selectedNotif, setSelectedNotif] = useState(null);
+  const [leaveBalance, setLeaveBalance] = useState(null);
 
   useEffect(() => {
     if (ctx?.leaveModalOpen) setLeaveOpen(true);
   }, [ctx?.leaveModalOpen]);
+
+  useEffect(() => {
+    api.get('/leave-balance/me')
+      .then(res => setLeaveBalance(res?.data ?? null))
+      .catch(() => {});
+  }, []);
 
   const handleCloseLeave = () => {
     setLeaveOpen(false);
@@ -285,9 +292,42 @@ export default function TeacherHome() {
           </div>
         </motion.div>
 
-        {/* Stats */}
+        {/* Stats + Leave Balance */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {STATS.map((s) => <StatCard key={s.label} {...s} />)}
+
+          {/* Leave Balance Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.25 }}
+            className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow col-span-2 sm:col-span-1"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                <BookOpen size={15} className="text-violet-600" />
+              </div>
+              {leaveBalance && leaveBalance.balance < 2 && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-600">
+                  Low
+                </span>
+              )}
+            </div>
+
+            {!leaveBalance ? (
+              <p className="text-[11px] text-gray-400 mt-2">No balance data</p>
+            ) : (
+              <>
+                <p className="text-[26px] font-bold text-gray-900 leading-none mb-1">
+                  {leaveBalance.balance.toFixed(1)}
+                </p>
+                <p className="text-[11px] font-semibold text-gray-500">Leave Balance</p>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Used: {leaveBalance.used_ytd.toFixed(1)} · Carry: {leaveBalance.carry_over.toFixed(1)}
+                </p>
+              </>
+            )}
+          </motion.div>
         </div>
 
         {/* Schedule + Notifications */}

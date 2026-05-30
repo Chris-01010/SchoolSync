@@ -244,6 +244,10 @@ export default function TeacherDashboard() {
         setConfirmed(Array.isArray(confirmedData) ? confirmedData : []);
         setLeaveBalance(balanceData?.data ?? null);
       })
+      .catch(err => console.error('Dashboard fetch error:', err))
+      .finally(() => setIsLoadingData(false));
+  }, []);
+
 
   // ── Focus trap ──
   useEffect(() => {
