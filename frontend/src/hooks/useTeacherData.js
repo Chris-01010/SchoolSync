@@ -37,19 +37,37 @@ export function useTeacherProfile() {
   return { data, loading };
 }
 
+// Uses the 2-step approach from the branch: get teacher.id first, then fetch timetable with scope_id
 export function useTeacherTimetable() {
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch(`${BASE}/timetable/view?scope=teacher`, { headers: getHeaders() })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setData(d); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    async function load() {
+      try {
+        const profileRes = await fetch(`${BASE}/api/v1/teachers/me`, { headers: getHeaders() });
+        const profile = await profileRes.json();
+        const teacherId = profile?.id;
+        if (!teacherId) throw new Error('Teacher profile not found');
+
+        const res = await fetch(
+          `${BASE}/timetable/view?scope=teacher&scope_id=${teacherId}`,
+          { headers: getHeaders() }
+        );
+        const json = await res.json();
+        setData(json?.timetable ?? {});
+      } catch (e) {
+        setError(e.message);
+        setData({});
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
-  return { data, loading };
+  return { data, loading, error };
 }
 
 export function useTeacherLeaves() {
@@ -67,6 +85,7 @@ export function useTeacherLeaves() {
   return { data, loading };
 }
 
+// Full implementation from HEAD — includes refetch for real-time updates after responding
 export function useTeacherReliefPending() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +105,7 @@ export function useTeacherReliefPending() {
   return { data, loading, refetch };
 }
 
+// Full implementation from HEAD
 export function useTeacherReliefConfirmed() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -101,6 +121,7 @@ export function useTeacherReliefConfirmed() {
   return { data, loading };
 }
 
+// Uses normalizeNotifType from HEAD for consistent icon mapping across components
 export function useTeacherNotifications() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);

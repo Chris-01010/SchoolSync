@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, CheckCircle2 } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { useTeacherReliefPending, useTeacherReliefConfirmed } from '../../hooks/useTeacherData';
 import ReliefRequestCard from '../../components/teacher/ReliefRequestCard';
 
@@ -17,9 +17,7 @@ const CompletedRow = ({ duty, i }) => (
     </div>
     <div className="flex-1 min-w-0">
       <p className="text-[12px] font-bold text-gray-800">{duty.subject}</p>
-      <p className="text-[10px] text-gray-400 mt-0.5">
-        {duty.date} · Period {duty.period} · {duty.room}
-      </p>
+      <p className="text-[10px] text-gray-400 mt-0.5">{duty.date} · Period {duty.period} · {duty.room}</p>
     </div>
     <div className="text-right flex-shrink-0">
       <p className="text-[10px] font-semibold text-gray-600">{duty.relieving}</p>
@@ -55,31 +53,29 @@ export default function MyReliefDuties() {
 
   // Map pending API data → ReliefRequestCard shape
   const pending = (pendingData ?? []).map((r) => ({
-    id:           r.id,
+    id:            r.id,
     absentTeacher: r.absentTeacher ?? '—',
-    subject:      r.subject ?? '—',
-    class:        r.class ?? '—',
-    day:          r.day ?? '—',
-    period:       r.period ?? '—',
-    date:         r.date ?? '',
-    deadline:     r.deadline ?? null,
-    urgency:      null,
+    subject:       r.subject ?? '—',
+    class:         r.class ?? '—',
+    day:           r.day ?? '—',
+    period:        r.period ?? '—',
+    date:          r.date ?? '',
+    deadline:      r.deadline ?? null,
+    urgency:       null,
   }));
 
   const confirmed = (confirmedData ?? []).map((r) => ({
-    id:       r.id,
-    date:     r.day ?? '',
-    subject:  r.subject && r.class ? `${r.subject} (${r.class})` : (r.subject ?? '—'),
-    room:     r.room ?? 'TBD',
+    id:        r.id,
+    date:      r.day ?? '',
+    subject:   r.subject && r.class ? `${r.subject} (${r.class})` : (r.subject ?? '—'),
+    room:      r.room ?? 'TBD',
     relieving: r.originalTeacher ?? r.absentTeacher ?? '—',
-    period:   r.period ?? '—',
+    period:    r.period ?? '—',
   }));
 
   const isLoading = pendingLoading || confirmedLoading;
 
-  // Called by ReliefRequestCard after a successful response
-  const handleResponded = useCallback((id) => {
-    // If the hook exposes refetch use it, otherwise the next mount will refresh
+  const handleResponded = useCallback(() => {
     if (typeof refetchPending === 'function') refetchPending();
   }, [refetchPending]);
 
@@ -96,9 +92,7 @@ export default function MyReliefDuties() {
                 key={t}
                 onClick={() => setActiveTab(i)}
                 className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all ${
-                  activeTab === i
-                    ? 'bg-white text-blue-700 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                  activeTab === i ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 {t}

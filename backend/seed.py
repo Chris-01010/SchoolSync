@@ -16,6 +16,9 @@ async def seed_data():
     async with AsyncSessionLocal() as db:
         print("Starting seed...\n")
 
+        # ============================================================
+        # GROUP A — Departments (8)
+        # ============================================================
         departments_data = ["CS", "AD", "MECH", "EC", "AEI", "CIVIL", "IT", "EEE"]
         dept_ids = {}
         for name in departments_data:
@@ -26,6 +29,9 @@ async def seed_data():
         await db.commit()
         print(f"  ✓ {len(dept_ids)} departments")
 
+        # ============================================================
+        # GROUP B — Subjects/Courses (12)
+        # ============================================================
         subjects_data = [
             ("math",                       "CS"),
             ("data structures",            "CS"),
@@ -49,6 +55,9 @@ async def seed_data():
         await db.commit()
         print(f"  ✓ {len(subject_ids)} subjects")
 
+        # ============================================================
+        # GROUP C — Classes (10) — engineering batches
+        # ============================================================
         classes_data = [
             ("CS S3-A",    3, "A"),
             ("CS S3-B",    3, "B"),
@@ -72,6 +81,9 @@ async def seed_data():
         await db.commit()
         print(f"  ✓ {len(class_ids)} classes")
 
+        # ============================================================
+        # GROUP D — Rooms (10)
+        # ============================================================
         rooms_data = [
             ("Room 101",        60, "Lecture Hall"),
             ("Room 102",        60, "Lecture Hall"),
@@ -93,7 +105,11 @@ async def seed_data():
         await db.commit()
         print(f"  ✓ {len(room_ids)} rooms")
 
+        # ============================================================
+        # GROUP E — Users & Teacher profiles (16)
+        # ============================================================
         users_data = [
+            # (college_id, email, password, role, name, dept, cap, hrs)
             ("ADM001", "admin@schoolsync.com",            "admin123",   "admin",   None,                   None,    None, None),
             ("HOD001", "hod.cs@schoolsync.com",           "hod123",     "hod",     "Dr. Anita Sharma",     "CS",    5,    35),
             ("HOD002", "hod.ad@schoolsync.com",           "hod123",     "hod",     "Dr. Rajesh Kumar",     "AD",    5,    35),
@@ -148,6 +164,7 @@ async def seed_data():
         await db.commit()
         print(f"  ✓ {len(users_data)} users ({len(teacher_ids)} teacher profiles)")
 
+        # Link HODs to departments
         hod_dept_mapping = [
             ("CS", "Dr. Anita Sharma"),
             ("AD", "Dr. Rajesh Kumar"),
@@ -163,6 +180,9 @@ async def seed_data():
         await db.commit()
         print(f"  ✓ Linked {len(hod_dept_mapping)} HODs to departments")
 
+        # ============================================================
+        # GROUP F — Timetable Version (1)
+        # ============================================================
         tt_version = models.TimetableVersion(
             school_id=uuid.uuid4(),
             published_by=teacher_ids["Dr. Anita Sharma"],
@@ -175,6 +195,14 @@ async def seed_data():
         await db.commit()
         print(f"  ✓ 1 timetable version (active)")
 
+        # ============================================================
+        # GROUP G — Timetable Slots
+        # College timings — 6 teaching periods per day:
+        #   P1 08:30–09:40   P2 09:40–10:40   [break 10:40–11:00]
+        #   P3 11:00–12:00   [lunch 12:00–13:00]
+        #   P4 13:00–14:00   P5 14:00–15:00   [break 15:00–15:15]
+        #   P6 15:15–16:15
+        # ============================================================
         period_times = {
             1: ("08:30", "09:40"),
             2: ("09:40", "10:40"),
@@ -184,31 +212,37 @@ async def seed_data():
             6: ("15:15", "16:15"),
         }
 
+        # John Doe's full week (Mon-Fri = 0-4) × 6 periods = 30 slots
         john_schedule = [
+            # Monday
             (0, 1, "data structures",            "CS S3-A",   "Room 101"),
             (0, 2, "data structures",            "CS S3-B",   "Room 102"),
             (0, 3, "object-oriented techniques", "CS S5-A",   "Room 201"),
             (0, 4, "data structures",            "CS S3-A",   "CS Lab 1"),
             (0, 5, "data structures",            "CS S3-B",   "CS Lab 1"),
             (0, 6, "operating systems",          "CS S5-A",   "Room 201"),
+            # Tuesday
             (1, 1, "operating systems",          "CS S5-A",   "Room 201"),
             (1, 2, "object-oriented techniques", "IT S5-A",   "Room 301"),
             (1, 3, "data structures",            "AD S3-A",   "Room 102"),
             (1, 4, "computer structures",        "CS S3-A",   "Room 101"),
             (1, 5, "computer structures",        "CS S3-B",   "Room 102"),
             (1, 6, "minor/honors",               "CS S5-A",   "Seminar Hall"),
+            # Wednesday
             (2, 1, "data structures",            "CS S3-A",   "CS Lab 2"),
             (2, 2, "data structures",            "AD S3-A",   "CS Lab 2"),
             (2, 3, "object-oriented techniques", "CS S5-A",   "CS Lab 1"),
             (2, 4, "operating systems",          "IT S5-A",   "Room 301"),
             (2, 5, "computer structures",        "CS S3-A",   "Room 101"),
             (2, 6, "data structures",            "CS S3-B",   "CS Lab 2"),
+            # Thursday
             (3, 1, "object-oriented techniques", "CS S5-A",   "Room 201"),
             (3, 2, "data structures",            "CS S3-A",   "Room 101"),
             (3, 3, "operating systems",          "CS S5-A",   "Room 201"),
             (3, 4, "data structures",            "CS S3-B",   "Room 102"),
             (3, 5, "object-oriented techniques", "IT S5-A",   "Room 301"),
             (3, 6, "computer structures",        "AD S3-A",   "Room 202"),
+            # Friday
             (4, 1, "operating systems",          "CS S5-A",   "Room 201"),
             (4, 2, "data structures",            "CS S3-A",   "Room 101"),
             (4, 3, "object-oriented techniques", "CS S5-A",   "CS Lab 1"),
@@ -238,22 +272,23 @@ async def seed_data():
         await db.commit()
         print(f"  ✓ {slot_count} timetable slots (John Doe full week, 6 periods/day)")
 
+        # ============================================================
+        # GROUP H — Absences / Leave Applications (8)
+        # ============================================================
         today = date.today()
-        days_since_tuesday = (today.weekday() - 1) % 7
-        last_tuesday = today - timedelta(days=days_since_tuesday)
-
         absences_data = [
-            ("Priya Menon",   today + timedelta(days=2),  1, 3, "Sick Leave",     "Fever and rest advised by doctor",  models.AbsenceStatus.PENDING),
-            ("Ravi Iyer",     today + timedelta(days=3),  1, 6, "Casual Leave",   "Wedding in family",                 models.AbsenceStatus.PENDING),
-            ("Fatima Khan",   today + timedelta(days=1),  4, 6, "Personal Leave", "Urgent personal matter",            models.AbsenceStatus.PENDING),
-            ("Arjun Nair",    today + timedelta(days=5),  1, 6, "Casual Leave",   "Family function",                   models.AbsenceStatus.APPROVED),
-            ("Lakshmi Rao",   today + timedelta(days=7),  1, 6, "Earned Leave",   "Annual vacation",                   models.AbsenceStatus.APPROVED),
-            ("John Doe",      last_tuesday,               3, 5, "Sick Leave",     "Migraine",                          models.AbsenceStatus.APPROVED),
-            ("George Mathew", today - timedelta(days=5),  1, 3, "Sick Leave",     "Flu",                               models.AbsenceStatus.APPROVED),
-            ("Sneha Varma",   today + timedelta(days=4),  1, 2, "Personal Leave", "Bank appointment",                  models.AbsenceStatus.REJECTED),
+            ("Priya Menon",    2,   1, 3, "Sick Leave",     "Fever and rest advised by doctor",   models.AbsenceStatus.PENDING),
+            ("Ravi Iyer",      3,   1, 6, "Casual Leave",   "Wedding in family",                  models.AbsenceStatus.PENDING),
+            ("Fatima Khan",    1,   4, 6, "Personal Leave", "Urgent personal matter",             models.AbsenceStatus.PENDING),
+            ("Arjun Nair",     5,   1, 6, "Casual Leave",   "Family function",                    models.AbsenceStatus.APPROVED),
+            ("Lakshmi Rao",    7,   1, 6, "Earned Leave",   "Annual vacation",                    models.AbsenceStatus.APPROVED),
+            ("John Doe",      -3,   3, 5, "Sick Leave",     "Migraine",                           models.AbsenceStatus.APPROVED),
+            ("George Mathew", -5,   1, 3, "Sick Leave",     "Flu",                                models.AbsenceStatus.APPROVED),
+            ("Sneha Varma",    4,   1, 2, "Personal Leave", "Bank appointment",                   models.AbsenceStatus.REJECTED),
         ]
         absence_ids = {}
-        for name, abs_date, p_start, p_end, leave_type, reason, status in absences_data:
+        for name, offset, p_start, p_end, leave_type, reason, status in absences_data:
+            abs_date = today + timedelta(days=offset)
             absence = models.Absence(
                 teacher_id=teacher_ids[name],
                 date=abs_date,
@@ -262,21 +297,24 @@ async def seed_data():
                 leave_type=leave_type,
                 reason=reason,
                 status=status,
-                resolved=(status == models.AbsenceStatus.APPROVED and abs_date < today),
+                resolved=(status == models.AbsenceStatus.APPROVED and offset < 0),
             )
             db.add(absence)
             await db.flush()
-            absence_ids[name] = absence.id
+            absence_ids[f"{name}_{offset}"] = absence.id
         await db.commit()
         print(f"  ✓ {len(absences_data)} absence records")
 
+        # ============================================================
+        # GROUP I — Relief Assignments (6)
+        # ============================================================
         relief_data = [
-            ("Arjun Nair",    "Lakshmi Rao",  88, models.ReliefStatus.ACCEPTED, "AD/IT cross-coverage, available all day"),
-            ("Lakshmi Rao",   "Fatima Khan",  85, models.ReliefStatus.PENDING,  "Same IT department, free during P4-P6"),
-            ("John Doe",      "Priya Menon",  92, models.ReliefStatus.ACCEPTED, "Same CS department, OOP expertise"),
-            ("George Mathew", "Sneha Varma",  90, models.ReliefStatus.ACCEPTED, "EC/AEI cross-coverage, low weekly load"),
-            ("Priya Menon",   "Ravi Iyer",    78, models.ReliefStatus.PENDING,  "Same CS dept, data structures expertise"),
-            ("Fatima Khan",   "Lakshmi Rao",  82, models.ReliefStatus.PENDING,  "IT dept colleague, free periods P4-P6"),
+            ("Arjun Nair_5",     "Lakshmi Rao",   88, models.ReliefStatus.ACCEPTED, "AD/IT cross-coverage, available all day"),
+            ("Lakshmi Rao_7",    "Fatima Khan",   85, models.ReliefStatus.PENDING,  "Same IT department, free during P4-P6"),
+            ("John Doe_-3",      "Priya Menon",   92, models.ReliefStatus.ACCEPTED, "Same CS department, OOP expertise"),
+            ("George Mathew_-5", "Sneha Varma",   90, models.ReliefStatus.ACCEPTED, "EC/AEI cross-coverage, low weekly load"),
+            ("Priya Menon_2",    "Ravi Iyer",     78, models.ReliefStatus.PENDING,  "Same CS dept, data structures expertise"),
+            ("Fatima Khan_1",    "Lakshmi Rao",   82, models.ReliefStatus.PENDING,  "IT dept colleague, free periods P4-P6"),
         ]
         relief_count = 0
         for abs_key, relief_name, score, status, reason in relief_data:
@@ -295,26 +333,29 @@ async def seed_data():
         await db.commit()
         print(f"  ✓ {relief_count} relief assignments")
 
+        # ============================================================
+        # GROUP J — Notifications (10)
+        # ============================================================
         notifications_data = [
-            ("teacher@schoolsync.com",       "Relief assignment confirmed",
-             "You have been assigned to cover P3 (11:00-12:00), CS S5-A on Tuesday."),
-            ("teacher@schoolsync.com",       "Leave application approved",
+            ("teacher@schoolsync.com",          "Relief assignment confirmed",
+             "You have been assigned to cover P3 (11:00-12:00), CS S5-A on Friday."),
+            ("teacher@schoolsync.com",          "Leave application approved",
              "Your sick leave request for last week has been approved."),
-            ("priya.menon@schoolsync.com",   "Relief request pending",
+            ("priya.menon@schoolsync.com",      "Relief request pending",
              "You have a pending relief assignment for CS S3-A data structures."),
-            ("arjun.nair@schoolsync.com",    "Leave approved",
+            ("arjun.nair@schoolsync.com",       "Leave approved",
              "Your casual leave request has been approved by HOD."),
-            ("fatima.khan@schoolsync.com",   "Relief duty assigned",
+            ("fatima.khan@schoolsync.com",      "Relief duty assigned",
              "You have been assigned relief duty for an IT department class."),
-            ("hod.cs@schoolsync.com",        "New leave application",
+            ("hod.cs@schoolsync.com",           "New leave application",
              "Priya Menon has submitted a leave request for review."),
-            ("hod.cs@schoolsync.com",        "New leave application",
+            ("hod.cs@schoolsync.com",           "New leave application",
              "Ravi Iyer has submitted a casual leave request."),
-            ("hod.ad@schoolsync.com",        "Relief coverage update",
+            ("hod.ad@schoolsync.com",           "Relief coverage update",
              "Arjun Nair's classes have been fully covered for next week."),
-            ("admin@schoolsync.com",         "Timetable published",
+            ("admin@schoolsync.com",            "Timetable published",
              "The 2025-2026 academic year timetable is now active."),
-            ("admin@schoolsync.com",         "Weekly report ready",
+            ("admin@schoolsync.com",            "Weekly report ready",
              "This week's relief coverage report is ready for review."),
         ]
         notif_count = 0
@@ -332,17 +373,35 @@ async def seed_data():
         await db.commit()
         print(f"  ✓ {notif_count} notifications")
 
+        # ============================================================
+        # Summary
+        # ============================================================
         total = (len(dept_ids) + len(subject_ids) + len(class_ids) + len(room_ids)
                  + len(users_data) + 1 + slot_count + len(absences_data)
                  + relief_count + notif_count)
         print("\n" + "=" * 60)
         print(f"Seeding complete — {total} total records inserted")
         print("=" * 60)
+        print("\nDepartments: CS, AD, MECH, EC, AEI, CIVIL, IT, EEE")
+        print("Subjects: math, data structures, computer structures,")
+        print("          communication for engineers, object-oriented techniques,")
+        print("          dbms, mse, minor/honors, operating systems, COI, Python, C")
+        print("\nCollege timings (6 teaching periods):")
+        print("  P1 08:30-09:40   P2 09:40-10:40   [break 10:40-11:00]")
+        print("  P3 11:00-12:00   [lunch 12:00-13:00]")
+        print("  P4 13:00-14:00   P5 14:00-15:00   [break 15:00-15:15]")
+        print("  P6 15:15-16:15")
         print("\nLogin credentials:")
-        print("  Admin:        admin@schoolsync.com  / admin123")
-        print("  HOD CS:       hod.cs@schoolsync.com / hod123")
-        print("  Teacher:      teacher@schoolsync.com / teacher123")
-        print("  Other teachers: pass123")
+        print("  Admin:        admin@schoolsync.com           / admin123")
+        print("  HOD CS:       hod.cs@schoolsync.com          / hod123")
+        print("  HOD AD:       hod.ad@schoolsync.com          / hod123")
+        print("  HOD IT:       hod.it@schoolsync.com          / hod123")
+        print("  HOD EC:       hod.ec@schoolsync.com          / hod123")
+        print("  Teacher:      teacher@schoolsync.com         / teacher123")
+        print("  Other teachers: <firstname>.<lastname>@schoolsync.com / pass123")
+        print("    priya.menon, ravi.iyer, arjun.nair, lakshmi.rao,")
+        print("    fatima.khan, george.mathew, sneha.varma,")
+        print("    david.thomas, kiran.joseph, rahul.singh")
 
 
 if __name__ == "__main__":

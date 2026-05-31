@@ -1,25 +1,34 @@
-import os
-from pathlib import Path
+import uuid
 from dotenv import load_dotenv
+load_dotenv()
+import os
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 
-load_dotenv(dotenv_path=Path(__file__).parent / ".env")
-
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./schoolsync.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set")
 
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=True,
-    pool_pre_ping=True,        # test connection before using it
-    pool_recycle=300,          # recycle connections every 5 minutes
-    pool_size=5,
-    max_overflow=10,
-)
+# Remove prepared_statement_cache_size from URL if present
+# It must be passed via connect_args for asyncpg
+clean_url = DATABASE_URL.split("?")[0]
 
+
+engine = create_async_engine(
+    clean_url,
+    echo=False,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    connect_args={
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
+        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
+    },
+)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 Base = declarative_base()

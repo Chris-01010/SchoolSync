@@ -53,8 +53,8 @@ class HODActionRequest(BaseModel):
 
 
 class ReliefRespondRequest(BaseModel):
-    status: models.ReliefStatus
-    flag_reason: Optional[str] = None
+    status:       models.ReliefStatus
+    flag_reason:  Optional[str] = None
     flag_comment: Optional[str] = None
 
 class AdminOverrideRequest(BaseModel):
@@ -1010,11 +1010,6 @@ async def cancel_leave(
 # ─────────────────────────────────────────────────────────────────────────────
 # HOD: Assign relief teacher manually
 # ─────────────────────────────────────────────────────────────────────────────
-# ══════════════════════════════════════════════════════════════════════════════
-# REPLACEMENT for assign_relief_teacher in backend/leave_api.py
-# Find the function starting at line 1016 and replace the ENTIRE function
-# (from @router.post("/relief/{absence_id}/assign") through the closing return)
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/relief/{absence_id}/assign")
 async def assign_relief_teacher(
@@ -1054,7 +1049,7 @@ async def assign_relief_teacher(
             existing.relief_teacher_id = request.relief_teacher_id
             existing.status = models.ReliefStatus.PENDING
             existing.reason_text = request.note or "Manual override by HOD"
-            existing.assignment_mode = None   # DB enum has no 'manual' value
+            existing.assignment_mode = None
             existing.acknowledged_at = None
             await db.commit()
 
@@ -1083,16 +1078,30 @@ async def assign_relief_teacher(
         relief_teacher_id=request.relief_teacher_id,
         status=models.ReliefStatus.PENDING,
         reason_text=request.note or "Manual override by HOD",
-        assignment_mode=None,   # DB enum has no 'manual' value — use NULL
+        assignment_mode=None,
     )
     db.add(relief_assignment)
     await db.commit()
+    await db.refresh(relief_assignment)
+
+    # Build slot info string for notification
+    slot_info = ""
+    if request.slot_id:
+        slot_result = await db.execute(
+            select(models.TimetableSlot).where(models.TimetableSlot.id == request.slot_id)
+        )
+        slot = slot_result.scalar_one_or_none()
+        if slot:
+            day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+            day = day_names[slot.day_of_week] if 0 <= slot.day_of_week <= 4 else ""
+            slot_info = f" — {day}, Period {slot.period}"
 
     if relief_teacher.user_id:
         background_tasks.add_task(
             notify, db, relief_teacher.user_id,
-            "Relief Assignment (Override)",
-            "You have been manually assigned a relief duty by HOD. Please check your schedule.",
+            "Relief Duty Assigned",
+            f"You have been assigned a relief duty on {absence.date}{slot_info}. "
+            f"Please accept or reject from your dashboard.",
             "RELIEF_REQUEST",
             "/dashboard/relief-duties",
         )

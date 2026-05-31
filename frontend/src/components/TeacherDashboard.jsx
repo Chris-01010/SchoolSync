@@ -226,6 +226,48 @@ export default function TeacherDashboard() {
       .catch(console.error);
   }, []);
 
+  // ── Fetch dashboard data ──
+  useEffect(() => {
+    const token = localStorage.getItem('schoolsync_token');
+    if (!token) {
+      setIsLoadingData(false);
+      return;
+    }
+
+    const safeFetch = (url) =>
+      fetch(url, { headers: getHeaders() })
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null);
+
+    Promise.all([
+      safeFetch(`${BASE}/auth/me`),
+      safeFetch(`${BASE}/timetable/view?scope=teacher`),
+      safeFetch(`${BASE}/leaves/relief/my/pending`),
+      safeFetch(`${BASE}/leaves/relief/my/confirmed`),
+    ])
+      .then(([profile, timetableData, pendingData, confirmedData]) => {
+        if (profile) {
+          setTeacherData({
+            name:          profile.name || profile.email || profile.college_id,
+            department:    profile.department || '',
+            teachingHours: { completed: 0, total: 30 },
+            reliefHours: {
+              completed: Array.isArray(confirmedData) ? confirmedData.length : 0,
+              total: 5,
+            },
+            remainingCap: 0,
+          });
+        }
+
+        if (timetableData?.timetable) setTimetable(timetableData.timetable);
+        else if (timetableData && typeof timetableData === 'object') setTimetable(timetableData);
+
+        setPending(Array.isArray(pendingData) ? pendingData : []);
+        setConfirmed(Array.isArray(confirmedData) ? confirmedData : []);
+      })
+      .catch(console.error);
+  }, []);
+
   // ── Fetch timetable ──
   useEffect(() => {
     const token = localStorage.getItem('schoolsync_token');
@@ -292,6 +334,14 @@ export default function TeacherDashboard() {
       <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
     </div>
   );
+
+  const teacherName       = teacherData?.name       ?? user?.email ?? 'Teacher';
+  const teacherDept       = teacherData?.department  ?? '';
+  const teachingCompleted = teacherData?.teachingHours?.completed ?? 0;
+  const teachingTotal     = teacherData?.teachingHours?.total     ?? 30;
+  const reliefCompleted   = teacherData?.reliefHours?.completed   ?? 0;
+  const reliefTotal       = teacherData?.reliefHours?.total       ?? 5;
+  const remainingCap      = teacherData?.remainingCap             ?? 0;
 
   return (
     <div className="bg-surface-container-lowest min-h-screen">

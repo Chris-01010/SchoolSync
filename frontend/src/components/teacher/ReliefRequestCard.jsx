@@ -1,8 +1,5 @@
-// frontend/src/components/teacher/ReliefRequestCard.jsx
-// Calls the CORRECT backend endpoint: PUT /leaves/relief/{id}/respond
-
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, AlertTriangle, X, ChevronLeft } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, X, ArrowLeftRight, PlusCircle, CheckCircle2, ChevronLeft } from 'lucide-react';
 
 const BASE = 'http://localhost:8000';
 
@@ -16,15 +13,18 @@ function getHeaders() {
   };
 }
 
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 // ─── Countdown Timer ──────────────────────────────────────────────────────────
 function CountdownTimer({ deadline }) {
   const [timeLeft, setTimeLeft] = useState('');
+  const [expired, setExpired] = useState(false);
 
   useEffect(() => {
-    if (!deadline) { setTimeLeft('45 min'); return; }
+    if (!deadline || deadline === '45 mins') { setTimeLeft('45 min'); return; }
     const tick = () => {
       const diff = new Date(deadline) - Date.now();
-      if (diff <= 0) { setTimeLeft('Expired'); return; }
+      if (diff <= 0) { setExpired(true); setTimeLeft('Expired'); return; }
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
       const s = Math.floor((diff % 60000) / 1000);
@@ -36,8 +36,10 @@ function CountdownTimer({ deadline }) {
   }, [deadline]);
 
   return (
-    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-600">
-      ⏱ {timeLeft}
+    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+      expired ? 'bg-gray-100 text-gray-400' : 'bg-amber-50 text-amber-600'
+    }`}>
+      {expired ? 'Expired' : `⏱ ${timeLeft}`}
     </span>
   );
 }
@@ -105,16 +107,42 @@ function FlagModal({ onSubmit, onClose, loading }) {
   );
 }
 
-// ─── Main Card ────────────────────────────────────────────────────────────────
+// ─── Relief Request Card ──────────────────────────────────────────────────────
+// view: 'actions' | 'mode' | 'swap' | 'consume'
 export default function ReliefRequestCard({ request, onResponded }) {
-  const [loading, setLoading]   = useState(false);
-  const [flagOpen, setFlagOpen] = useState(false);
-  const [toast, setToast]       = useState(null);
-  const [view, setView]         = useState('actions'); // 'actions' | 'flag'
+  const [loading, setLoading]           = useState(false);
+  const [flagOpen, setFlagOpen]         = useState(false);
+  const [toast, setToast]               = useState(null);
+  const [view, setView]                 = useState('actions');
+  const [mySlots, setMySlots]           = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [selectedSlotId, setSelectedSlotId] = useState(null);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const resetView = () => {
+    setView('actions');
+    setSelectedSlotId(null);
+    setMySlots([]);
+  };
+
+  // Fetch swappable slots when entering swap view
+  const enterSwapView = async () => {
+    setView('swap');
+    setSlotsLoading(true);
+    try {
+      const res = await fetch(`${BASE}/relief/my-slots`, { headers: getHeaders() });
+      const data = await res.json();
+      setMySlots(data.slots ?? []);
+    } catch {
+      showToast('Could not load your slots.', 'error');
+      setView('mode');
+    } finally {
+      setSlotsLoading(false);
+    }
   };
 
   // ── Core respond — calls PUT /leaves/relief/{id}/respond ──────────────────
@@ -164,14 +192,12 @@ export default function ReliefRequestCard({ request, onResponded }) {
         <FlagModal
           loading={loading}
           onClose={() => setFlagOpen(false)}
-          onSubmit={(reason, comment) =>
-            respond('flagged', { flag_reason: reason, flag_comment: comment })
-          }
+          onSubmit={(reason, comment) => respond('flagged', { flag_reason: reason, flag_comment: comment })}
         />
       )}
 
       <div className="bg-white border border-gray-100 rounded-xl p-3.5 shadow-sm">
-        {/* Header */}
+        {/* Header — always visible */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div>
             <p className="text-[13px] font-bold text-gray-800">{request.absentTeacher}</p>
@@ -181,30 +207,117 @@ export default function ReliefRequestCard({ request, onResponded }) {
         </div>
         <p className="text-[11px] text-gray-500 mb-3">{request.day} · Period {request.period}</p>
 
-        {/* Actions */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => respond('rejected')}
-            disabled={loading}
-            className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[11px] font-semibold rounded-lg disabled:opacity-50 transition-colors"
-          >
-            <XCircle size={12} /> Reject
-          </button>
-          <button
-            onClick={() => setFlagOpen(true)}
-            disabled={loading}
-            className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-amber-400 hover:bg-amber-500 text-white text-[11px] font-semibold rounded-lg disabled:opacity-50 transition-colors"
-          >
-            <AlertTriangle size={12} /> Flag
-          </button>
-          <button
-            onClick={() => respond('accepted')}
-            disabled={loading}
-            className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-semibold rounded-lg disabled:opacity-50 transition-colors"
-          >
-            <CheckCircle size={12} /> Accept
-          </button>
-        </div>
+        {/* ── VIEW: actions (default) ── */}
+        {view === 'actions' && (
+          <div className="flex gap-2">
+            <button onClick={() => respond('rejected')} disabled={loading}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[11px] font-semibold rounded-lg disabled:opacity-50 transition-colors">
+              <XCircle size={12} /> Reject
+            </button>
+            <button onClick={() => setFlagOpen(true)} disabled={loading}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-amber-400 hover:bg-amber-500 text-white text-[11px] font-semibold rounded-lg disabled:opacity-50 transition-colors">
+              <AlertTriangle size={12} /> Flag
+            </button>
+            <button onClick={() => setView('mode')} disabled={loading}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-semibold rounded-lg disabled:opacity-50 transition-colors">
+              <CheckCircle size={12} /> Accept
+            </button>
+          </div>
+        )}
+
+        {/* ── VIEW: mode picker ── */}
+        {view === 'mode' && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1 mb-1">
+              <button onClick={resetView} className="text-gray-400 hover:text-gray-600">
+                <ChevronLeft size={14} />
+              </button>
+              <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wide">How would you like to cover this?</p>
+            </div>
+            <button onClick={enterSwapView}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 border-blue-200 bg-blue-50 hover:border-blue-400 hover:bg-blue-100 transition-all text-left">
+              <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                <ArrowLeftRight size={13} className="text-white" />
+              </div>
+              <div>
+                <p className="text-[12px] font-bold text-blue-900">Swap a Period</p>
+                <p className="text-[10px] text-blue-700">Trade one of your future slots. No workload change.</p>
+              </div>
+            </button>
+            <button onClick={() => setView('consume')}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:border-emerald-400 hover:bg-emerald-100 transition-all text-left">
+              <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center flex-shrink-0">
+                <PlusCircle size={13} className="text-white" />
+              </div>
+              <div>
+                <p className="text-[12px] font-bold text-emerald-900">Take Extra Hour</p>
+                <p className="text-[10px] text-emerald-700">Absent teacher confirms before workload updates.</p>
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* ── VIEW: swap slot picker ── */}
+        {view === 'swap' && (
+          <div>
+            <div className="flex items-center gap-1 mb-2">
+              <button onClick={() => setView('mode')} className="text-gray-400 hover:text-gray-600">
+                <ChevronLeft size={14} />
+              </button>
+              <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wide">Pick a slot to vacate</p>
+            </div>
+            {slotsLoading ? (
+              <p className="text-center py-4 text-[11px] text-gray-400">Loading your slots…</p>
+            ) : mySlots.length === 0 ? (
+              <p className="text-center py-4 text-[11px] text-gray-400">No future slots available to swap.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-40 overflow-y-auto mb-3">
+                {mySlots.map((s) => (
+                  <button key={s.slot_id} onClick={() => setSelectedSlotId(s.slot_id)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border-2 text-[11px] font-semibold transition-all ${
+                      selectedSlotId === s.slot_id
+                        ? 'border-blue-500 bg-blue-50 text-blue-800'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                    }`}>
+                    <span>{DAY_NAMES[s.day_of_week] ?? `Day ${s.day_of_week}`} · Period {s.period}</span>
+                    {selectedSlotId === s.slot_id && <CheckCircle2 size={13} className="text-blue-500" />}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!slotsLoading && mySlots.length > 0 && (
+              <button
+                onClick={() => respond('accepted', { mode: 'swap', swap_slot_id: selectedSlotId })}
+                disabled={!selectedSlotId || loading}
+                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-semibold disabled:opacity-50 transition-colors">
+                {loading ? 'Confirming…' : 'Confirm Swap'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── VIEW: consume confirmation ── */}
+        {view === 'consume' && (
+          <div>
+            <div className="flex items-center gap-1 mb-2">
+              <button onClick={() => setView('mode')} className="text-gray-400 hover:text-gray-600">
+                <ChevronLeft size={14} />
+              </button>
+              <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wide">Confirm extra hour</p>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 text-[11px] text-amber-800 space-y-1">
+              <p className="font-bold">Before confirming:</p>
+              <p>· Absent teacher must approve before your relief hours are credited</p>
+              <p>· If they reject, the slot reverts back to them</p>
+            </div>
+            <button
+              onClick={() => respond('accepted', { mode: 'consume' })}
+              disabled={loading}
+              className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-semibold disabled:opacity-50 transition-colors">
+              {loading ? 'Sending…' : 'Send Consume Request'}
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

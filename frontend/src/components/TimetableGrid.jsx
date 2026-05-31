@@ -9,8 +9,8 @@ import {
   RefreshCw,
   Clock,
 } from 'lucide-react';
+import BlockedSlotsPanel from "./BlockedSlotsPanel";
 
-// ─── Data ────────────────────────────────────────────────────────────────────
 const PERIODS = [
   { label: 'Period 1', time: '08:00–09:00' },
   { label: 'Period 2', time: '09:00–10:00' },
@@ -73,7 +73,6 @@ const METRICS = [
   { value: '01', label: 'Conflicts', icon: AlertTriangle, color: 'text-red-600', iconBg: 'bg-red-50' },
 ];
 
-// ─── Cell renderer ────────────────────────────────────────────────────────────
 const TimetableCell = ({ slot }) => {
   if (!slot) return <div className="h-full bg-gray-50 rounded-lg border border-dashed border-gray-200" />;
 
@@ -124,7 +123,6 @@ const TimetableCell = ({ slot }) => {
     );
   }
 
-  // Regular
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
@@ -137,7 +135,6 @@ const TimetableCell = ({ slot }) => {
   );
 };
 
-// ─── Main ────────────────────────────────────────────────────────────────────
 const TimetableGrid = ({ timetable: externalTimetable }) => {
   const [activeDate] = useState('23 Oct, 2023');
   const [subjectFilter, setSubjectFilter] = useState('All Subjects');
@@ -145,20 +142,14 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
 
   return (
     <div className="space-y-4 max-w-full">
-
-      {/* Page header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-[20px] font-bold text-gray-900">Department Timetable</h1>
           <p className="text-[12px] text-gray-400 mt-0.5">Science Department • Monday, Oct 23 2023</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button className="px-3 py-1.5 text-[11px] font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 bg-white">
-            Day View
-          </button>
-          <button className="px-3 py-1.5 text-[11px] font-semibold border border-blue-200 bg-blue-50 rounded-lg text-blue-700">
-            Week View
-          </button>
+          <button className="px-3 py-1.5 text-[11px] font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 bg-white">Day View</button>
+          <button className="px-3 py-1.5 text-[11px] font-semibold border border-blue-200 bg-blue-50 rounded-lg text-blue-700">Week View</button>
           <button className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 bg-white">
             <Download size={11} /> Export
           </button>
@@ -168,9 +159,7 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
         </div>
       </div>
 
-      {/* Filters row */}
       <div className="bg-white border border-gray-100 rounded-xl p-3 flex flex-wrap items-center gap-3 shadow-sm">
-        {/* Active Date */}
         <div className="flex flex-col">
           <span className="text-[9px] font-semibold text-gray-400 uppercase mb-1">Active Date</span>
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gray-200 rounded-lg text-[11px] text-gray-700 bg-gray-50 cursor-pointer">
@@ -178,10 +167,7 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
             {activeDate}
           </div>
         </div>
-
         <div className="w-px h-8 bg-gray-100" />
-
-        {/* Subject Filter */}
         <div className="flex flex-col">
           <span className="text-[9px] font-semibold text-gray-400 uppercase mb-1">Subject Filter</span>
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gray-200 rounded-lg text-[11px] text-gray-700 bg-white cursor-pointer min-w-[120px]">
@@ -189,10 +175,7 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
             <ChevronDown size={10} className="ml-auto text-gray-400" />
           </div>
         </div>
-
         <div className="w-px h-8 bg-gray-100" />
-
-        {/* Teacher Status */}
         <div className="flex flex-col">
           <span className="text-[9px] font-semibold text-gray-400 uppercase mb-1">Teacher Status</span>
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gray-200 rounded-lg text-[11px] text-gray-700 bg-white cursor-pointer min-w-[100px]">
@@ -200,10 +183,7 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
             <ChevronDown size={10} className="ml-auto text-gray-400" />
           </div>
         </div>
-
         <div className="w-px h-8 bg-gray-100" />
-
-        {/* Quick search */}
         <div className="flex flex-col flex-1 min-w-[140px]">
           <span className="text-[9px] font-semibold text-gray-400 uppercase mb-1">Quick Search</span>
           <input
@@ -213,12 +193,9 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
         </div>
       </div>
 
-      {/* Timetable grid */}
       <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <div style={{ minWidth: 820 }}>
-
-            {/* Period header row */}
             <div
               className="grid border-b border-gray-100 bg-gray-50"
               style={{ gridTemplateColumns: '160px repeat(7, 1fr)' }}
@@ -229,9 +206,7 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
               {PERIODS.map((p, i) => (
                 <div
                   key={i}
-                  className={`px-2 py-2 text-center border-l border-gray-100 ${
-                    p.label === 'Break' ? 'bg-gray-100' : ''
-                  }`}
+                  className={`px-2 py-2 text-center border-l border-gray-100 ${p.label === 'Break' ? 'bg-gray-100' : ''}`}
                 >
                   <p className="text-[10px] font-bold text-gray-700">{p.label}</p>
                   <p className="text-[9px] text-gray-400">{p.time}</p>
@@ -239,7 +214,6 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
               ))}
             </div>
 
-            {/* Teacher rows */}
             {TEACHERS.map((teacher, ti) => (
               <motion.div
                 key={teacher.id}
@@ -249,25 +223,18 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
                 className="grid border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
                 style={{ gridTemplateColumns: '160px repeat(7, 1fr)', minHeight: 60 }}
               >
-                {/* Teacher name cell */}
                 <div className="px-3 py-2 flex items-center gap-2 border-r border-gray-100">
-                  <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${teacher.color}`}
-                  >
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${teacher.color}`}>
                     {teacher.id}
                   </div>
                   <span className="text-[11px] font-semibold text-gray-700 leading-tight">
                     {teacher.name}
                   </span>
                 </div>
-
-                {/* Period cells */}
                 {teacher.slots.map((slot, si) => (
                   <div
                     key={si}
-                    className={`p-1.5 border-l border-gray-50 ${
-                      PERIODS[si]?.label === 'Break' ? 'bg-gray-50' : ''
-                    }`}
+                    className={`p-1.5 border-l border-gray-50 ${PERIODS[si]?.label === 'Break' ? 'bg-gray-50' : ''}`}
                   >
                     <TimetableCell slot={slot} />
                   </div>
@@ -278,10 +245,7 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
         </div>
       </div>
 
-      {/* Legend + Metrics */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
-
-        {/* Legend */}
         <div className="lg:col-span-1 bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-3">Color Legend</p>
           <div className="space-y-2">
@@ -299,7 +263,6 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
           </div>
         </div>
 
-        {/* Metric cards */}
         {METRICS.map((m, i) => (
           <motion.div
             key={i}
@@ -314,18 +277,17 @@ const TimetableGrid = ({ timetable: externalTimetable }) => {
             <div>
               <div className="flex items-baseline gap-1">
                 <span className={`text-[22px] font-bold ${m.color}`}>{m.value}</span>
-                {m.sub && (
-                  <span className="text-[10px] text-gray-400 font-medium">{m.sub}</span>
-                )}
+                {m.sub && <span className="text-[10px] text-gray-400 font-medium">{m.sub}</span>}
               </div>
               <p className="text-[10px] text-gray-400">{m.label}</p>
             </div>
           </motion.div>
         ))}
       </div>
+
+      <BlockedSlotsPanel />
     </div>
   );
 };
 
 export default TimetableGrid;
-

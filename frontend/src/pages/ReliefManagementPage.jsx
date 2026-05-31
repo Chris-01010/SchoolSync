@@ -35,7 +35,6 @@ function authHeaders() {
   };
 }
 
-// ── Animation variants ────────────────────────────────────────────────────────
 const containerV = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.04 } },
@@ -462,6 +461,7 @@ export default function ReliefManagementPage() {
     a => a._reliefStatus === "requested" || a._assignments?.some(x => x.status === "accepted")
   ).length;
 
+  // 3 stat cards — "LIVE UPDATES" card is removed
   const summaryStats = [
     { label: "TOTAL RELIEF TODAY", value: String(totalToday), sub: "Across all departments", accent: "text-teal-600",    icon: ShieldCheck,   iconBg: "bg-teal-50" },
     { label: "ASSIGNED",           value: String(assigned),   sub: "Successfully covered",   accent: "text-emerald-600", icon: CheckCircle2,  iconBg: "bg-emerald-50" },
@@ -792,7 +792,6 @@ export default function ReliefManagementPage() {
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-2xl rounded-2xl bg-white shadow-xl flex flex-col max-h-[90vh]"
             >
-              {/* Modal header */}
               <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
                 <div>
                   <div className="flex items-center gap-2">
@@ -812,7 +811,6 @@ export default function ReliefManagementPage() {
                 </button>
               </div>
 
-              {/* Modal body */}
               <div className="overflow-y-auto px-6 py-5 flex-1">
                 {/* Slot selector */}
                 {candidates.length > 1 && (
@@ -892,8 +890,6 @@ export default function ReliefManagementPage() {
                         />
                       ))}
                     </div>
-
-                    {/* Scoring legend */}
                     <div className="mt-4 rounded-lg bg-gray-50 p-3">
                       <p className="text-[11px] font-semibold text-gray-400 mb-2 uppercase tracking-wider">Scoring Criteria</p>
                       <div className="grid grid-cols-2 gap-1.5 text-xs text-gray-500">
@@ -977,7 +973,6 @@ export default function ReliefManagementPage() {
                 )}
               </div>
 
-              {/* Modal footer */}
               <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
                 <p className="text-xs text-gray-400">
                   {selectedCount > 0
