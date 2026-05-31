@@ -138,7 +138,9 @@ class Notification(Base):
     content = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
+    notification_type = Column(String, default="GENERAL")
+    action_url = Column(String, nullable=True)
+    read_at = Column(DateTime(timezone=True), nullable=True)
     user = relationship("User", back_populates="notifications")
 
 class TimetableVersion(Base):
@@ -203,6 +205,7 @@ class Absence(Base):
     resolution_report_url = Column(String)
     clarification_note = Column(String, nullable=True)
     is_full_day = Column(Boolean, default=True)
+    end_date = Column(Date, nullable=True)
 
     teacher = relationship("Teacher", back_populates="absences")
 

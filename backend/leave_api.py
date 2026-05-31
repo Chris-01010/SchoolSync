@@ -349,6 +349,7 @@ async def apply_leave(
         raise HTTPException(status_code=400, detail="start_date is required.")
 
     absence_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+    end_date = datetime.strptime(body.end_date, "%Y-%m-%d").date() if body.end_date else absence_date
 
     p_start = body.period_start if body.period_start is not None else 1
     p_end   = body.period_end   if body.period_end   is not None else 8
@@ -356,6 +357,7 @@ async def apply_leave(
     absence = models.Absence(
         teacher_id   = teacher.id,
         date         = absence_date,
+        end_date     = end_date,
         period_start = p_start,
         period_end   = p_end,
         leave_type   = body.leave_type.value,
@@ -451,7 +453,7 @@ async def get_my_leaves(
                 "id":                 str(l.id),
                 "date":               str(l.date),
                 "start_date":         str(l.date),
-                "end_date":           str(l.date),
+                "end_date":           str(l.end_date) if l.end_date else str(l.date),
                 "leave_type":         l.leave_type,
                 "reason":             l.reason,
                 "status":             l.status,
@@ -601,7 +603,7 @@ async def get_pending_leaves(
                 "id":                 str(l.id),
                 "teacher_name":       l.teacher.name if l.teacher else "Unknown Teacher",
                 "start_date":         str(l.date),
-                "end_date":           str(l.date),
+                "end_date":           str(l.end_date) if l.end_date else str(l.date),
                 "leave_type":         l.leave_type,
                 "reason":             l.reason,
                 "status":             l.status,
@@ -712,7 +714,7 @@ async def hod_action_on_leave(
 
     if body.action == HODAction.APPROVE:
         absence.status = models.AbsenceStatus.APPROVED
-        background_tasks.add_task(dispatch_relief_for_absence, absence.id, db)
+        background_tasks.add_task(dispatch_relief_for_absence, absence.id)
         balance_result = await db.execute(
             select(models.TeacherLeaveBalance).where(
                 models.TeacherLeaveBalance.teacher_id == absence.teacher_id
@@ -720,7 +722,9 @@ async def hod_action_on_leave(
         )
         leave_balance = balance_result.scalar_one_or_none()
         if leave_balance:
-            days_to_deduct = 1.0
+            # Calculate actual days from date range
+            end_date = getattr(absence, 'end_date', None) or absence.date
+            days_to_deduct = max(1.0, float((end_date - absence.date).days + 1))
             leave_balance.balance = round(
                 max(0.0, leave_balance.balance - days_to_deduct), 1
             )

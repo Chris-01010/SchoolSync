@@ -5,7 +5,7 @@ import { X, Upload, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 const LEAVE_TYPES = ['Sick Leave', 'Casual Leave', 'Duty Leave', 'Emergency Leave'];
 const MAX_FILE_BYTES = 3 * 1024 * 1024;
 
-const ApplyLeaveModal = ({ isOpen, onClose, onSubmit }) => {
+const ApplyLeaveModal = ({ isOpen, onClose, onSubmit, leaveBalance }) => {
   const [form, setForm] = useState({
     leaveType: 'Sick Leave',
     fromDate: '',
@@ -33,6 +33,10 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSubmit }) => {
       ? 'End date cannot be before start date'
       : null,
   };
+
+  const dayCount = form.fromDate && form.toDate
+    ? Math.round((new Date(form.toDate) - new Date(form.fromDate)) / (1000 * 60 * 60 * 24)) + 1
+    : 0;
 
   const isValid = !errors.fromDate && !errors.toDate && form.reason.trim();
 
@@ -79,7 +83,7 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSubmit }) => {
     setTouched({ fromDate: true, toDate: true });
     if (!isValid) return;
     try {
-      await onSubmit?.(form);
+      await onSubmit?.({ ...form, dayCount });
       setForm({ leaveType: 'Sick Leave', fromDate: '', toDate: '', reason: '', file: null, fileDataUrl: null });
       setFileError(null);
       setTouched({ fromDate: false, toDate: false });
@@ -215,6 +219,19 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSubmit }) => {
                     </div>
                   )}
                 </div>
+
+                {/* Low balance warning */}
+                {dayCount > 0 && leaveBalance !== null && dayCount > leaveBalance && (
+                  <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+                    <AlertCircle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] font-bold text-amber-800">Insufficient Leave Balance</p>
+                      <p className="text-[10px] text-amber-700 mt-0.5">
+                        You are requesting {dayCount} day{dayCount > 1 ? 's' : ''} but only have {leaveBalance.toFixed(1)} day{leaveBalance !== 1 ? 's' : ''} remaining. Your balance will go to 0.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Actions */}
                 <div className="flex items-center justify-end gap-3 pt-1">

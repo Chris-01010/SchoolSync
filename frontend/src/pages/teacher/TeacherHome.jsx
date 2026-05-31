@@ -369,6 +369,7 @@ export default function TeacherHome() {
   const [leaveOpen, setLeaveOpen] = useState(ctx?.leaveModalOpen ?? false);
   const [selectedNotif, setSelectedNotif] = useState(null);
   const [leaveBalance, setLeaveBalance] = useState(null);
+  const [leaveCounts, setLeaveCounts] = useState({ pending: 0, approved: 0 });
 
   useEffect(() => {
     if (ctx?.leaveModalOpen) {
@@ -379,6 +380,16 @@ export default function TeacherHome() {
   useEffect(() => {
     api.get('/leave-balance/me')
       .then(res => setLeaveBalance(res?.data ?? null))
+      .catch(() => {});
+
+    api.get('/leaves/my')
+      .then(res => {
+        const list = Array.isArray(res) ? res : (res?.data ?? []);
+        setLeaveCounts({
+          pending:  list.filter(l => l.status === 'pending').length,
+          approved: list.filter(l => l.status === 'approved').length,
+        });
+      })
       .catch(() => {});
   }, []);
 
@@ -395,8 +406,8 @@ export default function TeacherHome() {
     totalClassesToday: 0,
     completedClassesToday: 0,
     freePeriodsToday: 0,
-    pendingLeaveRequests: 0,
-    approvedLeaves: 0,
+    pendingLeaveRequests: leaveCounts.pending,
+    approvedLeaves: leaveCounts.approved,
 
     reliefDutiesToday:
       confirmedReliefs.length,
@@ -941,12 +952,9 @@ export default function TeacherHome() {
       {/* Apply Leave Modal */}
       <ApplyLeaveModal
         isOpen={leaveOpen}
-        onClose={
-          handleCloseLeave
-        }
-        onSubmit={async (
-          data
-        ) => {
+        onClose={handleCloseLeave}
+        leaveBalance={leaveBalance?.balance ?? null}
+        onSubmit={async (data) => {
           try {
             const raw = (
               data.leaveType ||
@@ -971,31 +979,15 @@ export default function TeacherHome() {
                 .toISOString()
                 .slice(0, 10);
 
-            await api.post(
-              '/leaves/apply',
-              {
-                date: dateStr,
-
-                period_start:
-                  data.periodStart ??
-                  1,
-
-                period_end:
-                  data.periodEnd ??
-                  data.periodStart ??
-                  8,
-
-                leave_type,
-
-                reason:
-                  data.reason ||
-                  'No reason provided',
-
-                handover_url:
-                  data.fileDataUrl ||
-                  null,
-              }
-            );
+            await api.post('/leaves/apply', {
+              date: dateStr,
+              end_date: data.toDate || dateStr,
+              period_start: 1,
+              period_end: 8,
+              leave_type,
+              reason: data.reason || 'No reason provided',
+              handover_url: data.fileDataUrl || null,
+            });
 
             handleCloseLeave();
           } catch (err) {
