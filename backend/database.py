@@ -1,4 +1,6 @@
+import uuid
 from dotenv import load_dotenv
+load_dotenv()
 import os
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -13,13 +15,20 @@ if not DATABASE_URL:
 # It must be passed via connect_args for asyncpg
 clean_url = DATABASE_URL.split("?")[0]
 
+
 engine = create_async_engine(
     clean_url,
-    echo=True,
-    connect_args={"prepared_statement_cache_size": 0},
+    echo=False,
+    pool_size=10,
+    max_overflow=20,
     pool_pre_ping=True,
+    pool_recycle=300,
+    connect_args={
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
+        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
+    },
 )
-
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 Base = declarative_base()

@@ -115,7 +115,7 @@ export default function App() {
             {/* ── HOD Portal ───────────────────────────────────────────────── */}
             <Route path="/hod" element={<RoleRoute allowedRoles={['hod']}><HODLayout /></RoleRoute>}>
               <Route index             element={<HODDashboard />} />
-              <Route path="timetables" element={<TimetableGrid />} />
+              <Route path="timetables" element={<TimetablePage />} />
               <Route path="leave"      element={<LeaveManagement />} />
               <Route path="relief" element={<ReliefManagementPage />} />
               <Route path="analytics"  element={<AnalyticsPlaceholder />} />
