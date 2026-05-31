@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-﻿import React, { useState, useEffect } from "react";
-import { Bell,LogOut, Menu, Plus, CheckCircle2, Repeat2, Users, X } from "lucide-react";
-=======
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Bell, Clock, LogOut, Menu, Plus, CheckCircle2, Repeat2, Users, X, Check } from "lucide-react";
->>>>>>> b026934dc7012629fea7818cb7e8b6262b512550
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -136,7 +131,6 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
 
   const handleAccept = () => { setPendingReliefs((p) => p.slice(1)); setToastMessage({ text: "Assignment accepted", kind: "accept" }); };
   const handleReject = () => { setPendingReliefs((p) => p.slice(1)); setToastMessage({ text: "Assignment rejected", kind: "reject" }); };
-  // REMOVED: handleFlag — teachers cannot flag relief requests
 
   const isOnLeavesPage = /leaves|my-leaves/i.test(location.pathname);
 
@@ -161,7 +155,6 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   const toastStyles = {
     accept: "bg-emerald-50 border-emerald-200 text-emerald-700",
     reject: "bg-gray-50 border-gray-200 text-gray-700",
-    // REMOVED: flag toast style — teachers cannot flag
     error:  "bg-red-50 border-red-200 text-red-700",
   };
 
@@ -255,15 +248,6 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
             )}
           </div>
 
-<<<<<<< HEAD
-                    {!isOnLeavesPage && (
-            <button
-              onClick={onApplyLeave}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-[11px] font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus size={12} />
-              Apply Leave
-=======
           <button className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
             <Clock size={16} />
           </button>
@@ -271,7 +255,6 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
           {!isOnLeavesPage && (
             <button onClick={onApplyLeave} className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-[11px] font-semibold rounded-lg hover:bg-blue-700 transition-colors">
               <Plus size={12} /> Apply Leave
->>>>>>> b026934dc7012629fea7818cb7e8b6262b512550
             </button>
           )}
 
@@ -293,7 +276,7 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
           onClose={() => setReliefModalOpen(false)}
           assignment={activeAssignment}
           onAccept={handleAccept}
-         onReject={handleReject}
+          onReject={handleReject}
       />
 
       <AnimatePresence>
