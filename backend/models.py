@@ -344,23 +344,6 @@ class BlockedSlot(Base):
     teacher = relationship("Teacher", back_populates="blocked_slot_entries")
 
 
-class AuditLog(Base):
-    __tablename__ = "audit_logs"
-
-    id              = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    department_id   = Column(GUID(), ForeignKey("departments.id"), nullable=False)
-    subject_id      = Column(GUID(), ForeignKey("subjects.id"), nullable=False)
-    created_at      = Column(DateTime(timezone=True), server_default=func.now())
-    department_name = Column(String, nullable=True)
-    subject_name    = Column(String, nullable=True)
-
-    department = relationship("Department", foreign_keys=[department_id])
-    subject    = relationship("Subject", foreign_keys=[subject_id])
-
-    __table_args__ = (
-        UniqueConstraint("department_id", "subject_id"),
-    )
-
 
 class TeacherLeaveBalance(Base):
     __tablename__ = "teacher_leave_balances"
@@ -411,3 +394,13 @@ class DepartmentSubject(Base):
     __table_args__ = (
         UniqueConstraint("department_id", "subject_id"),
     )
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id         = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id    = Column(GUID(), ForeignKey("users.id"), nullable=True)
+    action     = Column(String, nullable=False)
+    target     = Column(String, nullable=True)
+    detail     = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now())
