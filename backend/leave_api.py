@@ -803,48 +803,18 @@ async def respond_to_relief(
     if assignment.status != models.ReliefStatus.PENDING:
         raise HTTPException(status_code=409, detail=f"Already {assignment.status}.")
 
+    if body.status == models.ReliefStatus.FLAGGED:
+        raise HTTPException(
+            status_code=403,
+            detail="Teachers cannot flag relief requests."
+        )
+
     assignment.status = body.status
 
     if body.status == models.ReliefStatus.ACCEPTED:
         assignment.acknowledged_at    = datetime.utcnow()
         teacher.current_relief_hours += 1
         teacher.total_hours_worked   += 1
-
-        if teacher.department_id:
-            dept_result = await db.execute(
-                select(models.Department).where(models.Department.id == teacher.department_id)
-            )
-            dept = dept_result.scalar_one_or_none()
-            if dept and dept.hod_id:
-                hod_teacher_result = await db.execute(
-                    select(models.Teacher).where(models.Teacher.id == dept.hod_id)
-                )
-                hod_teacher = hod_teacher_result.scalar_one_or_none()
-                if hod_teacher and hod_teacher.user_id:
-                    background_tasks.add_task(
-                        notify, db, hod_teacher.user_id,
-                        "Relief Accepted",
-                        f"{teacher.name} has accepted the relief duty.",
-                        "RELIEF_REQUEST",
-                        "/hod/relief",
-                    )
-
-    elif body.status == models.ReliefStatus.FLAGGED:
-        if not body.flag_reason:
-            raise HTTPException(status_code=400, detail="flag_reason is required when flagging.")
-        assignment.flag_reason = (
-            f"{body.flag_reason} — {body.flag_comment}"
-            if body.flag_comment
-            else body.flag_reason
-        )
-        for admin in admins_result.scalars().all():
-            background_tasks.add_task(
-                notify, db, admin.id,
-                "Relief Assignment Flagged",
-                f"{teacher.name} flagged a relief assignment. Reason: {body.flag_reason}",
-                "RELIEF_REQUEST",
-                "/admin/relief",
-            )
 
     elif body.status == models.ReliefStatus.REJECTED:
         background_tasks.add_task(_rollover_relief, assignment_id)
