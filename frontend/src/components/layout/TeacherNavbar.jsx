@@ -131,7 +131,7 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
 
   const handleAccept = () => { setPendingReliefs((p) => p.slice(1)); setToastMessage({ text: "Assignment accepted", kind: "accept" }); };
   const handleReject = () => { setPendingReliefs((p) => p.slice(1)); setToastMessage({ text: "Assignment rejected", kind: "reject" }); };
-  const handleFlag   = () => { setPendingReliefs((p) => p.slice(1)); setToastMessage({ text: "Assignment flagged for admin review", kind: "flag" }); };
+  // REMOVED: handleFlag — teachers cannot flag relief requests
 
   const isOnLeavesPage = /leaves|my-leaves/i.test(location.pathname);
 
@@ -156,7 +156,7 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   const toastStyles = {
     accept: "bg-emerald-50 border-emerald-200 text-emerald-700",
     reject: "bg-gray-50 border-gray-200 text-gray-700",
-    flag:   "bg-amber-50 border-amber-200 text-amber-700",
+    // REMOVED: flag toast style — teachers cannot flag
     error:  "bg-red-50 border-red-200 text-red-700",
   };
 
@@ -274,12 +274,11 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
       </header>
 
       <ReliefAssignmentModal
-        isOpen={reliefModalOpen}
-        onClose={() => setReliefModalOpen(false)}
-        assignment={activeAssignment}
-        onAccept={handleAccept}
-        onReject={handleReject}
-        onFlag={handleFlag}
+          isOpen={reliefModalOpen}
+          onClose={() => setReliefModalOpen(false)}
+          assignment={activeAssignment}
+          onAccept={handleAccept}
+         onReject={handleReject}
       />
 
       <AnimatePresence>
