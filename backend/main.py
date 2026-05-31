@@ -355,7 +355,13 @@ async def generate_timetable_sync(db: AsyncSession = Depends(get_db)):
     if not classes:
         raise HTTPException(status_code=400, detail="No classes found in database")
 
-    await db.execute(models.TimetableVersion.__table__.update().values(is_active=False))
+    # Wipe previous timetable data first
+    await db.execute(delete(models.ReliefAssignment))
+    await db.execute(delete(models.TimetableSlot))
+    await db.execute(delete(models.TimetableVersion))
+    await db.commit()
+
+    # Create the new active version
     version = models.TimetableVersion(
         id=str(uuid_module.uuid4()),
         is_active=True,
@@ -364,9 +370,6 @@ async def generate_timetable_sync(db: AsyncSession = Depends(get_db)):
     )
     db.add(version)
     await db.flush()
-    await db.execute(delete(models.TimetableSlot))
-    await db.commit()
-
     # All IDs as strings, no UUID/string mixing
     room_ids = [str(r.id) for r in rooms]
     teacher_by_id = {str(t.id): t for t in teachers}
