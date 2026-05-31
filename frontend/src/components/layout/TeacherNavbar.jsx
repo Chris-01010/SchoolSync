@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from "react";
-import { Bell, Clock, LogOut, Menu, Plus, CheckCircle2, Repeat2, Users, X } from "lucide-react";
+import { Bell,LogOut, Menu, Plus, CheckCircle2, Repeat2, Users, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -235,11 +235,7 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
             )}
           </div>
 
-          <button className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors" aria-label="Time">
-            <Clock size={16} />
-          </button>
-
-          {!isOnLeavesPage && (
+                    {!isOnLeavesPage && (
             <button
               onClick={onApplyLeave}
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-[11px] font-semibold rounded-lg hover:bg-blue-700 transition-colors"

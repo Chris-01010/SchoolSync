@@ -7,6 +7,7 @@ import logging
 from uuid import UUID
 from datetime import timedelta, datetime
 from typing import List, Optional
+from sqlalchemy.orm import selectinload
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -714,4 +715,29 @@ async def trigger_timetable_generation(
     return {
         "task_id": task.id,
         "status": "pending"
+    }
+@app.get("/hod/profile")    
+async def get_hod_profile(
+    current_user: models.User = Depends(auth.check_role([models.UserRole.HOD])   # ← ensure HOD role is allowed
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    # Fetch the Teacher row linked to this user (has name, email, department)
+    result = await db.execute(
+        select(models.Teacher)
+        .options(selectinload(models.Teacher.dept_link))
+        .where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = result.scalar_one_or_none()
+
+    if not teacher:
+        raise HTTPException(status_code=404, detail="HOD profile not found")
+
+    return {
+        "name":         teacher.name,
+        "employee_id":  str(current_user.college_id),   # college_id is the employee ID
+        "email":        teacher.email,
+        "department":   teacher.dept_link.name if teacher.dept_link else None,
+        "role":         current_user.role.value,         # "hod"
+        "joining_date": current_user.created_at.date().isoformat() if current_user.created_at else None,
     }

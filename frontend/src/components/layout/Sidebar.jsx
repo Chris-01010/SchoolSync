@@ -30,6 +30,7 @@ const HOD_NAV = [
   { label: 'Leave Approvals',     icon: ClipboardCheck,  to: '/hod/leave' },
   { label: 'Relief Management',   icon: UserCheck,       to: '/hod/relief' },
   { label: 'Analytics',           icon: BarChart3,       to: '/hod/analytics' },
+  { label: 'Profile',             icon: User,            to: '/hod/profile' },
 ];
 
 const TEACHER_NAV = [
@@ -125,7 +126,7 @@ const Sidebar = ({ open, onClose, user, onApplyLeave }) => {
         </div>
 
         {/* User pill (teacher role only) */}
-        {role === 'teacher' && user && (
+        {user && (
           <div className="px-3 pt-3 pb-1">
             <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50 border border-gray-100">
               <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
@@ -140,7 +141,9 @@ const Sidebar = ({ open, onClose, user, onApplyLeave }) => {
                 <p className="text-[11px] font-bold text-gray-800 truncate leading-tight">
                   {user.name ?? user.email}
                 </p>
-                <p className="text-[10px] text-gray-400 truncate">Mathematics Dept</p>
+                
+                <p className="text-[10px] text-gray-400 truncate capitalize">
+                  {user.department ?? user.role ?? 'User'}</p>
               </div>
             </div>
           </div>
