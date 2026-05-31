@@ -65,7 +65,7 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   useEffect(() => { fetchNotifs(); }, []);
 
   useEffect(() => {
-    api.get("/teacher/me/relief/pending")
+    api.get("/relief/assignments/pending")
       .then((data) => setPendingReliefs(Array.isArray(data) ? data : []))
       .catch(() => setPendingReliefs([]));
   }, []);

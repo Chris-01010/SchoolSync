@@ -527,6 +527,28 @@ async def list_teachers(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.Teacher))
     return result.scalars().all()
 
+@app.get("/api/v1/teachers/me")
+async def get_my_teacher_profile(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == str(current_user.id))
+    )
+    teacher = result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found")
+    return {
+        "id": str(teacher.id),
+        "name": teacher.name,
+        "email": teacher.email,
+        "department_id": str(teacher.department_id) if teacher.department_id else None,
+        "weekly_relief_cap": teacher.weekly_relief_cap,
+        "current_relief_hours": teacher.current_relief_hours,
+        "total_hours_worked": teacher.total_hours_worked,
+        "is_active": teacher.is_active,
+    }
+
 # ─── Teacher Dashboard ─────────────────────────────────────────────────────────
 @app.get("/teachers/me/dashboard", response_model=schemas.DashboardSummary, dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))])
 async def get_teacher_dashboard(current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
