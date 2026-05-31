@@ -562,7 +562,7 @@ export default function TeacherHome() {
   const activeReliefDutiesToday = todaySchedule;
 
   return (
-    <div className="space-y-5 max-w-[1280px]">
+    <div className="flex-1 overflow-y-auto pb-[96px] px-4 py-4 space-y-5 max-w-[1280px] w-full mx-auto">
       {/* Welcome */}
       <motion.div
         initial={{
@@ -578,22 +578,6 @@ export default function TeacherHome() {
         }}
         className="flex items-start justify-between"
       >
-        <div>
-          <h1 className="text-[20px] font-bold text-blue-600 leading-tight">
-            Welcome back,{' '}
-            {teacherName}
-          </h1>
-
-      {/* ── Scrollable zone ── */}
-      <div className="flex-1 overflow-y-auto pb-[96px] px-4 py-4 space-y-5 max-w-[1280px] w-full mx-auto">
-
-        {/* Welcome */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="flex items-start justify-between"
-        >
           <div>
             <h1 className="text-[20px] font-bold text-blue-600 leading-tight">
               Welcome back, {teacherName}
@@ -642,37 +626,6 @@ export default function TeacherHome() {
               </>
             )}
           </motion.div>
-          <p className="text-[11px] font-semibold text-gray-400 mt-0.5 uppercase tracking-wider">
-            {new Date().toLocaleDateString(
-              'en-US',
-              {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              }
-            ).toUpperCase()}
-            {' · '}
-            {new Date().toLocaleTimeString(
-              'en-US',
-              {
-                hour: '2-digit',
-                minute:
-                  '2-digit',
-              }
-            )}
-          </p>
-        </div>
-      </motion.div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-        {STATS.map((s) => (
-          <StatCard
-            key={s.label}
-            {...s}
-          />
-        ))}
       </div>
 
       {/* Quick Actions */}
