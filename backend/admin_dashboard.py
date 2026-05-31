@@ -11,7 +11,7 @@ from .database import get_db
 from .models import (
     User, UserRole, Teacher, Department, ClassRoom, Absence,
     ReliefAssignment, AbsenceStatus, ReliefStatus, TimetableVersion, TimetableSlot,
-    Notification, AuditLog
+    Notification
 )
 from . import auth
 from .schemas import (

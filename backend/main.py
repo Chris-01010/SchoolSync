@@ -597,10 +597,13 @@ async def respond_to_relief(
         raise HTTPException(status_code=404, detail="Relief assignment not found")
     if assignment.relief_teacher_id != teacher.id:
         raise HTTPException(status_code=403, detail="Not authorized to respond to this assignment")
-    assignment.status = response.status
     if response.status == models.ReliefStatus.FLAGGED:
-        assignment.flag_reason = response.flag_reason
-    elif response.status == models.ReliefStatus.ACCEPTED:
+        raise HTTPException(
+            status_code=403,
+            detail="Teachers cannot flag relief requests."
+        )
+    assignment.status = response.status
+    if response.status == models.ReliefStatus.ACCEPTED:
         assignment.acknowledged_at = datetime.utcnow()
     await db.commit()
     await db.refresh(assignment)

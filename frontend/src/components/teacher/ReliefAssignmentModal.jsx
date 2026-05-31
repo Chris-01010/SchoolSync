@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, BookOpen, Clock, User, Calendar, CheckCircle2, AlertTriangle, ArrowLeftRight, PlusCircle, ChevronLeft } from 'lucide-react';
+import { X, BookOpen, Clock, User, Calendar, CheckCircle2, ArrowLeftRight, PlusCircle, ChevronLeft } from 'lucide-react';
+// REMOVED: AlertTriangle — was only used by the Flag button and flag toast
 import { api } from '../../services/api';
 
-const FLAG_REASONS = [
-  { value: 'conflict',         label: 'Schedule conflict' },
-  { value: 'not_qualified',    label: 'Not qualified for this subject' },
-  { value: 'already_assigned', label: 'Already assigned for overlapping period' },
-  { value: 'other',            label: 'Other' },
-];
+// REMOVED: FLAG_REASONS — was only used by the flag form view
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -24,32 +20,29 @@ const InfoCell = ({ Icon, label, value, sub }) => (
 );
 
 // ─── View names ───────────────────────────────────────────────────────────────
-// 'detail'   — default: shows assignment info + Reject/Flag/Accept
+// 'detail'   — default: shows assignment info + Reject / Accept
 // 'mode'     — after Accept: choose Swap or Consume
 // 'swap'     — slot picker
 // 'consume'  — confirmation step
-// 'flag'     — flag form
+// REMOVED: 'flag' view — teachers cannot flag relief requests
 
-const ReliefAssignmentModal = ({ isOpen, onClose, assignment, onAccept, onReject, onFlag }) => {
-  const [view, setView]             = useState('detail');
-  const [flagReason, setFlagReason] = useState('');
-  const [flagComment, setFlagComment] = useState('');
-  const [flagError, setFlagError]   = useState('');
-  const [loading, setLoading]       = useState(false);
-  const [toast, setToast]           = useState(null);
+// REMOVED: onFlag prop — teachers cannot flag; prop removed from destructure
+const ReliefAssignmentModal = ({ isOpen, onClose, assignment, onAccept, onReject }) => {
+  const [view, setView]   = useState('detail');
+  // REMOVED: flagReason, flagComment, flagError state — only used by flag form
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast]     = useState(null);
 
   // Swap slot picker state
-  const [mySlots, setMySlots]           = useState([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [mySlots, setMySlots]               = useState([]);
+  const [slotsLoading, setSlotsLoading]     = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState(null);
 
   // Reset all state when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setView('detail');
-      setFlagReason('');
-      setFlagComment('');
-      setFlagError('');
+      // REMOVED: setFlagReason, setFlagComment, setFlagError resets
       setLoading(false);
       setToast(null);
       setMySlots([]);
@@ -81,13 +74,13 @@ const ReliefAssignmentModal = ({ isOpen, onClose, assignment, onAccept, onReject
     }
   };
 
-  // ── Core respond function (handles all modes) ──
+  // ── Core respond function (accept and reject only) ──
+  // REMOVED: 'flagged' branch — teachers cannot flag relief requests
   const handleRespond = async (status, extras = {}) => {
     if (!assignment?.id) return;
     setLoading(true);
     try {
       if (status === 'accepted') {
-        // New endpoint: POST /relief/assignments/{id}/respond
         const body = { response: 'accepted', mode: extras.mode };
         if (extras.mode === 'swap') body.swap_slot_id = extras.swap_slot_id;
         await api.post(`/relief/assignments/${assignment.id}/respond`, body);
@@ -103,15 +96,6 @@ const ReliefAssignmentModal = ({ isOpen, onClose, assignment, onAccept, onReject
         await api.post(`/relief/assignments/${assignment.id}/respond`, { response: 'rejected' });
         showToast('Relief request rejected.', 'reject');
         setTimeout(() => { onReject?.(); handleClose(); }, 1000);
-
-      } else if (status === 'flagged') {
-        await api.post(`/relief/assignments/${assignment.id}/respond`, {
-          response: 'flagged',
-          flag_reason: extras.flag_reason,
-          flag_comment: extras.flag_comment,
-        });
-        showToast('Request flagged for admin review.', 'flag');
-        setTimeout(() => { onFlag?.(); handleClose(); }, 1000);
       }
     } catch (err) {
       const msg = err.message || 'Something went wrong.';
@@ -121,20 +105,12 @@ const ReliefAssignmentModal = ({ isOpen, onClose, assignment, onAccept, onReject
     }
   };
 
-  const handleFlagSubmit = () => {
-    if (!flagReason) { setFlagError('Please select a reason.'); return; }
-    if (flagReason === 'other' && !flagComment.trim()) {
-      setFlagError("Please provide a comment for 'Other' reason.");
-      return;
-    }
-    setFlagError('');
-    handleRespond('flagged', { flag_reason: flagReason, flag_comment: flagComment.trim() });
-  };
+  // REMOVED: handleFlagSubmit() — teachers cannot flag relief requests
 
   const toastStyles = {
     accept: 'bg-emerald-50 border-emerald-200 text-emerald-700',
     reject: 'bg-gray-50 border-gray-200 text-gray-700',
-    flag:   'bg-amber-50 border-amber-200 text-amber-700',
+    // REMOVED: flag toast style — teachers cannot flag
     error:  'bg-red-50 border-red-200 text-red-700',
     success:'bg-emerald-50 border-emerald-200 text-emerald-700',
   };
@@ -144,14 +120,14 @@ const ReliefAssignmentModal = ({ isOpen, onClose, assignment, onAccept, onReject
     mode:    'How would you like to cover this?',
     swap:    'Choose a period to swap',
     consume: 'Confirm extra hour',
-    flag:    'Flag Relief Request',
+    // REMOVED: flag: 'Flag Relief Request'
   };
   const viewSub = {
     detail:  'instant substitute notification',
     mode:    'Choose swap to trade a period, or consume to take extra work',
     swap:    'Your selected period will become vacant',
     consume: 'The absent teacher must approve before your workload updates',
-    flag:    'Tell us why you cannot take this duty',
+    // REMOVED: flag: 'Tell us why you cannot take this duty'
   };
 
   return (
@@ -238,6 +214,7 @@ const ReliefAssignmentModal = ({ isOpen, onClose, assignment, onAccept, onReject
                       <InfoCell Icon={Calendar} label="Day"     value={assignment.day_label} />
                     </div>
 
+                    {/* REMOVED: Flag button — teachers cannot flag relief requests */}
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleRespond('rejected')}
@@ -250,18 +227,6 @@ const ReliefAssignmentModal = ({ isOpen, onClose, assignment, onAccept, onReject
                         <X size={13} /> Reject
                       </button>
 
-                      <button
-                        onClick={() => setView('flag')}
-                        disabled={loading}
-                        className="border border-amber-300 bg-amber-50 text-amber-700
-                                   hover:bg-amber-100 px-3 py-2.5 rounded-lg text-[12px]
-                                   font-semibold flex-1 flex items-center justify-center
-                                   gap-1.5 transition-colors disabled:opacity-50"
-                      >
-                        <AlertTriangle size={13} /> Flag
-                      </button>
-
-                      {/* Accept now opens mode picker instead of finalising directly */}
                       <button
                         onClick={() => setView('mode')}
                         disabled={loading}
@@ -385,58 +350,8 @@ const ReliefAssignmentModal = ({ isOpen, onClose, assignment, onAccept, onReject
                   </div>
                 )}
 
-                {/* ── VIEW: flag form ── */}
-                {view === 'flag' && (
-                  <>
-                    <div className="space-y-2.5 mb-3">
-                      {FLAG_REASONS.map((r) => (
-                        <label key={r.value} className="flex items-center gap-2.5 cursor-pointer group">
-                          <input
-                            type="radio" name="flag_reason" value={r.value}
-                            checked={flagReason === r.value}
-                            onChange={() => { setFlagReason(r.value); setFlagError(''); }}
-                            className="accent-amber-500"
-                          />
-                          <span className="text-[12px] text-gray-700 group-hover:text-gray-900">
-                            {r.label}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+                {/* REMOVED: flag view — teachers cannot flag relief requests */}
 
-                    {flagReason === 'other' && (
-                      <textarea
-                        className="w-full border border-gray-200 rounded-lg p-2.5 text-[12px]
-                                   resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 mt-1"
-                        rows={3} maxLength={200}
-                        placeholder="Please describe the issue (max 200 chars)..."
-                        value={flagComment}
-                        onChange={(e) => { setFlagComment(e.target.value); setFlagError(''); }}
-                      />
-                    )}
-
-                    {flagError && <p className="text-[11px] text-red-500 mt-1.5">{flagError}</p>}
-
-                    <div className="flex gap-2 mt-4">
-                      <button
-                        onClick={() => { setView('detail'); setFlagReason(''); setFlagComment(''); setFlagError(''); }}
-                        disabled={loading}
-                        className="flex-1 py-2.5 border border-gray-200 rounded-lg text-[12px]
-                                   font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        Back
-                      </button>
-                      <button
-                        onClick={handleFlagSubmit}
-                        disabled={loading}
-                        className="flex-1 py-2.5 bg-amber-500 text-white rounded-lg text-[12px]
-                                   font-semibold hover:bg-amber-600 disabled:opacity-50"
-                      >
-                        {loading ? 'Submitting…' : 'Submit Flag'}
-                      </button>
-                    </div>
-                  </>
-                )}
               </div>
             </motion.div>
           </div>
