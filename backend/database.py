@@ -1,4 +1,6 @@
+from dotenv import load_dotenv
 import os
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 
