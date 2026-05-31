@@ -93,8 +93,10 @@ app.include_router(blocked_slots_router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def startup():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # DB is managed by Supabase/Alembic — never call create_all on a live DB.
+    # It tries to CREATE TYPE for every Enum, but they already exist in PG,
+    # which causes a mid-connection crash on startup.
+    logger.info("SchoolSync API started. Schema managed externally — skipping create_all.")
 
 
 app.include_router(master_router, prefix="/api/v1")

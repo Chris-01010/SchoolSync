@@ -251,9 +251,11 @@ async def seed_data():
         # Priya Menon — CS dept, teaches data structures and OOP
         priya_schedule = [
             (0, 1, "data structures",            "EEE S3-A",  "Mechanics Lab"),
-            (1, 3, "object-oriented techniques", "MECH S5-A", "Mechanics Lab"),
-            (2, 5, "data structures",            "IT S3-A",   "Mechanics Lab"),
-            (3, 2, "operating systems",          "EC S3-A",   "Mechanics Lab"),
+            (0, 2, "object-oriented techniques", "MECH S5-A", "Mechanics Lab"),  # ← ADD
+            (0, 3, "data structures",            "IT S3-A",   "Mechanics Lab"),  # ← ADD (was day=2,period=5)
+            (1, 3, "object-oriented techniques", "MECH S5-A", "Room 201"),
+            (2, 5, "data structures",            "IT S3-A",   "Electronics Lab"),
+            (3, 2, "operating systems",          "EC S3-A",   "Room 101"),
         ]
 
         # Ravi Iyer — CS dept, teaches computer structures and data structures

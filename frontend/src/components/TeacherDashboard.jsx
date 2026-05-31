@@ -1,13 +1,28 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, CheckCircle, AlertTriangle, LogOut, ChevronDown } from 'lucide-react';
+import { Bell, CheckCircle, LogOut, X, CheckCircle2, Repeat2, Users } from 'lucide-react';
 
 import TimetableGrid from './TimetableGrid';
 import ReliefRequestCard from './ReliefRequestCard';
 import LeaveApplicationForm from './LeaveApplicationForm';
 import { useAuth } from '../context/AuthContext';
+import { useTeacherReliefPending, useTeacherReliefConfirmed } from '../hooks/useTeacherData';
 
-const flagReasons = ['Overwork', 'Emergency Duty', 'Schedule Conflict', 'Incorrect Allocation'];
-const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const BASE = 'http://localhost:8000';
+
+function getHeaders() {
+  const token = localStorage.getItem('schoolsync_token');
+  return { Authorization: `Bearer ${token}` };
+}
+
+const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+const ICON_MAP = {
+  LEAVE_APPROVED: { Icon: CheckCircle2, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  LEAVE_REJECTED: { Icon: X,            bg: 'bg-red-50',     color: 'text-red-500'     },
+  LEAVE_REQUEST:  { Icon: Users,        bg: 'bg-blue-50',    color: 'text-blue-600'    },
+  RELIEF_REQUEST: { Icon: Repeat2,      bg: 'bg-orange-50',  color: 'text-orange-600'  },
+  GENERAL:        { Icon: Bell,         bg: 'bg-gray-50',    color: 'text-gray-500'    },
+};
 
 const ProgressBar = ({ value, total, fillClassName }) => {
   const pct = total === 0 ? 0 : (value / total) * 100;
@@ -35,59 +50,201 @@ const StatCard = ({ title, value, total, fillClassName }) => {
   );
 };
 
+// ── Notification Detail Modal ─────────────────────────────────────────────
+function NotificationDetailModal({ notif, onClose }) {
+  if (!notif) return null;
+  const cfg = ICON_MAP[notif.notification_type] ?? ICON_MAP.GENERAL;
+  const { Icon } = cfg;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center`}>
+              <Icon size={18} className={cfg.color} />
+            </div>
+            <div>
+              <p className="text-[13px] font-bold text-gray-900">{notif.title}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                {notif.notification_type?.replace('_', ' ')}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="bg-gray-50 rounded-xl p-4 mb-4">
+          <p className="text-[13px] text-gray-700 leading-relaxed">{notif.content}</p>
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] text-gray-400">
+          <span>
+            {notif.created_at
+              ? new Date(notif.created_at).toLocaleString('en-IN', {
+                  weekday: 'short', day: 'numeric', month: 'short',
+                  hour: '2-digit', minute: '2-digit',
+                })
+              : ''}
+          </span>
+          {notif.action_url && (
+            <a href={notif.action_url} className="text-blue-600 font-semibold hover:underline">
+              View Details →
+            </a>
+          )}
+        </div>
+
+        <button
+          onClick={onClose}
+          className="mt-4 w-full py-2 rounded-xl bg-slate-100 text-slate-700 text-[12px] font-semibold hover:bg-slate-200 transition-colors"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Notifications Panel ───────────────────────────────────────────────────
+function NotificationsPanel({ notifs, onMarkRead, onMarkAllRead, onSelect }) {
+  const unread = notifs.filter((n) => !n.is_read).length;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Bell size={14} className="text-slate-600" />
+          <span className="text-[13px] font-bold text-slate-800">Notifications</span>
+          {unread > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">
+              {unread} new
+            </span>
+          )}
+        </div>
+        {unread > 0 && (
+          <button
+            onClick={onMarkAllRead}
+            className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:underline"
+          >
+            <CheckCircle size={11} /> Mark all read
+          </button>
+        )}
+      </div>
+
+      <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
+        {notifs.length === 0 ? (
+          <div className="py-10 text-center">
+            <Bell size={22} className="text-slate-200 mx-auto mb-2" />
+            <p className="text-[12px] font-semibold text-slate-400">No notifications yet</p>
+          </div>
+        ) : (
+          notifs.slice(0, 8).map((n) => {
+            const cfg = ICON_MAP[n.notification_type] ?? ICON_MAP.GENERAL;
+            const { Icon } = cfg;
+            return (
+              <button
+                key={n.id}
+                onClick={() => { onMarkRead(n.id); onSelect(n); }}
+                className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors ${
+                  !n.is_read ? 'bg-blue-50/40' : ''
+                }`}
+              >
+                <div className={`w-7 h-7 rounded-lg ${cfg.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+                  <Icon size={13} className={cfg.color} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-gray-800 truncate">{n.title}</p>
+                  <p className="text-[10px] text-gray-500 leading-snug mt-0.5 line-clamp-2">{n.content}</p>
+                  <p className="text-[9px] text-gray-400 mt-1">
+                    {n.created_at
+                      ? new Date(n.created_at).toLocaleString('en-IN', {
+                          day: 'numeric', month: 'short',
+                          hour: '2-digit', minute: '2-digit',
+                        })
+                      : ''}
+                  </p>
+                </div>
+                {!n.is_read && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />
+                )}
+              </button>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Dashboard ────────────────────────────────────────────────────────
 export default function TeacherDashboard() {
   const { user } = useAuth();
 
-  // ── Real data state ──
-  const [teacherData, setTeacherData]   = useState(null);
-  const [timetable, setTimetable]       = useState({});
-  const [pending, setPending]           = useState([]);
-  const [confirmed, setConfirmed]       = useState([]);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  // ── Relief data from hooks ──
+  const { data: pending,   loading: pendingLoading   } = useTeacherReliefPending();
+  const { data: confirmed, loading: confirmedLoading  } = useTeacherReliefConfirmed();
+  const isLoadingData = pendingLoading || confirmedLoading;
 
-  // ── UI state ──
-  const [isModalOpen, setIsModalOpen]   = useState(false);
-  const [activeFlagId, setActiveFlagId] = useState(null);
+  const teacherName       = user?.email ?? 'Teacher';
+  const teacherDept       = '';
+  const teachingCompleted = 0;
+  const teachingTotal     = 30;
+  const reliefCompleted   = confirmed.length;
+  const reliefTotal       = 5;
+  const remainingCap      = 0;
+
+  const [timetable, setTimetable]             = useState({});
+  const [localNotifs, setLocalNotifs]         = useState([]);
+  const [selectedNotif, setSelectedNotif]     = useState(null);
+
+  const [isModalOpen, setIsModalOpen]         = useState(false);
   const [leaveFormResetKey, setLeaveFormResetKey] = useState(0);
-  const applyBtnRef      = useRef(null);
+
+  const applyBtnRef        = useRef(null);
   const modalFirstFieldRef = useRef(null);
 
-  // ── Fetch all dashboard data ──
+  // ── Fetch notifications ──
   useEffect(() => {
     const token = localStorage.getItem('schoolsync_token');
     if (!token) return;
-    const headers = { 'Authorization': `Bearer ${token}` };
-
-    Promise.all([
-      fetch('http://localhost:8000/teacher/me/profile', { headers }).then(r => r.json()),
-      fetch('http://localhost:8000/teacher/me/timetable', { headers }).then(r => r.json()),
-      fetch('http://localhost:8000/teacher/me/relief/pending', { headers }).then(r => r.json()),
-      fetch('http://localhost:8000/teacher/me/relief/confirmed', { headers }).then(r => r.json()),
-    ])
-      .then(([profile, timetableData, pendingData, confirmedData]) => {
-        setTeacherData(profile);
-        setTimetable(timetableData);
-        setPending(Array.isArray(pendingData) ? pendingData : []);
-        setConfirmed(Array.isArray(confirmedData) ? confirmedData : []);
+    fetch(`${BASE}/leaves/notifications/`, { headers: getHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.data) setLocalNotifs(data.data);
       })
-      .catch(err => console.error('Dashboard fetch error:', err))
-      .finally(() => setIsLoadingData(false));
+      .catch(console.error);
   }, []);
 
-  // ── Focus trap for modal ──
+  // ── Fetch timetable ──
+  useEffect(() => {
+    const token = localStorage.getItem('schoolsync_token');
+    if (!token) return;
+    fetch(`${BASE}/timetable/view?scope=teacher`, { headers: getHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        if (d.timetable) setTimetable(d.timetable);
+        else if (typeof d === 'object') setTimetable(d);
+      })
+      .catch(console.error);
+  }, []);
+
+  // ── Focus trap ──
   useEffect(() => {
     if (!isModalOpen) return;
     const onKeyDown = (e) => {
       if (e.key === 'Escape') { e.preventDefault(); setIsModalOpen(false); }
-      if (e.key === 'Tab') {
-        const focusables = document.querySelectorAll(
-          '[data-leave-modal="true"] button, [data-leave-modal="true"] select, [data-leave-modal="true"] textarea, [data-leave-modal="true"] input'
-        );
-        const arr = Array.from(focusables).filter(el => !el.disabled && el.tabIndex !== -1);
-        if (!arr.length) return;
-        if (e.shiftKey && document.activeElement === arr[0]) { e.preventDefault(); arr[arr.length - 1].focus(); }
-        else if (!e.shiftKey && document.activeElement === arr[arr.length - 1]) { e.preventDefault(); arr[0].focus(); }
-      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -98,76 +255,43 @@ export default function TeacherDashboard() {
     else applyBtnRef.current?.focus?.();
   }, [isModalOpen]);
 
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (typeof e.target?.closest === 'function' && e.target.closest('[data-flag-dropdown="true"]')) return;
-      setActiveFlagId(null);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
-
-  // ── Handle relief response ──
-  const handleRespond = async (id, status, reason) => {
-    const token = localStorage.getItem('schoolsync_token');
-    try {
-      await fetch(`http://localhost:8000/relief-assignments/${id}/respond`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status, flag_reason: reason || null })
-      });
-    } catch (err) {
-      console.error('Relief respond error:', err);
-    }
-
-    if (status === 'accepted') {
-      const req = pending.find(p => p.id === id);
-      if (!req) return;
-      setPending(prev => prev.filter(r => r.id !== id));
-      setConfirmed(prev => [{
-        id: `c_${Date.now()}`,
-        subject: req.subject,
-        class: req.class,
-        day: req.day,
-        period: req.period,
-        originalTeacher: req.absentTeacher
-      }, ...prev]);
-    } else {
-      setPending(prev => prev.filter(r => r.id !== id));
-    }
-    setActiveFlagId(null);
+  // ── Mark read handlers ──
+  const markRead = async (id) => {
+    setLocalNotifs(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    await fetch(`${BASE}/leaves/notifications/${id}/read`, {
+      method: 'PUT',
+      headers: getHeaders(),
+    }).catch(console.error);
   };
 
-  const leaveSubmit = (formData) => {
+  const markAllRead = async () => {
+    await fetch(`${BASE}/leaves/notifications/read-all`, {
+      method: 'PUT',
+      headers: getHeaders(),
+    }).catch(console.error);
+    setLocalNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
+  };
+
+  const unreadCount = localNotifs.filter(n => !n.is_read).length;
+
+  const leaveSubmit = () => {
     setIsModalOpen(false);
     setLeaveFormResetKey(k => k + 1);
   };
 
   const confirmedSorted = useMemo(() => {
     return [...confirmed].sort((a, b) => {
-      const da = dayOrder.indexOf(a.day);
-      const db = dayOrder.indexOf(b.day);
-      return da !== db ? da - db : a.period - b.period;
+      const da = DAY_ORDER.indexOf(a.day);
+      const db = DAY_ORDER.indexOf(b.day);
+      return da !== db ? da - db : (a.period || 0) - (b.period || 0);
     });
   }, [confirmed]);
 
-  // ── Loading state ──
   if (isLoadingData) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
     </div>
   );
-
-  const teacherName = teacherData?.name ?? user?.email ?? 'Teacher';
-  const teacherDept = teacherData?.department ?? '';
-  const teachingCompleted = teacherData?.teachingHours?.completed ?? 0;
-  const teachingTotal     = teacherData?.teachingHours?.total ?? 30;
-  const reliefCompleted   = teacherData?.reliefHours?.completed ?? 0;
-  const reliefTotal       = teacherData?.reliefHours?.total ?? 5;
-  const remainingCap      = teacherData?.remainingCap ?? 0;
 
   return (
     <div className="bg-surface-container-lowest min-h-screen">
@@ -186,21 +310,23 @@ export default function TeacherDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              className="relative p-2 rounded-lg border border-outline-variant bg-surface-container-low"
+          <div className="flex items-center gap-2">
+            <div
+              className="relative p-2 rounded-lg border border-outline-variant bg-surface-container-low cursor-default"
               aria-label="Notifications"
             >
               <Bell size={20} className="text-primary-600" />
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-secondary text-white text-[12px] font-bold flex items-center justify-center">
-                2
-              </span>
-            </button>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </div>
 
             <button
               ref={applyBtnRef}
               onClick={() => setIsModalOpen(true)}
-              className="bg-secondary hover:opacity-95 text-white rounded-lg px-4 py-2 text-[14px] font-semibold shadow-sm"
+              className="bg-secondary hover:opacity-95 text-white rounded-lg px-3 py-2 text-[13px] font-semibold shadow-sm hidden sm:block"
             >
               Apply for Leave
             </button>
@@ -215,12 +341,12 @@ export default function TeacherDashboard() {
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* Stats */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatCard title="Teaching Hours"    value={teachingCompleted} total={teachingTotal} fillClassName="bg-secondary" />
-          <StatCard title="Relief Hours"      value={reliefCompleted}   total={reliefTotal}   fillClassName="bg-secondary-container" />
-          <StatCard title="Remaining Capacity" value={remainingCap}     total={teachingTotal} fillClassName="bg-primary-container" />
+          <StatCard title="Teaching Hours"     value={teachingCompleted} total={teachingTotal} fillClassName="bg-secondary" />
+          <StatCard title="Relief Hours"       value={reliefCompleted}   total={reliefTotal}   fillClassName="bg-secondary-container" />
+          <StatCard title="Remaining Capacity" value={remainingCap}      total={teachingTotal} fillClassName="bg-primary-container" />
         </section>
 
-        {/* Weekly Timetable + Pending */}
+        {/* Timetable + Sidebar */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
             <h2 className="text-[24px] font-bold text-slate-900">Weekly Timetable</h2>
@@ -231,58 +357,69 @@ export default function TeacherDashboard() {
           </div>
 
           <div className="space-y-4">
+            {/* Notifications Panel */}
+            <NotificationsPanel
+              notifs={localNotifs}
+              onMarkRead={markRead}
+              onMarkAllRead={markAllRead}
+              onSelect={setSelectedNotif}
+            />
+
             {/* Pending Relief */}
             <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <h2 className="text-[18px] font-bold text-slate-900">Pending Relief Requests</h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-[18px] font-bold text-slate-900">Pending Relief</h2>
                 <span className="text-[12px] font-bold text-slate-500">{pending.length}</span>
               </div>
               {pending.length === 0 ? (
-                <div className="mt-6 flex items-center justify-center text-center py-10">
+                <div className="flex items-center justify-center py-8">
                   <p className="text-[14px] font-semibold text-slate-500">No pending requests</p>
                 </div>
               ) : (
-                <div className="mt-4 space-y-3">
+                <div className="space-y-3">
                   {pending.map(req => (
                     <ReliefRequestCard
                       key={req.id}
                       request={req}
-                      flagReasons={flagReasons}
-                      isFlagOpen={activeFlagId === req.id}
-                      onToggleFlag={() => setActiveFlagId(prev => prev === req.id ? null : req.id)}
-                      onRespond={handleRespond}
+                      onResponded={(id) => setPending(prev => prev.filter(r => r.id !== id))}
                     />
                   ))}
                 </div>
               )}
             </section>
 
-            {/* Confirmed Relief */}
+            {/* Confirmed Relief Duties */}
             <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-3">
                 <h2 className="text-[18px] font-bold text-slate-900">Confirmed Relief Duties</h2>
-                <span className="text-[12px] font-bold text-slate-500">{confirmed.length}</span>
+                <span className="text-[12px] font-bold text-slate-500">{confirmedSorted.length}</span>
               </div>
-              <div className="mt-4 space-y-3">
-                {confirmedSorted.length === 0 ? (
-                  <div className="text-center py-10">
-                    <p className="text-[14px] font-semibold text-slate-500">No confirmed duties yet</p>
-                  </div>
-                ) : (
-                  confirmedSorted.map(d => (
+              {confirmedSorted.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-[14px] font-semibold text-slate-500">No confirmed duties yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {confirmedSorted.map(d => (
                     <div key={d.id} className="flex items-start gap-3 bg-surface-container-low border border-outline-variant rounded-lg p-3">
                       <div className="w-10 h-10 rounded-lg bg-secondary-fixed border border-secondary flex items-center justify-center">
                         <CheckCircle size={20} className="text-secondary" />
                       </div>
                       <div>
-                        <p className="text-[14px] font-bold text-slate-900">{d.subject} · {d.class}</p>
-                        <p className="text-[12px] font-semibold text-slate-600">{d.day} · Period {d.period}</p>
-                        <p className="text-[12px] font-semibold text-slate-500">Original Teacher: {d.originalTeacher}</p>
+                        <p className="text-[14px] font-bold text-slate-900">
+                          {d.subject || '—'} · {d.class || '—'}
+                        </p>
+                        <p className="text-[12px] font-semibold text-slate-600">
+                          {d.day} · Period {d.period}
+                        </p>
+                        <p className="text-[12px] font-semibold text-slate-500">
+                          Original: {d.originalTeacher || '—'}
+                        </p>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
           </div>
         </section>
@@ -294,7 +431,9 @@ export default function TeacherDashboard() {
           {['Home', 'Schedule', 'Relief', 'Profile'].map((label, idx) => (
             <button
               key={label}
-              className={`py-3 flex flex-col items-center justify-center gap-1 ${idx === 0 ? 'bg-secondary-container/10 text-secondary font-bold' : 'text-slate-500'}`}
+              className={`py-3 min-h-[44px] flex flex-col items-center justify-center gap-1 ${
+                idx === 0 ? 'bg-secondary-container/10 text-secondary font-bold' : 'text-slate-500'
+              }`}
               aria-label={label}
             >
               <span className="material-symbols-outlined" style={{ fontSize: 22 }}>
@@ -305,6 +444,14 @@ export default function TeacherDashboard() {
           ))}
         </div>
       </div>
+
+      {/* Notification detail modal */}
+      {selectedNotif && (
+        <NotificationDetailModal
+          notif={selectedNotif}
+          onClose={() => setSelectedNotif(null)}
+        />
+      )}
 
       <LeaveApplicationForm
         key={leaveFormResetKey}

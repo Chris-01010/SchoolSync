@@ -7,13 +7,28 @@ function getHeaders() {
   return { 'Authorization': `Bearer ${token}` };
 }
 
+// Maps backend NotificationType enum values → what ICON_MAP/NOTIF_ICONS expect
+function normalizeNotifType(raw) {
+  if (!raw) return 'announcement';
+  switch (raw.toUpperCase()) {
+    case 'LEAVE_APPROVED':  return 'leave_approved';
+    case 'LEAVE_REJECTED':  return 'leave_rejected';
+    case 'RELIEF_REQUEST':
+    case 'RELIEF_ACCEPTED':
+    case 'RELIEF_REJECTED': return 'relief_assigned';
+    case 'LEAVE_REQUEST':   return 'announcement';
+    case 'ANNOUNCEMENT':    return 'announcement';
+    default:                return 'announcement';
+  }
+}
+
 export function useTeacherProfile() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/profile`, { headers: getHeaders() })
-      .then(r => r.json())
+    fetch(`${BASE}/auth/me`, { headers: getHeaders() })
+      .then(r => r.ok ? r.json() : null)
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -27,9 +42,9 @@ export function useTeacherTimetable() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/timetable`, { headers: getHeaders() })
-      .then(r => r.json())
-      .then(setData)
+    fetch(`${BASE}/timetable/view?scope=teacher`, { headers: getHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setData(d); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -42,9 +57,9 @@ export function useTeacherLeaves() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/leaves`, { headers: getHeaders() })
-      .then(r => r.json())
-      .then(d => setData(Array.isArray(d) ? d : []))
+    fetch(`${BASE}/leaves/my`, { headers: getHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setData(Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : []))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -55,16 +70,20 @@ export function useTeacherLeaves() {
 export function useTeacherReliefPending() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/relief/pending`, { headers: getHeaders() })
-      .then(r => r.json())
+    setLoading(true);
+    fetch(`${BASE}/leaves/relief/my/pending`, { headers: getHeaders() })
+      .then(r => r.ok ? r.json() : null)
       .then(d => setData(Array.isArray(d) ? d : []))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [tick]);
 
-  return { data, loading };
+  const refetch = () => setTick(t => t + 1);
+
+  return { data, loading, refetch };
 }
 
 export function useTeacherReliefConfirmed() {
@@ -72,8 +91,8 @@ export function useTeacherReliefConfirmed() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/relief/confirmed`, { headers: getHeaders() })
-      .then(r => r.json())
+    fetch(`${BASE}/leaves/relief/my/confirmed`, { headers: getHeaders() })
+      .then(r => r.ok ? r.json() : null)
       .then(d => setData(Array.isArray(d) ? d : []))
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -87,9 +106,23 @@ export function useTeacherNotifications() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE}/teacher/me/notifications`, { headers: getHeaders() })
-      .then(r => r.json())
-      .then(d => setData(Array.isArray(d) ? d : []))
+    fetch(`${BASE}/leaves/notifications/`, { headers: getHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const raw = Array.isArray(d?.data) ? d.data : [];
+        setData(raw.map(n => ({
+          ...n,
+          read:    n.is_read,
+          message: n.content,
+          type:    normalizeNotifType(n.notification_type),
+          time:    n.created_at
+            ? new Date(n.created_at).toLocaleString('en-IN', {
+                day: 'numeric', month: 'short',
+                hour: '2-digit', minute: '2-digit',
+              })
+            : '',
+        })));
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
