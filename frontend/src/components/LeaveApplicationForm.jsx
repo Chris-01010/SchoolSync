@@ -29,43 +29,24 @@ export default function LeaveApplicationForm({
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!leaveForm.leaveType || !leaveForm.startDate || !leaveForm.reason.trim()) {
+      return;
+    }
 
     if (leaveForm.endDate && leaveForm.startDate && leaveForm.endDate < leaveForm.startDate) {
       return;
     }
 
-    const token = localStorage.getItem("schoolsync_token") || localStorage.getItem("token");
-
-    try {
-      const response = await fetch("http://localhost:8000/leaves/apply", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          date: leaveForm.startDate,
-          period_start: 1,
-          period_end: 2,
-          leave_type: leaveForm.leaveType,
-          reason: leaveForm.reason,
-          handover_url: null,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error("Leave apply failed:", data);
-        return; // Don't close on failure
-      }
-
-      onSubmit(); // ✅ Only close on success
-    } catch (err) {
-      console.error("Leave apply error:", err);
-    }
+    onSubmit({
+      leaveType: leaveForm.leaveType,
+      startDate: leaveForm.startDate,
+      endDate: leaveForm.endDate,
+      reason: leaveForm.reason,
+      document: leaveForm.document,
+    });
   };
 
   return (

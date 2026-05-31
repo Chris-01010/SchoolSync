@@ -729,8 +729,6 @@ async def hod_action_on_leave(
             )
         notif_msg = f"Your {absence.leave_type} leave on {absence.date} has been approved."
         notif_type = "LEAVE_APPROVED"
-        from .relief_router import notify_absence_updated
-        notify_absence_updated(str(absence.id))
 
     elif body.action == HODAction.REJECT:
         absence.status = models.AbsenceStatus.REJECTED
@@ -883,8 +881,6 @@ async def respond_to_relief(
                     )
 
     await db.commit()
-    from .relief_router import notify_absence_updated
-    notify_absence_updated(str(assignment.absence_id))  # push SSE on accept/reject
     await db.refresh(assignment)
 
     return {
@@ -1075,9 +1071,6 @@ async def assign_relief_teacher(
             f"You have been assigned a relief duty on {absence.date}{slot_info}. "
             f"Please accept or reject from your dashboard.",
         )
-
-    from .relief_router import notify_absence_updated
-    notify_absence_updated(str(absence_id))
 
     return {
         "message": "Relief assigned successfully",

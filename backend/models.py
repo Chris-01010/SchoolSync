@@ -53,6 +53,7 @@ class AbsenceStatus(str, PyEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    CLARIFICATION_REQUESTED = "clarification_requested"
 
 class ReliefStatus(str, PyEnum):
     PENDING  = "pending"
@@ -119,6 +120,7 @@ class Teacher(Base):
         back_populates="teacher",
         uselist=False,  # one-to-one
     )
+    absences = relationship("Absence", back_populates="teacher")
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -199,6 +201,10 @@ class Absence(Base):
     status = Column(Enum(AbsenceStatus), default=AbsenceStatus.PENDING, nullable=False)
     resolved = Column(Boolean, default=False)
     resolution_report_url = Column(String)
+    clarification_note = Column(String, nullable=True)
+    is_full_day = Column(Boolean, default=True)
+
+    teacher = relationship("Teacher", back_populates="absences")
 
 class ReliefAssignment(Base):
     __tablename__ = "relief_assignments"
