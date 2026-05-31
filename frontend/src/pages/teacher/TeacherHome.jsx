@@ -3,7 +3,7 @@ import React, {
   useEffect,
 } from 'react';
 
-import { api } from '../../services/api';
+import { api } from "../../services/api";
 
 import {
   useOutletContext,
@@ -37,6 +37,8 @@ import {
 } from '../../hooks/useTeacherData';
 
 import ApplyLeaveModal from '../../components/teacher/ApplyLeaveModal';
+
+import PendingConsumptionPanel from '../../components/PendingConsumptionPanel';
 
 // ─── Notification Icons ───────────────────────────────────────────────────────
 
@@ -770,6 +772,9 @@ export default function TeacherHome() {
           </div>
         </div>
       </div>
+
+      {/* Pending Consume Approvals */}
+      <PendingConsumptionPanel />
 
       {/* Relief Duties */}
       <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">

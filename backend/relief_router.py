@@ -216,3 +216,110 @@ async def stream_relief_candidates(
             "X-Accel-Buffering": "no",
         },
     )
+from .relief_dispatch import dispatch_to_pool
+from .relief_engine import rank_candidates
+
+@router.post("/dispatch/{absence_id}")
+async def dispatch_relief(
+    absence_id: UUID,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """HOD/Admin triggers dispatch after reviewing candidates."""
+    if current_user.role not in (models.UserRole.HOD, models.UserRole.ADMIN):
+        raise HTTPException(403, "HOD or Admin only.")
+
+    # Load absence + absent teacher (same pattern as your candidates endpoint)
+    from sqlalchemy import text
+    r = await db.execute(text("SELECT id FROM absences WHERE id = :id"), {"id": str(absence_id)})
+    row = r.fetchone()
+    if not row:
+        raise HTTPException(404, "Absence not found.")
+
+    absence_result = await db.execute(select(models.Absence).where(models.Absence.id == row[0]))
+    absence = absence_result.scalar_one_or_none()
+
+    teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.id == str(absence.teacher_id)))
+    absent_teacher = teacher_result.scalar_one_or_none()
+
+    # Get the first vacant slot (extend to loop over all slots if needed)
+    day_of_week = absence.date.weekday()
+    slot_result = await db.execute(
+        select(models.TimetableSlot).where(
+            models.TimetableSlot.teacher_id == str(absence.teacher_id),
+            models.TimetableSlot.day_of_week == day_of_week,
+            models.TimetableSlot.period >= absence.period_start,
+            models.TimetableSlot.period <= absence.period_end,
+            models.TimetableSlot.is_relief == False,
+        )
+    )
+    slot = slot_result.scalars().first()
+    if not slot:
+        raise HTTPException(404, "No vacant slot found for this absence.")
+
+    ranked = await rank_candidates(absent_teacher, slot, weekly_counts={}, db=db)
+    if not ranked:
+        raise HTTPException(404, "No eligible teachers in pool.")
+
+    # Create the ReliefAssignment and dispatch
+    assignment = models.ReliefAssignment(
+        absence_id=absence.id,
+        slot_id=slot.id,
+        score=ranked[0].total_score,
+        status=models.ReliefStatus.PENDING,
+        reason_text=ranked[0].breakdown.__str__(),
+    )
+    db.add(assignment)
+    await db.flush()
+    await dispatch_to_pool(assignment, ranked, db)
+
+    return {"detail": "Dispatched.", "assignment_id": str(assignment.id)}
+
+
+@router.put("/assignments/{assignment_id}/accept")
+async def accept_relief(
+    assignment_id: UUID,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.user_id == current_user.id))
+    teacher = teacher_result.scalar_one_or_none()
+
+    result = await db.execute(select(models.ReliefAssignment).where(models.ReliefAssignment.id == assignment_id))
+    assignment = result.scalar_one_or_none()
+    if not assignment:
+        raise HTTPException(404, "Not found.")
+    if str(assignment.relief_teacher_id) != str(teacher.id):
+        raise HTTPException(403, "This request is not assigned to you.")
+    if assignment.status != models.ReliefStatus.PENDING:
+        raise HTTPException(409, f"Status is {assignment.status}, not PENDING.")
+
+    assignment.status = models.ReliefStatus.ACCEPTED
+    assignment.acknowledged_at = datetime.utcnow()
+    await db.commit()
+    return {"detail": "Accepted."}
+
+
+@router.put("/assignments/{assignment_id}/decline")
+async def decline_relief(
+    assignment_id: UUID,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from .relief_dispatch import _send_to_current, DEADLINE_MINUTES
+    teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.user_id == current_user.id))
+    teacher = teacher_result.scalar_one_or_none()
+
+    result = await db.execute(select(models.ReliefAssignment).where(models.ReliefAssignment.id == assignment_id))
+    assignment = result.scalar_one_or_none()
+    if not assignment:
+        raise HTTPException(404, "Not found.")
+    if str(assignment.relief_teacher_id) != str(teacher.id):
+        raise HTTPException(403, "This request is not assigned to you.")
+    if assignment.status != models.ReliefStatus.PENDING:
+        raise HTTPException(409, f"Status is {assignment.status}, not PENDING.")
+
+    assignment.status = models.ReliefStatus.DECLINED
+    assignment.rank_index += 1
+    await _send_to_current(assignment, DEADLINE_MINUTES, db)
+    return {"detail": "Declined. Rolled to next candidate."}
