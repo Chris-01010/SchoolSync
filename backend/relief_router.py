@@ -103,7 +103,6 @@ async def get_relief_candidates(
     )
     vacant_slots = slots_result.scalars().all()
 
-
     if not vacant_slots:
         return {"success": True, "absence_id": str(absence_id), "slots": []}
 
@@ -229,6 +228,7 @@ async def stream_relief_candidates(
         },
     )
 
+
 # ─── EPIC-3: POST /relief/assignments/{assignment_id}/respond ─────────────────
 
 @router.post("/assignments/{assignment_id}/respond")
@@ -260,7 +260,7 @@ async def respond_to_relief(
         raise HTTPException(status_code=400, detail="Assignment is no longer pending.")
 
     # ── Reject / Flag (existing flow, unchanged) ──
-if body.response == "rejected":
+    if body.response == "rejected":
         assignment.status = models.ReliefStatus.REJECTED
         await db.commit()
         return {"status": "rejected"}
@@ -273,8 +273,6 @@ if body.response == "rejected":
 
     if body.response != "accepted":
         raise HTTPException(status_code=400, detail="response must be 'accepted' or 'rejected'.")
-
-    # ── Accepted — require mode ──
 
     # ── Accepted — require mode ──
     if body.mode not in ("swap", "consume"):
@@ -368,7 +366,6 @@ if body.response == "rejected":
         await db.commit()
         return {"status": "accepted", "mode": "swap", "assignment_id": str(assignment.id)}
 
-    # ── CONSUME ──
     # ── CONSUME ──
     if body.mode == "consume":
         # Clash check: relief teacher must not already have a slot on this day/period
@@ -595,6 +592,7 @@ async def list_pending_consumption(
 
     return {"assignments": output}
 
+
 # ─── EPIC-3: GET /relief/my-slots — swap slot picker data ────────────────────
 
 @router.get("/my-slots")
@@ -622,8 +620,8 @@ async def get_my_future_slots(
     )
     all_slots = slots_result.scalars().all()
 
-    # Filter out only: today's slots at or before the current period
-    # Since we don't track clock time, conservatively exclude all of today's slots
+    # Filter out only: today's slots at or before the current period.
+    # Since we don't track clock time, conservatively exclude all of today's slots.
     slots = [s for s in all_slots if s.day_of_week != today_dow]
 
     return {

@@ -32,6 +32,7 @@ from . import models
 from . import schemas
 from . import relief
 from . import auth
+from . import relief_router
 from .worker import generate_timetable_task
 from .crud import router as master_router
 from .leave_api import router as leaves_router
@@ -134,6 +135,7 @@ app.include_router(admin_dashboard_router, prefix="/api/v1")
 app.include_router(rooms_router, prefix="/api/v1") 
 app.include_router(blocked_slots_router, prefix="/api/v1")  
 app.include_router(leaves_router, prefix="/leaves")
+app.include_router(relief_router.router, prefix="/relief")
 
 
 @app.get("/api/v1/my/teacher-profile")
