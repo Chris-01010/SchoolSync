@@ -3,8 +3,24 @@ import datetime
 import uuid
 import datetime
 from enum import Enum as PyEnum
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey, Enum, JSON, SmallInteger, func, Time, UniqueConstraint, Date
-from sqlalchemy.orm import relationship
+from sqlalchemy import (
+    Column,
+    String,
+    Boolean,
+    Integer,
+    Float,
+    Time,
+    Date,
+    SmallInteger,
+    ForeignKey,
+    UniqueConstraint,
+    Enum,
+    JSON,
+    DateTime,
+    Text,
+)
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship, Mapped
 from sqlalchemy.types import TypeDecorator, CHAR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from .database import Base
@@ -30,7 +46,6 @@ class GUID(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return value
-
         elif dialect.name == "postgresql":
 
     
@@ -50,6 +65,7 @@ class GUID(TypeDecorator):
                 return uuid.UUID(value)
             else:
                 return value
+
 
 class UserRole(str, PyEnum):
     ADMIN = "admin"
@@ -72,7 +88,28 @@ class ReliefStatus(str, PyEnum):
 
     EXPIRED  = "expired"   
     
+    AWAITING_CONFIRMATION = "awaiting_confirmation"
 
+
+class NotificationType(str, PyEnum):
+    LEAVE_REQUEST = "LEAVE_REQUEST"
+    LEAVE_APPROVED = "LEAVE_APPROVED"
+    LEAVE_REJECTED = "LEAVE_REJECTED"
+    RELIEF_REQUEST = "RELIEF_REQUEST"
+    RELIEF_ACCEPTED = "RELIEF_ACCEPTED"
+    RELIEF_REJECTED = "RELIEF_REJECTED"
+    ANNOUNCEMENT = "ANNOUNCEMENT"
+    GENERAL = "GENERAL"
+
+
+class AssignmentMode(str, PyEnum):
+    SWAP = "SWAP"
+    CONSUME = "CONSUME"
+
+
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
 
 class User(Base):
     __tablename__ = "users"
@@ -104,25 +141,72 @@ class Department(Base):
     teachers = relationship("Teacher", back_populates="dept_link", foreign_keys="Teacher.department_id")
     hod = relationship("Teacher", foreign_keys=[hod_id])
 
+    department_subjects = relationship(
+        "DepartmentSubject",
+        back_populates="department"
+    )
+
+    department_subjects = relationship(
+        "DepartmentSubject",
+        back_populates="department"
+    )
+
 
 class Teacher(Base):
     __tablename__ = "teachers"
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     user_id = Column(GUID(), ForeignKey("users.id"), unique=True)
     name = Column(String, nullable=False)
+
     email = Column(String, unique=True, nullable=False)
-    department_id = Column(GUID(), ForeignKey("departments.id"), nullable=True)
+
+    department_id = Column(
+        GUID(),
+        ForeignKey("departments.id"),
+        nullable=True
+    )
+
     weekly_relief_cap = Column(Integer, default=3)
     max_weekly_hours = Column(Integer, default=30)
     current_relief_hours = Column(Integer, default=0)
     total_hours_worked = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
-    blocked_slots = Column(JSON, default=dict)
+
+    # JSON cache column stored as "blocked_slots" in DB
+    blocked_slots_json: Mapped[dict] = Column(JSON, default=dict, name="blocked_slots")
 
     user = relationship("User", back_populates="teacher_profile")
-    dept_link = relationship("Department", back_populates="teachers", foreign_keys=[department_id])
-    timetable_slots = relationship("TimetableSlot", back_populates="teacher", foreign_keys="TimetableSlot.teacher_id")
-    blocked_slot_entries = relationship("BlockedSlot", back_populates="teacher", cascade="all, delete-orphan")
+
+    dept_link = relationship(
+        "Department",
+        back_populates="teachers",
+        foreign_keys=[department_id]
+    )
+
+    timetable_slots = relationship(
+        "TimetableSlot",
+        back_populates="teacher",
+        foreign_keys="TimetableSlot.teacher_id"
+    )
+
+    blocked_slot_entries = relationship(
+        "BlockedSlot",
+        back_populates="teacher",
+        cascade="all, delete-orphan"
+    )
+
+    teacher_subjects = relationship(
+        "TeacherSubject",
+        back_populates="teacher",
+        cascade="all, delete-orphan"
+    )
+
+    leave_balance = relationship(
+        "TeacherLeaveBalance",
+        back_populates="teacher",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
 
 
 class Subject(Base):
@@ -130,20 +214,67 @@ class Subject(Base):
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
 
+    # Kept for backward compat; canonical relationship is via DepartmentSubject
+    department_id = Column(
+        GUID(),
+        ForeignKey("departments.id"),
+        nullable=True
+    )
+
+    dept_link = relationship(
+        "Department",
+        back_populates="subjects"
+    )
+
+    department_subjects = relationship(
+        "DepartmentSubject",
+        back_populates="subject"
+    )
+
+    teacher_subjects = relationship(
+        "TeacherSubject",
+        back_populates="subject"
+    )
+
 
 class Notification(Base):
     __tablename__ = "notifications"
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    user_id = Column(GUID(), ForeignKey("users.id"))
+
+    user_id = Column(
+        GUID(),
+        ForeignKey("users.id"),
+        nullable=False,
+    )
+
+    notification_type = Column(
+        Enum(NotificationType),
+        default=NotificationType.GENERAL,
+        nullable=False,
+    )
+
     title = Column(String, nullable=False)
+
     content = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     read_at = Column(DateTime(timezone=True), nullable=True)
-    notification_type = Column(String, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
     action_url = Column(String, nullable=True)
 
+    notification_type = Column(
+        Enum(NotificationType),
+        default=NotificationType.GENERAL,
+        nullable=True
+    )
+
     user = relationship("User", back_populates="notifications")
+
 
 
 class TimetableVersion(Base):
@@ -206,10 +337,15 @@ class Absence(Base):
     status = Column(Enum(AbsenceStatus), default=AbsenceStatus.PENDING, nullable=False)
     resolved = Column(Boolean, default=False)
     resolution_report_url = Column(String)
+
     clarification_note = Column(String, nullable=True)
+
     is_emergency = Column(Boolean, default=False)
+
     emergency_submitted_at = Column(DateTime(timezone=True), nullable=True)
+
     hod_response_deadline = Column(DateTime(timezone=True), nullable=True)
+
     auto_approved = Column(Boolean, default=False)
 
     teacher = relationship("Teacher")
@@ -241,37 +377,20 @@ class ReliefAssignment(Base):
 class BlockedSlot(Base):
     __tablename__ = "blocked_slots"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    teacher_id = Column(GUID(), ForeignKey("teachers.id"), nullable=False)
-    day = Column(String, nullable=False)
-    period = Column(Integer, nullable=False)
-    reason = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id = Column(GUID, primary_key=True, index=True,default=uuid.uuid4)
+    teacher_id = Column(GUID, ForeignKey("teachers.id"), nullable=False)
+    day = Column(String, nullable=False)       # e.g. "Monday"
+    period = Column(Integer, nullable=False)   # e.g. 3
+    reason = Column(String, nullable=True)     # e.g. "Staff meeting"
+    created_at = Column(DateTime, server_default=func.now())
 
-    teacher = relationship("Teacher", back_populates="blocked_slot_entries")
-
-
-class TeacherSubject(Base):
-    __tablename__ = "teacher_subjects"
-
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    teacher_id = Column(GUID(), ForeignKey("teachers.id"), nullable=False)
-    subject_id = Column(GUID(), ForeignKey("subjects.id"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    teacher_name = Column(String, nullable=True)
-    department_name = Column(String, nullable=True)
-    subject_name = Column(String, nullable=True)
-
-    teacher = relationship("Teacher", foreign_keys=[teacher_id])
-    subject = relationship("Subject", foreign_keys=[subject_id])
-
-    __table_args__ = (
-        UniqueConstraint("teacher_id", "subject_id"),
+    teacher = relationship(
+        "Teacher",
+        back_populates="blocked_slot_entries"
     )
-
-
-class DepartmentSubject(Base):
-    __tablename__ = "department_subjects"
+    
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     department_id = Column(GUID(), ForeignKey("departments.id"), nullable=False)
@@ -282,6 +401,106 @@ class DepartmentSubject(Base):
 
     department = relationship("Department", foreign_keys=[department_id])
     subject = relationship("Subject", foreign_keys=[subject_id])
+
+    __table_args__ = (
+        UniqueConstraint("department_id", "subject_id"),
+    )
+
+
+
+class TeacherLeaveBalance(Base):
+    __tablename__ = "teacher_leave_balances"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    teacher_id = Column(
+        GUID(),
+        ForeignKey("teachers.id"),
+        nullable=False,
+        unique=True
+    )
+
+    academic_year = Column(String(9), nullable=False)
+
+    balance = Column(Float, nullable=False)
+
+    used_ytd = Column(Float, nullable=False)
+
+    carryover = Column(Float, nullable=False)
+
+    last_credited_month = Column(Integer, nullable=True)
+
+    last_updated = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    teacher = relationship(
+        "Teacher",
+        back_populates="leave_balance"
+    )
+
+
+class TeacherSubject(Base):
+    __tablename__ = "teacher_subjects"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    teacher_id = Column(
+        GUID(),
+        ForeignKey("teachers.id"),
+        nullable=False
+    )
+
+    subject_id = Column(
+        GUID(),
+        ForeignKey("subjects.id"),
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    teacher_name = Column(String, nullable=True)
+    subject_name = Column(String, nullable=True)
+
+    teacher = relationship("Teacher", back_populates="teacher_subjects")
+    subject = relationship("Subject", back_populates="teacher_subjects")
+
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "subject_id"),
+    )
+
+
+class DepartmentSubject(Base):
+    __tablename__ = "department_subjects"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    department_id = Column(
+        GUID(),
+        ForeignKey("departments.id"),
+        nullable=False
+    )
+
+    subject_id = Column(
+        GUID(),
+        ForeignKey("subjects.id"),
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    department_name = Column(String, nullable=True)
+    subject_name = Column(String, nullable=True)
+
+    department = relationship("Department", back_populates="department_subjects")
+    subject = relationship("Subject", back_populates="department_subjects")
 
     __table_args__ = (
         UniqueConstraint("department_id", "subject_id"),

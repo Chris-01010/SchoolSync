@@ -18,6 +18,7 @@ import os
 from pydantic import BaseModel
 from .email_service import send_verification_email, send_password_reset_email
 from dotenv import load_dotenv
+from sqlalchemy.orm import selectinload
 from pathlib import Path
 import os
 
@@ -900,3 +901,29 @@ async def remove_subject_from_teacher(teacher_id: str, subject_id: str, db: Asyn
     await db.commit()
     return {"status": "success"}
 
+
+@app.get("/hod/profile")    
+async def get_hod_profile(
+    current_user: models.User = Depends(auth.check_role([models.UserRole.HOD])   # ← ensure HOD role is allowed
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    # Fetch the Teacher row linked to this user (has name, email, department)
+    result = await db.execute(
+        select(models.Teacher)
+        .options(selectinload(models.Teacher.dept_link))
+        .where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = result.scalar_one_or_none()
+
+    if not teacher:
+        raise HTTPException(status_code=404, detail="HOD profile not found")
+
+    return {
+        "name":         teacher.name,
+        "employee_id":  str(current_user.college_id),   # college_id is the employee ID
+        "email":        teacher.email,
+        "department":   teacher.dept_link.name if teacher.dept_link else None,
+        "role":         current_user.role.value,         # "hod"
+        "joining_date": current_user.created_at.date().isoformat() if current_user.created_at else None,
+    }
