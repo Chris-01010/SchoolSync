@@ -281,82 +281,83 @@ export default function MyLeaves() {
   });
 
   return (
-    <div className="h-full overflow-y-auto px-3 sm:px-5 py-4">
-      <div className="space-y-5 max-w-[900px] mx-auto">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-[18px] font-bold text-gray-900">My Leaves</h1>
-            <p className="text-[11px] text-gray-400 mt-0.5">Manage your leave requests</p>
-          </div>
-          <button onClick={() => setApplyOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-[11px] font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-            <Plus size={13} /> Apply
-          </button>
+    <div className="space-y-5 max-w-[900px]">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[18px] font-bold text-gray-900">My Leaves</h1>
+          <p className="text-[11px] text-gray-400 mt-0.5">Manage your leave requests</p>
         </div>
-
-        <div className="flex bg-gray-100 rounded-lg p-0.5 w-fit gap-0.5">
-          {TABS.map((t, i) => (
-            <button key={t} onClick={() => setActiveTab(i)}
-              className={`px-4 py-1.5 text-[11px] font-semibold rounded-md transition-all ${activeTab === i ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-              {t}
-            </button>
-          ))}
-        </div>
-
-        {loading ? (
-          <div className="text-center py-16 text-gray-400"><p className="text-[13px] font-semibold">Loading your leaves…</p></div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600 text-[12px]">
-            {error} <button onClick={loadLeaves} className="ml-3 underline">Retry</button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <AnimatePresence mode="popLayout">
-              {filtered.length === 0 ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 text-gray-400">
-                  <FileText size={32} className="mx-auto mb-3 opacity-30" />
-                  <p className="text-[13px] font-semibold">No leave requests found</p>
-                  <p className="text-[11px] mt-1">Click "Apply" to submit a new request</p>
-                </motion.div>
-              ) : (
-                filtered.map(req => (
-                  <LeaveCard key={req.id} req={req}
-                    onView={setViewReq} onEdit={setEditReq} onCancel={setCancelReq} />
-                ))
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-
-        <ApplyLeaveModal
-          isOpen={applyOpen}
-          onClose={() => setApplyOpen(false)}
-          onSubmit={async (data) => {
-            try {
-              const raw = (data.leaveType || 'sick').toLowerCase();
-              const leave_type = raw.includes('sick') ? 'sick' : raw.includes('casual') ? 'casual' : 'other';
-              await api.post('/leaves/apply', {
-                start_date:   data.fromDate || data.startDate,
-                end_date:     data.toDate || data.endDate || data.fromDate || data.startDate,
-                leave_type,
-                reason:       data.reason || 'No reason provided',
-                is_full_day:  true,
-                handover_url: data.fileDataUrl || null,
-              });
-              setApplyOpen(false);
-              await loadLeaves();
-            } catch (err) {
-              alert(`Failed to submit leave: ${err.message}`);
-            }
-          }}
-        />
-
-        <AnimatePresence>
-          {viewReq   && <ViewDetailsModal req={viewReq}   onClose={() => setViewReq(null)} />}
-          {editReq   && <EditModal        req={editReq}   onClose={() => setEditReq(null)}   onSaved={loadLeaves} />}
-          {cancelReq && <CancelModal      req={cancelReq} onClose={() => setCancelReq(null)} onCancelled={handleCancelled} />}
-        </AnimatePresence>
+        <button onClick={() => setApplyOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-[11px] font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+          <Plus size={13} /> Apply
+        </button>
       </div>
+
+      <div className="flex bg-gray-100 rounded-lg p-0.5 w-fit gap-0.5">
+        {TABS.map((t, i) => (
+          <button key={t} onClick={() => setActiveTab(i)}
+            className={`px-4 py-1.5 text-[11px] font-semibold rounded-md transition-all ${activeTab === i ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="text-center py-16 text-gray-400"><p className="text-[13px] font-semibold">Loading your leaves…</p></div>
+      ) : error ? (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600 text-[12px]">
+          {error} <button onClick={loadLeaves} className="ml-3 underline">Retry</button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <AnimatePresence mode="popLayout">
+            {filtered.length === 0 ? (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 text-gray-400">
+                <FileText size={32} className="mx-auto mb-3 opacity-30" />
+                <p className="text-[13px] font-semibold">No leave requests found</p>
+                <p className="text-[11px] mt-1">Click "Apply" to submit a new request</p>
+              </motion.div>
+            ) : (
+              filtered.map(req => (
+                <LeaveCard key={req.id} req={req}
+                  onView={setViewReq}
+                  onEdit={setEditReq}
+                  onCancel={setCancelReq} />
+              ))
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Apply Modal */}
+      <ApplyLeaveModal
+        isOpen={applyOpen}
+        onClose={() => setApplyOpen(false)}
+        onSubmit={async (data) => {
+          try {
+            const raw = (data.leaveType || 'sick').toLowerCase();
+            const leave_type = raw.includes('sick') ? 'sick' : raw.includes('casual') ? 'casual' : 'other';
+            await api.post('/leaves/apply', {
+              start_date:   data.fromDate  || data.startDate,
+              end_date:     data.toDate    || data.endDate || data.fromDate || data.startDate,
+              leave_type,
+              reason:       data.reason   || 'No reason provided',
+              is_full_day:  true,
+              handover_url: data.fileDataUrl || null,
+            });
+            setApplyOpen(false);
+            await loadLeaves();
+          } catch (err) {
+            alert(`Failed to submit leave: ${err.message}`);
+          }
+        }}
+      />
+
+      <AnimatePresence>
+        {viewReq   && <ViewDetailsModal req={viewReq}   onClose={() => setViewReq(null)} />}
+        {editReq   && <EditModal        req={editReq}   onClose={() => setEditReq(null)}   onSaved={loadLeaves} />}
+        {cancelReq && <CancelModal      req={cancelReq} onClose={() => setCancelReq(null)} onCancelled={handleCancelled} />}
+      </AnimatePresence>
     </div>
   );
 }

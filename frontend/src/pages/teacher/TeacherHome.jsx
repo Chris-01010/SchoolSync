@@ -355,52 +355,50 @@ export default function TeacherHome() {
 
   const {
     data: notifList = [],
-  } =
-    useTeacherNotifications();
+  } = useTeacherNotifications();
 
   const {
-    data:
+    data: {
       confirmedReliefs = [],
-  } =
-    useTeacherReliefConfirmed();
+    } = {},
+  } = useTeacherReliefConfirmed();
 
-  const ctx =
-    useOutletContext();
+  const ctx = useOutletContext();
+  const navigate = useNavigate();
 
-  const navigate =
-    useNavigate();
-
-  const [leaveOpen, setLeaveOpen] =
-    useState(
-      ctx?.leaveModalOpen ??
-        false
-    );
-
-  const [
-    selectedNotif,
-    setSelectedNotif,
-  ] = useState(null);
+  const [leaveOpen, setLeaveOpen] = useState(ctx?.leaveModalOpen ?? false);
+  const [selectedNotif, setSelectedNotif] = useState(null);
+  const [leaveBalance, setLeaveBalance] = useState(null);
+  const [leaveCounts, setLeaveCounts] = useState({ pending: 0, approved: 0 });
 
   useEffect(() => {
-    if (
-      ctx?.leaveModalOpen
-    ) {
+    if (ctx?.leaveModalOpen) {
       setLeaveOpen(true);
     }
   }, [ctx?.leaveModalOpen]);
 
-  const handleCloseLeave =
-    () => {
-      setLeaveOpen(false);
+  useEffect(() => {
+    api.get('/leave-balance/me')
+      .then(res => setLeaveBalance(res?.data ?? null))
+      .catch(() => {});
 
-      ctx?.setLeaveModalOpen?.(
-        false
-      );
-    };
+    api.get('/leaves/my')
+      .then(res => {
+        const list = Array.isArray(res) ? res : (res?.data ?? []);
+        setLeaveCounts({
+          pending:  list.filter(l => l.status === 'pending').length,
+          approved: list.filter(l => l.status === 'approved').length,
+        });
+      })
+      .catch(() => {});
+  }, []);
 
-  const teacherName =
-    profile?.name ??
-    'Teacher';
+  const handleCloseLeave = () => {
+    setLeaveOpen(false);
+    ctx?.setLeaveModalOpen?.(false);
+  };
+
+  const teacherName = profile?.name ?? 'Teacher';
 
   // ─── Mock Stats (per spec) ────────────────────────────────────────────────
 
@@ -408,8 +406,8 @@ export default function TeacherHome() {
     totalClassesToday: 0,
     completedClassesToday: 0,
     freePeriodsToday: 0,
-    pendingLeaveRequests: 0,
-    approvedLeaves: 0,
+    pendingLeaveRequests: leaveCounts.pending,
+    approvedLeaves: leaveCounts.approved,
 
     reliefDutiesToday:
       confirmedReliefs.length,
@@ -575,7 +573,7 @@ export default function TeacherHome() {
   const activeReliefDutiesToday = todaySchedule;
 
   return (
-    <div className="space-y-5 max-w-[1280px]">
+    <div className="flex-1 overflow-y-auto pb-[96px] px-4 py-4 space-y-5 max-w-[1280px] w-full mx-auto">
       {/* Welcome */}
       <motion.div
         initial={{
@@ -591,43 +589,54 @@ export default function TeacherHome() {
         }}
         className="flex items-start justify-between"
       >
-        <div>
-          <h1 className="text-[20px] font-bold text-blue-600 leading-tight">
-            Welcome back,{' '}
-            {teacherName}
-          </h1>
+          <div>
+            <h1 className="text-[20px] font-bold text-blue-600 leading-tight">
+              Welcome back, {teacherName}
+            </h1>
+            <p className="text-[11px] font-semibold text-gray-400 mt-0.5 uppercase tracking-wider">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase()}
+              {' · '}
+              {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
+        </motion.div>
 
-          <p className="text-[11px] font-semibold text-gray-400 mt-0.5 uppercase tracking-wider">
-            {new Date().toLocaleDateString(
-              'en-US',
-              {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              }
-            ).toUpperCase()}
-            {' · '}
-            {new Date().toLocaleTimeString(
-              'en-US',
-              {
-                hour: '2-digit',
-                minute:
-                  '2-digit',
-              }
+        {/* Stats + Leave Balance */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {STATS.map((s) => <StatCard key={s.label} {...s} />)}
+
+          {/* Leave Balance Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.25 }}
+            className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow col-span-2 sm:col-span-1"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                <BookOpen size={15} className="text-violet-600" />
+              </div>
+              {leaveBalance && leaveBalance.balance < 2 && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-600">
+                  Low
+                </span>
+              )}
+            </div>
+
+            {!leaveBalance ? (
+              <p className="text-[11px] text-gray-400 mt-2">No balance data</p>
+            ) : (
+              <>
+                <p className="text-[26px] font-bold text-gray-900 leading-none mb-1">
+                  {leaveBalance.balance.toFixed(1)}
+                </p>
+                <p className="text-[11px] font-semibold text-gray-500">Leave Balance</p>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Used: {leaveBalance.used_ytd.toFixed(1)} · Carry: {leaveBalance.carry_over.toFixed(1)}
+                </p>
+              </>
             )}
-          </p>
-        </div>
-      </motion.div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-        {STATS.map((s) => (
-          <StatCard
-            key={s.label}
-            {...s}
-          />
-        ))}
+          </motion.div>
       </div>
 
       {/* Quick Actions */}
@@ -943,12 +952,9 @@ export default function TeacherHome() {
       {/* Apply Leave Modal */}
       <ApplyLeaveModal
         isOpen={leaveOpen}
-        onClose={
-          handleCloseLeave
-        }
-        onSubmit={async (
-          data
-        ) => {
+        onClose={handleCloseLeave}
+        leaveBalance={leaveBalance?.balance ?? null}
+        onSubmit={async (data) => {
           try {
             const raw = (
               data.leaveType ||
@@ -973,31 +979,15 @@ export default function TeacherHome() {
                 .toISOString()
                 .slice(0, 10);
 
-            await api.post(
-              '/leaves/apply',
-              {
-                date: dateStr,
-
-                period_start:
-                  data.periodStart ??
-                  1,
-
-                period_end:
-                  data.periodEnd ??
-                  data.periodStart ??
-                  8,
-
-                leave_type,
-
-                reason:
-                  data.reason ||
-                  'No reason provided',
-
-                handover_url:
-                  data.fileDataUrl ||
-                  null,
-              }
-            );
+            await api.post('/leaves/apply', {
+              date: dateStr,
+              end_date: data.toDate || dateStr,
+              period_start: 1,
+              period_end: 8,
+              leave_type,
+              reason: data.reason || 'No reason provided',
+              handover_url: data.fileDataUrl || null,
+            });
 
             handleCloseLeave();
           } catch (err) {

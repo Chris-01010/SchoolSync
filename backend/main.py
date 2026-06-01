@@ -32,8 +32,16 @@ from . import models
 from . import schemas
 from . import relief
 from . import auth
+from . import leave_api
 from . import relief_router
+from . import leave_balance_api
 from .worker import generate_timetable_task
+
+from .email_service import (
+    send_verification_email,
+    send_password_reset_email,
+)
+
 from .crud import router as master_router
 from .leave_api import router as leaves_router
 from .admin_dashboard import router as admin_dashboard_router
@@ -113,8 +121,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+# ─── Startup ───────────────────────────────────────────────────────────────────
 _scheduler = AsyncIOScheduler()
+
+# ─── Routers ───────────────────────────────────────────────────────────────────
+
+app.include_router(master_router, prefix="/api/v1")
+app.include_router(admin_dashboard_router, prefix="/api/v1")
+app.include_router(rooms_router, prefix="/api/v1")
+app.include_router(blocked_slots_router, prefix="/api/v1")
+app.include_router(leave_api.router, prefix="/leaves", tags=["leaves"])
+app.include_router(relief_router.router, prefix="/relief", tags=["relief"])
+app.include_router(leave_balance_api.router, prefix="/leave-balance", tags=["leave-balance"])
+
 
 @app.on_event("startup")
 async def startup():
@@ -275,6 +294,20 @@ async def signup(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
         )
         db.add(teacher_profile)
         await db.commit()
+
+        leave_balance = models.TeacherLeaveBalance(
+            teacher_id=teacher_profile.id,
+            academic_year=leave_balance_api.get_current_academic_year(),
+            balance=2.0,
+            used_ytd=0.0,
+            carry_over=0.0,
+            last_credited_month=None,
+        )
+        db.add(leave_balance)
+        await db.commit()
+
+    
+    # Generate verification token and send email
     token = secrets.token_urlsafe(32)
     db_user.verification_token = token
     db_user.verification_token_expires_at = datetime.utcnow() + timedelta(hours=24)
