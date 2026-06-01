@@ -11,7 +11,7 @@ import datetime as dt
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text, cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -651,6 +651,7 @@ async def get_assigned_absences(
 
 
 # ─── POST /relief/assignments/{assignment_id}/respond ────────────────────────
+# ─── EPIC-3: POST /relief/assignments/{assignment_id}/respond ─────────────────
 
 @router.post("/assignments/{assignment_id}/respond")
 async def respond_to_relief(
@@ -676,6 +677,7 @@ async def respond_to_relief(
     if assignment.status != models.ReliefStatus.PENDING:
         raise HTTPException(status_code=400, detail="Assignment is no longer pending.")
 
+    # ── Reject / Flag (existing flow, unchanged) ──
     if body.response == "rejected":
         assignment.status = models.ReliefStatus.REJECTED
         await db.commit()
@@ -687,6 +689,7 @@ async def respond_to_relief(
     if body.response != "accepted":
         raise HTTPException(status_code=400, detail="response must be 'accepted' or 'rejected'.")
 
+    # ── Accepted — require mode ──
     if body.mode not in ("swap", "consume"):
         raise HTTPException(status_code=400, detail="mode must be 'swap' or 'consume' when accepting.")
 
@@ -910,7 +913,46 @@ async def confirm_consumption(
         return {"status": "rejected"}
 
 
-# ─── GET /relief/assignments/pending-consumption ──────────────────────────────
+# ─── EPIC-3: GET /relief/assignments/pending ──────────────────────────────────
+
+@router.get("/assignments/pending")
+async def list_pending_assignments(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == str(current_user.id))
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        return []
+
+    assignments_result = await db.execute(
+        select(models.ReliefAssignment).where(
+            models.ReliefAssignment.relief_teacher_id == str(teacher.id),
+            models.ReliefAssignment.status == models.ReliefStatus.PENDING,
+        )
+    )
+    assignments = assignments_result.scalars().all()
+
+    output = []
+    for a in assignments:
+        absence_result = await db.execute(
+            select(models.Absence).where(models.Absence.id == str(a.absence_id))
+        )
+        absence = absence_result.scalar_one_or_none()
+
+        output.append({
+            "id": str(a.id),
+            "absence_id": str(a.absence_id),
+            "day": absence.date.weekday() if absence else None,
+            "period": absence.period_start if absence else None,
+            "assigned_at": str(a.assigned_at),
+        })
+
+    return output
+
+# ─── EPIC-3: GET /relief/assignments/pending-consumption ──────────────────────
 
 @router.get("/assignments/pending-consumption")
 async def list_pending_consumption(
@@ -935,12 +977,12 @@ async def list_pending_consumption(
         return {"assignments": []}
 
     assignments_result = await db.execute(
-        select(models.ReliefAssignment).where(
-            models.ReliefAssignment.absence_id.in_(absence_ids),
-            models.ReliefAssignment.status == models.ReliefStatus.AWAITING_CONFIRMATION,
-            models.ReliefAssignment.assignment_mode == models.AssignmentMode.CONSUME,
-        )
+    select(models.ReliefAssignment).where(
+        models.ReliefAssignment.absence_id.in_(absence_ids),
+        models.ReliefAssignment.status == models.ReliefStatus.AWAITING_CONFIRMATION,
+        text("relief_assignments.assignment_mode = 'CONSUME'"),
     )
+)
     assignments = assignments_result.scalars().all()
 
     output = []
@@ -950,14 +992,14 @@ async def list_pending_consumption(
         )
         sub = sub_result.scalar_one_or_none()
         absence = absence_map.get(str(a.absence_id))
+
+        # FIX: use slot_id directly instead of fragile day+period+is_relief lookup,
+        # which was returning None or crashing when no is_relief slot existed yet.
         slot = None
-        if absence:
-            day_of_week = absence.date.weekday()
+        if a.slot_id:
             slot_result = await db.execute(
                 select(models.TimetableSlot).where(
-                    models.TimetableSlot.day_of_week == day_of_week,
-                    models.TimetableSlot.period == absence.period_start,
-                    models.TimetableSlot.is_relief == True,
+                    models.TimetableSlot.id == str(a.slot_id)
                 )
             )
             slot = slot_result.scalar_one_or_none()
@@ -973,7 +1015,7 @@ async def list_pending_consumption(
     return {"assignments": output}
 
 
-# ─── GET /relief/my-slots ─────────────────────────────────────────────────────
+# ─── EPIC-3: GET /relief/my-slots — swap slot picker data ────────────────────
 
 @router.get("/my-slots")
 async def get_my_future_slots(
@@ -996,6 +1038,9 @@ async def get_my_future_slots(
         )
     )
     all_slots = slots_result.scalars().all()
+
+    # Filter out only: today's slots at or before the current period.
+    # Since we don't track clock time, conservatively exclude all of today's slots.
     slots = [s for s in all_slots if s.day_of_week != today_dow]
 
     return {

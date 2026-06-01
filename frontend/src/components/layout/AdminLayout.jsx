@@ -200,7 +200,7 @@ export default function AdminLayout({ children }) {
         </header>
 
         {/* Content — AdminHome manages its own scroll + fixed bar */}
-        <main className="flex-1 min-h-0 overflow-hidden">
+        <main className="flex-1 min-h-0 overflow-y-auto">
           {children || <Outlet />}
         </main>
       </div>

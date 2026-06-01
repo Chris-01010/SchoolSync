@@ -32,6 +32,7 @@ from . import models
 from . import schemas
 from . import relief
 from . import auth
+from . import relief_router
 from .worker import generate_timetable_task
 from .crud import router as master_router
 from .leave_api import router as leaves_router
@@ -146,7 +147,8 @@ app.include_router(admin_dashboard_router, prefix="/api/v1")
 app.include_router(rooms_router, prefix="/api/v1") 
 app.include_router(blocked_slots_router, prefix="/api/v1")  
 app.include_router(leaves_router, prefix="/leaves")
-app.include_router(relief_router, prefix="/relief")
+app.include_router(relief_router.router, prefix="/relief")
+
 
 @app.get("/api/v1/my/teacher-profile")
 async def get_my_teacher_profile(
@@ -368,7 +370,13 @@ async def generate_timetable_sync(db: AsyncSession = Depends(get_db)):
     if not classes:
         raise HTTPException(status_code=400, detail="No classes found in database")
 
-    await db.execute(models.TimetableVersion.__table__.update().values(is_active=False))
+    # Wipe previous timetable data first
+    await db.execute(delete(models.ReliefAssignment))
+    await db.execute(delete(models.TimetableSlot))
+    await db.execute(delete(models.TimetableVersion))
+    await db.commit()
+
+    # Create the new active version
     version = models.TimetableVersion(
         id=str(uuid_module.uuid4()),
         is_active=True,
@@ -377,9 +385,6 @@ async def generate_timetable_sync(db: AsyncSession = Depends(get_db)):
     )
     db.add(version)
     await db.flush()
-    await db.execute(delete(models.TimetableSlot))
-    await db.commit()
-
     # All IDs as strings, no UUID/string mixing
     room_ids = [str(r.id) for r in rooms]
     teacher_by_id = {str(t.id): t for t in teachers}
@@ -539,6 +544,28 @@ async def create_teacher(teacher: schemas.TeacherCreate, db: AsyncSession = Depe
 async def list_teachers(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.Teacher))
     return result.scalars().all()
+
+@app.get("/api/v1/teachers/me")
+async def get_my_teacher_profile(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == str(current_user.id))
+    )
+    teacher = result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found")
+    return {
+        "id": str(teacher.id),
+        "name": teacher.name,
+        "email": teacher.email,
+        "department_id": str(teacher.department_id) if teacher.department_id else None,
+        "weekly_relief_cap": teacher.weekly_relief_cap,
+        "current_relief_hours": teacher.current_relief_hours,
+        "total_hours_worked": teacher.total_hours_worked,
+        "is_active": teacher.is_active,
+    }
 
 # ─── Teacher Dashboard ─────────────────────────────────────────────────────────
 @app.get("/teachers/me/dashboard", response_model=schemas.DashboardSummary, dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))])

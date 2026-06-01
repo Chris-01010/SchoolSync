@@ -27,8 +27,8 @@ export function useTeacherProfile() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE}/auth/me`, { headers: getHeaders() })
-      .then(r => r.ok ? r.json() : null)
+    fetch(`${BASE}/api/v1/my/teacher-profile`, { headers: getHeaders() })
+      .then(r => r.json())
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
