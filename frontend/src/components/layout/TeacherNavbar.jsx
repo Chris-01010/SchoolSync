@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { api } from "../../services/api";
-import ReliefAssignmentModal from "../teacher/ReliefAssignmentModal";
 
 const BASE = 'http://localhost:8000';
 function getHeaders() {
@@ -29,31 +28,16 @@ function getNavUrl(n) {
   }
 }
 
-function toModalShape(req) {
-  return {
-    id: req.id,
-    class_name: req.class ?? "Unknown Class",
-    period: req.period ?? "--",
-    period_start_time: null,
-    period_end_time: null,
-    original_teacher_name: req.absentTeacher ?? "Unknown Teacher",
-    day_label: req.day ?? "--",
-    subject_name: req.subject ?? "",
-  };
-}
-
 const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
 
-  const [notifOpen, setNotifOpen]             = useState(false);
-  const [reliefModalOpen, setReliefModalOpen] = useState(false);
-  const [toastMessage, setToastMessage]       = useState(null);
-  const [pendingReliefs, setPendingReliefs]   = useState([]);
-  const [activeAssignment, setActiveAssignment] = useState(null);
-  const [notifs, setNotifs]                   = useState([]);
-  const dropdownRef                           = useRef(null);
+  const [notifOpen, setNotifOpen]           = useState(false);
+  const [toastMessage, setToastMessage]     = useState(null);
+  const [pendingReliefs, setPendingReliefs] = useState([]);
+  const [notifs, setNotifs]                 = useState([]);
+  const dropdownRef                         = useRef(null);
 
   const fetchNotifs = () => {
     fetch(`${BASE}/leaves/notifications/`, { headers: getHeaders() })
@@ -110,27 +94,11 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   const unread     = notifs.filter((n) => !n.is_read).length;
   const totalBadge = unread + pendingReliefs.length;
 
-  const mockReliefAssignment = {
-    id: 'mock-relief-001',
-    class_name: '10A Chemistry',
-    period: 4,
-    period_start_time: '13:00',
-    period_end_time: '14:00',
-    original_teacher_name: 'Dr. Patel',
-    day_label: 'Today',
-    subject_name: 'Chemistry',
-    room_name: 'Lab 3',
-  };
-
+  // Clicking the pending relief banner always goes to the relief duties page
   const handleReliefClick = () => {
-    const assignment = pendingReliefs.length > 0 ? toModalShape(pendingReliefs[0]) : mockReliefAssignment;
-    setActiveAssignment(assignment);
     setNotifOpen(false);
-    setReliefModalOpen(true);
+    navigate('/dashboard/relief-duties');
   };
-
-  const handleAccept = () => { setPendingReliefs((p) => p.slice(1)); setToastMessage({ text: "Assignment accepted", kind: "accept" }); };
-  const handleReject = () => { setPendingReliefs((p) => p.slice(1)); setToastMessage({ text: "Assignment rejected", kind: "reject" }); };
 
   const isOnLeavesPage = /leaves|my-leaves/i.test(location.pathname);
 
@@ -270,14 +238,6 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
           </div>
         </div>
       </header>
-
-      <ReliefAssignmentModal
-          isOpen={reliefModalOpen}
-          onClose={() => setReliefModalOpen(false)}
-          assignment={activeAssignment}
-          onAccept={handleAccept}
-          onReject={handleReject}
-      />
 
       <AnimatePresence>
         {toastMessage && (

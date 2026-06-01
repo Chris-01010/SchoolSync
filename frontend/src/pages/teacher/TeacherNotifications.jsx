@@ -17,6 +17,8 @@ import {
   X,
 } from 'lucide-react';
 
+import { useNavigate } from 'react-router-dom';
+
 import { api } from '../../services/api';
 
 import { useTeacherNotifications } from '../../hooks/useTeacherData';
@@ -47,6 +49,8 @@ const TABS = [
 
 export function TeacherNotifications() {
   // ─── Real API Notifications ───────────────────────────────────────────────
+
+  const navigate = useNavigate();
 
   const {
     data: fetchedNotifs = [],
@@ -167,6 +171,12 @@ export function TeacherNotifications() {
   ) => {
     if (!n.read) {
       markRead(n.id);
+    }
+
+    // Relief notifications go straight to the relief duties page
+    if (n.type === 'relief_request' || n.type === 'relief_accepted' || n.type === 'relief_rejected') {
+      navigate('/dashboard/relief-duties');
+      return;
     }
 
     setSelectedNotif(n);

@@ -381,6 +381,16 @@ export default function TeacherHome() {
     setSelectedNotif,
   ] = useState(null);
 
+  // For relief notifications, navigate directly to relief duties page.
+  // For everything else, open the detail popup.
+  const handleNotifClick = (n) => {
+    if (n.type === 'relief_request' || n.type === 'relief_accepted' || n.type === 'relief_rejected') {
+      navigate('/dashboard/relief-duties');
+    } else {
+      setSelectedNotif(n);
+    }
+  };
+
   useEffect(() => {
     if (
       ctx?.leaveModalOpen
@@ -764,7 +774,7 @@ export default function TeacherHome() {
                     key={n.id}
                     n={n}
                     onClick={
-                      setSelectedNotif
+                      handleNotifClick
                     }
                   />
                 ))

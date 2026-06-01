@@ -7,18 +7,23 @@ function getHeaders() {
   return { 'Authorization': `Bearer ${token}` };
 }
 
-// Maps backend NotificationType enum values → what ICON_MAP/NOTIF_ICONS expect
+// Maps backend NotificationType enum values → what ICON_MAP/NOTIF_ICONS expect.
+// TeacherNotifications uses: leave_approved, leave_rejected, relief_request,
+//   relief_accepted, relief_rejected, announcement, general
+// TeacherHome NOTIF_ICONS uses: leave_approved, relief_assigned, announcement
+// We use the TeacherNotifications keys as canonical (they're more complete).
+// TeacherHome falls back to announcement for unknowns so that's fine.
 function normalizeNotifType(raw) {
   if (!raw) return 'announcement';
   switch (raw.toUpperCase()) {
     case 'LEAVE_APPROVED':  return 'leave_approved';
     case 'LEAVE_REJECTED':  return 'leave_rejected';
-    case 'RELIEF_REQUEST':
-    case 'RELIEF_ACCEPTED':
-    case 'RELIEF_REJECTED': return 'relief_assigned';
+    case 'RELIEF_REQUEST':  return 'relief_request';
+    case 'RELIEF_ACCEPTED': return 'relief_accepted';
+    case 'RELIEF_REJECTED': return 'relief_rejected';
     case 'LEAVE_REQUEST':   return 'announcement';
     case 'ANNOUNCEMENT':    return 'announcement';
-    default:                return 'announcement';
+    default:                return 'general';
   }
 }
 
@@ -133,10 +138,11 @@ export function useTeacherNotifications() {
         const raw = Array.isArray(d?.data) ? d.data : [];
         setData(raw.map(n => ({
           ...n,
-          read:    n.is_read,
-          message: n.content,
-          type:    normalizeNotifType(n.notification_type),
-          time:    n.created_at
+          read:       n.is_read,
+          message:    n.content,
+          type:       normalizeNotifType(n.notification_type),
+          action_url: n.action_url ?? null,
+          time:       n.created_at
             ? new Date(n.created_at).toLocaleString('en-IN', {
                 day: 'numeric', month: 'short',
                 hour: '2-digit', minute: '2-digit',

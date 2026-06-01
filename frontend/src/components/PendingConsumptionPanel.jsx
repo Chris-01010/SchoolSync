@@ -1,248 +1,188 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle2, X, Clock, RefreshCw } from 'lucide-react';
 
-/**
- * PendingConsumptionPanel
- *
- * Fetches GET /relief/assignments/pending-consumption and renders each
- * pending consume request. Allows absent teacher to Approve or Reject
- * via POST /relief/assignments/{id}/confirm-consumption.
- *
- * Props: none (reads auth token from localStorage, same as TeacherDashboard)
- */
-export default function PendingConsumptionPanel() {
-  const [items, setItems]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
-  const [expanded, setExpanded] = useState({});   // { [id]: bool }
-  const [acting, setActing]     = useState({});   // { [id]: 'approve'|'reject'|null }
-  const [feedback, setFeedback] = useState({});   // { [id]: { ok: bool, msg: string } }
+const BASE = 'http://localhost:8000';
 
-  const headers = () => {
-    const token = localStorage.getItem('schoolsync_token');
-    return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+function getHeaders() {
+  const token = localStorage.getItem('schoolsync_token') ||
+                localStorage.getItem('access_token') ||
+                localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
+}
 
-  const fetchPending = useCallback(() => {
+function Toast({ msg, type, onDone }) {
+  useEffect(() => {
+    const id = setTimeout(onDone, 3000);
+    return () => clearTimeout(id);
+  }, [onDone]);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border
+                  flex items-center gap-2 text-[12px] font-semibold
+                  ${type === 'error' ? 'bg-red-50 border-red-200 text-red-700'
+                    : type === 'approve' ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    : 'bg-gray-50 border-gray-200 text-gray-700'}`}
+    >
+      {type === 'approve' ? <CheckCircle2 size={14} /> : <X size={14} />}
+      {msg}
+    </motion.div>
+  );
+}
+
+export default function PendingConsumptionPanel() {
+  const [items, setItems]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [acting, setActing]   = useState(null); // assignment id currently being responded to
+  const [toast, setToast]     = useState(null);
+
+  const showToast = (msg, type = 'approve') => setToast({ msg, type });
+
+  const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
-    fetch('http://localhost:8000/relief/assignments/pending-consumption', { headers: headers() })
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then(data => setItems(Array.isArray(data.assignments) ? data.assignments : []))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
+    try {
+      const res = await fetch(`${BASE}/leaves/relief/my/pending-consume-approvals`, { headers: getHeaders() });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setItems(Array.isArray(data) ? data : []);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { fetchPending(); }, [fetchPending]);
+  useEffect(() => { load(); }, [load]);
 
-  const respond = async (id, confirm) => {
-    const action = confirm ? 'approve' : 'reject';
-    setActing(prev => ({ ...prev, [id]: action }));
-    setFeedback(prev => ({ ...prev, [id]: null }));
-
+  const respond = async (id, action) => {
+    setActing(id);
     try {
-      const res = await fetch(
-        `http://localhost:8000/relief/assignments/${id}/confirm-consumption`,
-        { method: 'POST', headers: headers(), body: JSON.stringify({ confirm }) }
+      const res = await fetch(`${BASE}/leaves/relief/${id}/consume-respond`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        let detail = `Server error ${res.status}`;
+        try {
+          const err = await res.json();
+          if (typeof err.detail === 'string') detail = err.detail;
+        } catch { /* keep default */ }
+        throw new Error(detail);
+      }
+      showToast(
+        action === 'approve'
+          ? 'Approved — substitute\'s hours have been credited.'
+          : 'Rejected — the slot has been reassigned.',
+        action === 'approve' ? 'approve' : 'reject',
       );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.detail ?? `HTTP ${res.status}`);
-
-      setFeedback(prev => ({
-        ...prev,
-        [id]: { ok: true, msg: confirm ? 'Approved — workload updated.' : 'Rejected — slot reverted.' }
-      }));
-      // Remove after short delay so the user sees the feedback
-      setTimeout(() => setItems(prev => prev.filter(i => i.assignment_id !== id)), 1800);
-    } catch (err) {
-      setFeedback(prev => ({ ...prev, [id]: { ok: false, msg: err.message } }));
+      // Remove the item from the list optimistically
+      setItems(prev => prev.filter(i => i.id !== id));
+    } catch (e) {
+      showToast(e.message || 'Something went wrong.', 'error');
     } finally {
-      setActing(prev => ({ ...prev, [id]: null }));
+      setActing(null);
     }
   };
 
-  const toggleExpand = (id) =>
-    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
-
-  // ── Nothing to show ──────────────────────────────────────────────────────────
-  if (!loading && !error && items.length === 0) return null;
+  // Don't render anything if no pending items and not loading
+  if (!loading && items.length === 0) return null;
 
   return (
-    <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Clock size={18} className="text-amber-500" />
-          <h2 className="text-[18px] font-bold text-slate-900">Pending Consume Approvals</h2>
-        </div>
-        {!loading && !error && (
-          <span className="text-[12px] font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
-            {items.length}
-          </span>
+    <>
+      <AnimatePresence>
+        {toast && (
+          <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />
         )}
-      </div>
+      </AnimatePresence>
 
-      <p className="mt-1 text-[12px] font-semibold text-slate-500">
-        A substitute has volunteered to cover your slot. Approve to confirm their extra hour.
-      </p>
-
-      {/* Loading */}
-      {loading && (
-        <div className="mt-6 flex justify-center py-6">
-          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      )}
-
-      {/* Error */}
-      {error && (
-        <div className="mt-4 flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-          <AlertTriangle size={16} />
-          <span className="text-[13px] font-semibold">Failed to load: {error}</span>
+      <div className="bg-white border border-amber-200 rounded-xl shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-amber-100 bg-amber-50">
+          <div className="flex items-center gap-2">
+            <Clock size={14} className="text-amber-600" />
+            <span className="text-[13px] font-bold text-amber-800">
+              Pending Consume Approvals
+            </span>
+            {items.length > 0 && (
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold">
+                {items.length}
+              </span>
+            )}
+          </div>
           <button
-            onClick={fetchPending}
-            className="ml-auto text-[12px] font-bold underline underline-offset-2"
+            onClick={load}
+            disabled={loading}
+            className="p-1 rounded-lg text-amber-500 hover:bg-amber-100 transition-colors disabled:opacity-40"
           >
-            Retry
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
-      )}
 
-      {/* Item list */}
-      {!loading && !error && (
-        <div className="mt-4 space-y-3">
-          {items.map(item => {
-            const isExpanded = !!expanded[item.assignment_id];
-            const fb         = feedback[item.assignment_id];
-            const isActing   = !!acting[item.assignment_id];
-
-            return (
-              <div
-                key={item.assignment_id}
-                className={`border rounded-xl overflow-hidden transition-all duration-200 ${
-                  fb?.ok
-                    ? 'border-green-200 bg-green-50'
-                    : fb && !fb.ok
-                    ? 'border-red-200 bg-red-50'
-                    : 'border-slate-200 bg-surface-container-low'
-                }`}
+        {/* Content */}
+        <div className="divide-y divide-gray-50">
+          {loading ? (
+            <p className="text-center py-8 text-[12px] text-gray-400">Loading…</p>
+          ) : (
+            items.map((item, i) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="px-4 py-3"
               >
-                {/* Summary row */}
-                <button
-                  onClick={() => toggleExpand(item.assignment_id)}
-                  className="w-full flex items-center gap-3 p-3 text-left"
-                  aria-expanded={isExpanded}
-                >
-                  {/* Icon */}
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center flex-shrink-0">
-                    <Clock size={18} className="text-amber-500" />
-                  </div>
+                {/* Info */}
+                <div className="mb-3">
+                  <p className="text-[13px] font-bold text-gray-800">
+                    {item.substitute} wants to cover your class
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    {item.subject && item.class
+                      ? `${item.subject} · ${item.class}`
+                      : item.subject || item.class || '—'}
+                  </p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {item.day} · Period {item.period}
+                  </p>
+                  <p className="text-[10px] text-amber-700 bg-amber-50 rounded-md px-2 py-1 mt-2 inline-block font-medium">
+                    Approving will credit their relief hours. Rejecting reassigns the slot.
+                  </p>
+                </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-bold text-slate-900 truncate">
-                      {item.subject ?? 'Class'} · {item.class_name ?? item.class ?? ''}
-                    </p>
-                    <p className="text-[12px] font-semibold text-slate-600">
-                      {item.day} · Period {item.period}
-                    </p>
-                    <p className="text-[12px] font-semibold text-slate-500">
-                      Covered by: <span className="text-slate-700">{item.substitute_name ?? 'Substitute'}</span>
-                    </p>
-                  </div>
-
-                  {/* Chevron */}
-                  <div className="flex-shrink-0 text-slate-400">
-                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                  </div>
-                </button>
-
-                {/* Expanded detail + actions */}
-                {isExpanded && (
-                  <div className="px-3 pb-3 border-t border-slate-100 pt-3 space-y-3">
-                    {/* Detail grid */}
-                    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-[12px]">
-                      {item.substitute_name && (
-                        <>
-                          <dt className="font-semibold text-slate-500">Substitute</dt>
-                          <dd className="font-bold text-slate-800">{item.substitute_name}</dd>
-                        </>
-                      )}
-                      {item.absence_date && (
-                        <>
-                          <dt className="font-semibold text-slate-500">Absence date</dt>
-                          <dd className="font-bold text-slate-800">{item.absence_date}</dd>
-                        </>
-                      )}
-                      {item.reason && (
-                        <>
-                          <dt className="font-semibold text-slate-500">Leave reason</dt>
-                          <dd className="font-bold text-slate-800">{item.reason}</dd>
-                        </>
-                      )}
-                    </dl>
-
-                    {/* Workload impact note */}
-                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                      <AlertTriangle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
-                      <p className="text-[12px] font-semibold text-amber-800 leading-snug">
-                        If you approve, {item.substitute_name ?? 'the substitute'}'s relief hours +1 and your total hours −1.
-                        If you reject, the slot reverts to you.
-                      </p>
-                    </div>
-
-                    {/* Feedback banner */}
-                    {fb && (
-                      <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold ${
-                        fb.ok
-                          ? 'bg-green-100 text-green-800 border border-green-200'
-                          : 'bg-red-100 text-red-800 border border-red-200'
-                      }`}>
-                        {fb.ok
-                          ? <CheckCircle size={15} />
-                          : <AlertTriangle size={15} />
-                        }
-                        {fb.msg}
-                      </div>
-                    )}
-
-                    {/* Action buttons — hidden once feedback is shown */}
-                    {!fb && (
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={() => respond(item.assignment_id, true)}
-                          disabled={isActing}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-[13px] font-bold transition-colors disabled:opacity-50"
-                        >
-                          {acting[item.assignment_id] === 'approve'
-                            ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            : <CheckCircle size={15} />
-                          }
-                          Approve
-                        </button>
-
-                        <button
-                          onClick={() => respond(item.assignment_id, false)}
-                          disabled={isActing}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-[13px] font-bold transition-colors disabled:opacity-50"
-                        >
-                          {acting[item.assignment_id] === 'reject'
-                            ? <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                            : <XCircle size={15} />
-                          }
-                          Reject
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => respond(item.id, 'reject')}
+                    disabled={acting === item.id}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-red-500
+                               hover:bg-red-600 text-white text-[11px] font-semibold rounded-lg
+                               disabled:opacity-50 transition-colors"
+                  >
+                    <X size={12} /> Reject
+                  </button>
+                  <button
+                    onClick={() => respond(item.id, 'approve')}
+                    disabled={acting === item.id}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-500
+                               hover:bg-emerald-600 text-white text-[11px] font-semibold rounded-lg
+                               disabled:opacity-50 transition-colors"
+                  >
+                    <CheckCircle2 size={12} />
+                    {acting === item.id ? 'Processing…' : 'Approve'}
+                  </button>
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
-      )}
-    </section>
+      </div>
+    </>
   );
 }

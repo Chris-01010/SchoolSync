@@ -6006,3 +6006,670 @@ asyncio.exceptions.CancelledError
 2026-05-31 23:26:06,354 [INFO] backend.auth - User TCH001 (UserRole.TEACHER) authenticated successfully.
 2026-05-31 23:27:01,966 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-05-31 23:28:01 +03)" (scheduled at 2026-05-31 23:27:01.961265+03:00)
 2026-05-31 23:27:04,579 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-05-31 23:28:01 +03)" executed successfully
+2026-06-01 11:43:10,481 [INFO] backend.main - SchoolSync API started. Schema managed externally — skipping create_all.
+2026-06-01 11:43:10,481 [INFO] apscheduler.scheduler - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-06-01 11:43:10,481 [INFO] apscheduler.scheduler - Added job "startup.<locals>._expiry_job" to job store "default"
+2026-06-01 11:43:10,481 [INFO] apscheduler.scheduler - Scheduler started
+2026-06-01 11:44:08,936 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 11:44:09,607 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 11:44:10,487 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:45:10 IST)" (scheduled at 2026-06-01 11:44:10.481155+05:30)
+2026-06-01 11:44:12,044 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:45:10 IST)" executed successfully
+2026-06-01 11:45:10,484 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:46:10 IST)" (scheduled at 2026-06-01 11:45:10.481155+05:30)
+2026-06-01 11:45:12,029 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:46:10 IST)" executed successfully
+2026-06-01 11:46:10,492 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:47:10 IST)" (scheduled at 2026-06-01 11:46:10.481155+05:30)
+2026-06-01 11:46:11,559 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:47:10 IST)" executed successfully
+2026-06-01 11:47:10,490 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:48:10 IST)" (scheduled at 2026-06-01 11:47:10.481155+05:30)
+2026-06-01 11:47:11,573 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:48:10 IST)" executed successfully
+2026-06-01 11:48:10,482 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:49:10 IST)" (scheduled at 2026-06-01 11:48:10.481155+05:30)
+2026-06-01 11:48:11,549 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:49:10 IST)" executed successfully
+2026-06-01 11:49:10,495 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:50:10 IST)" (scheduled at 2026-06-01 11:49:10.481155+05:30)
+2026-06-01 11:49:11,561 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:50:10 IST)" executed successfully
+2026-06-01 11:50:10,496 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:51:10 IST)" (scheduled at 2026-06-01 11:50:10.481155+05:30)
+2026-06-01 11:50:11,576 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:51:10 IST)" executed successfully
+2026-06-01 11:51:10,491 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:52:10 IST)" (scheduled at 2026-06-01 11:51:10.481155+05:30)
+2026-06-01 11:51:11,561 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:52:10 IST)" executed successfully
+2026-06-01 11:52:10,489 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:53:10 IST)" (scheduled at 2026-06-01 11:52:10.481155+05:30)
+2026-06-01 11:52:11,568 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:53:10 IST)" executed successfully
+2026-06-01 11:53:10,494 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:54:10 IST)" (scheduled at 2026-06-01 11:53:10.481155+05:30)
+2026-06-01 11:53:11,551 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:54:10 IST)" executed successfully
+2026-06-01 11:54:10,505 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:55:10 IST)" (scheduled at 2026-06-01 11:54:10.481155+05:30)
+2026-06-01 11:54:11,592 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:55:10 IST)" executed successfully
+2026-06-01 11:55:10,493 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:56:10 IST)" (scheduled at 2026-06-01 11:55:10.481155+05:30)
+2026-06-01 11:55:11,559 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:56:10 IST)" executed successfully
+2026-06-01 11:55:13,026 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 11:55:24,918 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 11:55:34,095 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 11:55:36,715 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 11:55:52,836 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 11:55:52,845 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 11:55:53,587 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 11:55:53,770 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 11:55:53,870 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 11:55:54,851 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 11:56:10,486 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:57:10 IST)" (scheduled at 2026-06-01 11:56:10.481155+05:30)
+2026-06-01 11:56:11,560 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:57:10 IST)" executed successfully
+2026-06-01 11:56:15,836 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 11:56:22,927 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 11:56:27,852 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 11:56:39,620 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 11:56:39,936 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 11:57:10,488 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:58:10 IST)" (scheduled at 2026-06-01 11:57:10.481155+05:30)
+2026-06-01 11:57:11,565 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:58:10 IST)" executed successfully
+2026-06-01 11:58:10,487 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:59:10 IST)" (scheduled at 2026-06-01 11:58:10.481155+05:30)
+2026-06-01 11:58:11,635 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 11:59:10 IST)" executed successfully
+2026-06-01 11:59:10,485 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:00:10 IST)" (scheduled at 2026-06-01 11:59:10.481155+05:30)
+2026-06-01 11:59:11,564 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:00:10 IST)" executed successfully
+2026-06-01 12:00:10,486 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:01:10 IST)" (scheduled at 2026-06-01 12:00:10.481155+05:30)
+2026-06-01 12:00:11,573 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:01:10 IST)" executed successfully
+2026-06-01 12:01:10,491 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:02:10 IST)" (scheduled at 2026-06-01 12:01:10.481155+05:30)
+2026-06-01 12:01:11,587 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:02:10 IST)" executed successfully
+2026-06-01 12:02:10,485 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:03:10 IST)" (scheduled at 2026-06-01 12:02:10.481155+05:30)
+2026-06-01 12:02:11,570 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:03:10 IST)" executed successfully
+2026-06-01 12:03:10,483 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:04:10 IST)" (scheduled at 2026-06-01 12:03:10.481155+05:30)
+2026-06-01 12:03:11,550 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:04:10 IST)" executed successfully
+2026-06-01 12:04:10,482 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:05:10 IST)" (scheduled at 2026-06-01 12:04:10.481155+05:30)
+2026-06-01 12:04:11,564 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:05:10 IST)" executed successfully
+2026-06-01 12:05:10,488 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:06:10 IST)" (scheduled at 2026-06-01 12:05:10.481155+05:30)
+2026-06-01 12:05:11,618 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:06:10 IST)" executed successfully
+2026-06-01 12:06:10,487 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:07:10 IST)" (scheduled at 2026-06-01 12:06:10.481155+05:30)
+2026-06-01 12:06:11,567 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:07:10 IST)" executed successfully
+2026-06-01 12:06:40,800 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 12:06:40,800 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 12:07:10,485 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:08:10 IST)" (scheduled at 2026-06-01 12:07:10.481155+05:30)
+2026-06-01 12:07:11,594 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:08:10 IST)" executed successfully
+2026-06-01 12:08:10,485 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:09:10 IST)" (scheduled at 2026-06-01 12:08:10.481155+05:30)
+2026-06-01 12:08:11,551 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:09:10 IST)" executed successfully
+2026-06-01 12:09:10,496 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:10:10 IST)" (scheduled at 2026-06-01 12:09:10.481155+05:30)
+2026-06-01 12:09:11,573 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:10:10 IST)" executed successfully
+2026-06-01 12:10:10,496 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:11:10 IST)" (scheduled at 2026-06-01 12:10:10.481155+05:30)
+2026-06-01 12:10:11,574 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:11:10 IST)" executed successfully
+2026-06-01 12:11:10,489 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:12:10 IST)" (scheduled at 2026-06-01 12:11:10.481155+05:30)
+2026-06-01 12:11:11,591 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:12:10 IST)" executed successfully
+2026-06-01 12:12:10,499 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:13:10 IST)" (scheduled at 2026-06-01 12:12:10.481155+05:30)
+2026-06-01 12:12:11,916 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:13:10 IST)" executed successfully
+2026-06-01 12:13:10,481 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:14:10 IST)" (scheduled at 2026-06-01 12:13:10.481155+05:30)
+2026-06-01 12:13:11,579 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:14:10 IST)" executed successfully
+2026-06-01 12:14:10,481 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:15:10 IST)" (scheduled at 2026-06-01 12:14:10.481155+05:30)
+2026-06-01 12:14:11,561 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:15:10 IST)" executed successfully
+2026-06-01 12:15:10,494 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:16:10 IST)" (scheduled at 2026-06-01 12:15:10.481155+05:30)
+2026-06-01 12:15:12,451 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:16:10 IST)" executed successfully
+2026-06-01 12:16:10,484 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:17:10 IST)" (scheduled at 2026-06-01 12:16:10.481155+05:30)
+2026-06-01 12:16:12,563 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:17:10 IST)" executed successfully
+2026-06-01 12:17:10,481 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:18:10 IST)" (scheduled at 2026-06-01 12:17:10.481155+05:30)
+2026-06-01 12:17:11,575 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:18:10 IST)" executed successfully
+2026-06-01 12:18:10,493 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:19:10 IST)" (scheduled at 2026-06-01 12:18:10.481155+05:30)
+2026-06-01 12:18:11,565 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:19:10 IST)" executed successfully
+2026-06-01 12:19:10,492 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:20:10 IST)" (scheduled at 2026-06-01 12:19:10.481155+05:30)
+2026-06-01 12:19:11,557 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:20:10 IST)" executed successfully
+2026-06-01 12:20:10,493 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:21:10 IST)" (scheduled at 2026-06-01 12:20:10.481155+05:30)
+2026-06-01 12:20:11,593 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:21:10 IST)" executed successfully
+2026-06-01 12:21:10,495 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:22:10 IST)" (scheduled at 2026-06-01 12:21:10.481155+05:30)
+2026-06-01 12:21:11,586 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:22:10 IST)" executed successfully
+2026-06-01 12:22:10,511 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:23:10 IST)" (scheduled at 2026-06-01 12:22:10.481155+05:30)
+2026-06-01 12:22:11,592 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:23:10 IST)" executed successfully
+2026-06-01 12:22:36,713 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 12:22:36,720 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 12:22:38,944 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 12:22:38,955 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 12:22:41,699 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 12:22:41,705 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 12:23:00,621 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:00,759 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:00,759 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:01,311 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:01,659 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:03,093 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:07,590 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:07,621 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:07,642 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:09,455 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:10,487 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:24:10 IST)" (scheduled at 2026-06-01 12:23:10.481155+05:30)
+2026-06-01 12:23:11,558 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:24:10 IST)" executed successfully
+2026-06-01 12:23:14,371 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:16,178 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:34,287 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:34,303 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:44,144 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:23:45,976 [INFO] backend.auth - User CS_TCH016 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:24:00,312 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 12:24:00,312 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 12:24:04,993 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 12:24:10,487 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:25:10 IST)" (scheduled at 2026-06-01 12:24:10.481155+05:30)
+2026-06-01 12:24:11,568 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:25:10 IST)" executed successfully
+2026-06-01 12:24:27,181 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 12:24:33,058 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 12:24:55,967 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:24:56,335 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:24:56,340 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:24:57,159 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:24:57,248 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:24:58,648 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:25:10,490 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:26:10 IST)" (scheduled at 2026-06-01 12:25:10.481155+05:30)
+2026-06-01 12:25:11,561 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:26:10 IST)" executed successfully
+2026-06-01 12:25:20,856 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:25:21,154 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:25:52,273 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:25:52,273 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:25:52,273 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:25:52,961 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:26:10,495 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:27:10 IST)" (scheduled at 2026-06-01 12:26:10.481155+05:30)
+2026-06-01 12:26:11,579 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:27:10 IST)" executed successfully
+2026-06-01 12:26:41,857 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:26:42,998 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:27:10,489 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:28:10 IST)" (scheduled at 2026-06-01 12:27:10.481155+05:30)
+2026-06-01 12:27:11,572 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:28:10 IST)" executed successfully
+2026-06-01 12:28:10,487 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:29:10 IST)" (scheduled at 2026-06-01 12:28:10.481155+05:30)
+2026-06-01 12:28:11,609 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:29:10 IST)" executed successfully
+2026-06-01 12:29:10,490 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:30:10 IST)" (scheduled at 2026-06-01 12:29:10.481155+05:30)
+2026-06-01 12:29:11,576 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:30:10 IST)" executed successfully
+2026-06-01 12:30:10,487 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:31:10 IST)" (scheduled at 2026-06-01 12:30:10.481155+05:30)
+2026-06-01 12:30:11,561 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:31:10 IST)" executed successfully
+2026-06-01 12:31:10,493 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:32:10 IST)" (scheduled at 2026-06-01 12:31:10.481155+05:30)
+2026-06-01 12:31:11,561 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:32:10 IST)" executed successfully
+2026-06-01 12:32:10,482 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:33:10 IST)" (scheduled at 2026-06-01 12:32:10.481155+05:30)
+2026-06-01 12:32:11,564 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:33:10 IST)" executed successfully
+2026-06-01 12:33:10,502 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:34:10 IST)" (scheduled at 2026-06-01 12:33:10.481155+05:30)
+2026-06-01 12:33:11,593 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:34:10 IST)" executed successfully
+2026-06-01 12:34:06,515 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:34:06,515 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:34:06,549 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:34:07,262 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 12:34:10,489 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:35:10 IST)" (scheduled at 2026-06-01 12:34:10.481155+05:30)
+2026-06-01 12:34:11,567 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:35:10 IST)" executed successfully
+2026-06-01 12:35:10,493 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:36:10 IST)" (scheduled at 2026-06-01 12:35:10.481155+05:30)
+2026-06-01 12:35:11,573 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:36:10 IST)" executed successfully
+2026-06-01 12:36:10,500 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:37:10 IST)" (scheduled at 2026-06-01 12:36:10.481155+05:30)
+2026-06-01 12:36:11,590 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:37:10 IST)" executed successfully
+2026-06-01 12:37:10,486 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:38:10 IST)" (scheduled at 2026-06-01 12:37:10.481155+05:30)
+2026-06-01 12:37:11,582 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:38:10 IST)" executed successfully
+2026-06-01 12:38:10,488 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:39:10 IST)" (scheduled at 2026-06-01 12:38:10.481155+05:30)
+2026-06-01 12:38:11,560 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:39:10 IST)" executed successfully
+2026-06-01 12:39:10,489 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:40:10 IST)" (scheduled at 2026-06-01 12:39:10.481155+05:30)
+2026-06-01 12:39:11,578 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:40:10 IST)" executed successfully
+2026-06-01 12:40:10,483 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:41:10 IST)" (scheduled at 2026-06-01 12:40:10.481155+05:30)
+2026-06-01 12:40:11,575 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:41:10 IST)" executed successfully
+2026-06-01 12:41:10,495 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:42:10 IST)" (scheduled at 2026-06-01 12:41:10.481155+05:30)
+2026-06-01 12:41:11,594 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:42:10 IST)" executed successfully
+2026-06-01 12:42:10,481 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:43:10 IST)" (scheduled at 2026-06-01 12:42:10.481155+05:30)
+2026-06-01 12:42:11,639 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:43:10 IST)" executed successfully
+2026-06-01 12:43:10,486 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:44:10 IST)" (scheduled at 2026-06-01 12:43:10.481155+05:30)
+2026-06-01 12:43:11,625 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:44:10 IST)" executed successfully
+2026-06-01 12:44:10,491 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:45:10 IST)" (scheduled at 2026-06-01 12:44:10.481155+05:30)
+2026-06-01 12:44:11,608 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:45:10 IST)" executed successfully
+2026-06-01 12:45:10,494 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:46:10 IST)" (scheduled at 2026-06-01 12:45:10.481155+05:30)
+2026-06-01 12:45:11,640 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:46:10 IST)" executed successfully
+2026-06-01 12:46:10,502 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:47:10 IST)" (scheduled at 2026-06-01 12:46:10.481155+05:30)
+2026-06-01 12:46:11,641 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:47:10 IST)" executed successfully
+2026-06-01 12:47:10,483 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:48:10 IST)" (scheduled at 2026-06-01 12:47:10.481155+05:30)
+2026-06-01 12:47:11,541 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:48:10 IST)" executed successfully
+2026-06-01 12:48:10,492 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:49:10 IST)" (scheduled at 2026-06-01 12:48:10.481155+05:30)
+2026-06-01 12:48:12,389 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:49:10 IST)" executed successfully
+2026-06-01 12:49:10,495 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:50:10 IST)" (scheduled at 2026-06-01 12:49:10.481155+05:30)
+2026-06-01 12:49:11,569 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:50:10 IST)" executed successfully
+2026-06-01 12:50:10,493 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:51:10 IST)" (scheduled at 2026-06-01 12:50:10.481155+05:30)
+2026-06-01 12:50:11,545 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:51:10 IST)" executed successfully
+2026-06-01 12:51:10,496 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:52:10 IST)" (scheduled at 2026-06-01 12:51:10.481155+05:30)
+2026-06-01 12:51:11,550 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:52:10 IST)" executed successfully
+2026-06-01 12:52:10,483 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:53:10 IST)" (scheduled at 2026-06-01 12:52:10.481155+05:30)
+2026-06-01 12:52:11,594 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:53:10 IST)" executed successfully
+2026-06-01 12:53:10,488 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:54:10 IST)" (scheduled at 2026-06-01 12:53:10.481155+05:30)
+2026-06-01 12:53:11,556 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:54:10 IST)" executed successfully
+2026-06-01 12:54:10,487 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:55:10 IST)" (scheduled at 2026-06-01 12:54:10.481155+05:30)
+2026-06-01 12:54:11,607 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:55:10 IST)" executed successfully
+2026-06-01 12:55:10,493 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:56:10 IST)" (scheduled at 2026-06-01 12:55:10.481155+05:30)
+2026-06-01 12:55:12,568 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:56:10 IST)" executed successfully
+2026-06-01 12:56:10,490 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:57:10 IST)" (scheduled at 2026-06-01 12:56:10.481155+05:30)
+2026-06-01 12:56:11,604 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:57:10 IST)" executed successfully
+2026-06-01 12:57:10,490 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:58:10 IST)" (scheduled at 2026-06-01 12:57:10.481155+05:30)
+2026-06-01 12:57:11,555 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:58:10 IST)" executed successfully
+2026-06-01 12:58:10,487 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:59:10 IST)" (scheduled at 2026-06-01 12:58:10.481155+05:30)
+2026-06-01 12:58:11,570 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 12:59:10 IST)" executed successfully
+2026-06-01 12:59:10,488 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:00:10 IST)" (scheduled at 2026-06-01 12:59:10.481155+05:30)
+2026-06-01 12:59:12,482 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:00:10 IST)" executed successfully
+2026-06-01 13:00:10,482 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:01:10 IST)" (scheduled at 2026-06-01 13:00:10.481155+05:30)
+2026-06-01 13:00:11,609 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:01:10 IST)" executed successfully
+2026-06-01 13:01:10,496 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:02:10 IST)" (scheduled at 2026-06-01 13:01:10.481155+05:30)
+2026-06-01 13:01:11,624 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:02:10 IST)" executed successfully
+2026-06-01 13:02:10,481 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:03:10 IST)" (scheduled at 2026-06-01 13:02:10.481155+05:30)
+2026-06-01 13:02:11,558 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:03:10 IST)" executed successfully
+2026-06-01 13:03:10,493 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:04:10 IST)" (scheduled at 2026-06-01 13:03:10.481155+05:30)
+2026-06-01 13:03:11,590 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:04:10 IST)" executed successfully
+2026-06-01 13:04:10,488 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:05:10 IST)" (scheduled at 2026-06-01 13:04:10.481155+05:30)
+2026-06-01 13:04:11,649 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:05:10 IST)" executed successfully
+2026-06-01 13:05:10,482 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:06:10 IST)" (scheduled at 2026-06-01 13:05:10.481155+05:30)
+2026-06-01 13:05:11,587 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:06:10 IST)" executed successfully
+2026-06-01 13:06:10,488 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:07:10 IST)" (scheduled at 2026-06-01 13:06:10.481155+05:30)
+2026-06-01 13:06:11,605 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:07:10 IST)" executed successfully
+2026-06-01 13:07:10,483 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:08:10 IST)" (scheduled at 2026-06-01 13:07:10.481155+05:30)
+2026-06-01 13:07:11,628 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:08:10 IST)" executed successfully
+2026-06-01 13:07:33,060 [INFO] apscheduler.scheduler - Scheduler has been shut down
+2026-06-01 13:07:56,259 [INFO] backend.main - SchoolSync API started. Schema managed externally — skipping create_all.
+2026-06-01 13:07:56,274 [INFO] apscheduler.scheduler - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-06-01 13:07:56,279 [INFO] apscheduler.scheduler - Added job "startup.<locals>._expiry_job" to job store "default"
+2026-06-01 13:07:56,280 [INFO] apscheduler.scheduler - Scheduler started
+2026-06-01 13:08:43,074 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:08:43,082 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:08:43,088 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:08:56,281 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:09:56 IST)" (scheduled at 2026-06-01 13:08:56.274730+05:30)
+2026-06-01 13:09:00,053 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:09:56 IST)" executed successfully
+2026-06-01 13:09:00,498 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:09:00,504 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:09:00,517 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:09:33,820 [INFO] apscheduler.scheduler - Scheduler has been shut down
+2026-06-01 13:10:17,434 [INFO] backend.main - SchoolSync API started. Schema managed externally — skipping create_all.
+2026-06-01 13:10:17,434 [INFO] apscheduler.scheduler - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-06-01 13:10:17,434 [INFO] apscheduler.scheduler - Added job "startup.<locals>._expiry_job" to job store "default"
+2026-06-01 13:10:17,434 [INFO] apscheduler.scheduler - Scheduler started
+2026-06-01 13:10:31,166 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:10:31,173 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:10:31,184 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:10:31,199 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:10:31,205 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:10:31,433 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:10:46,668 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:10:47,584 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:10:53,553 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:11:06,591 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:11:17,438 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:12:17 IST)" (scheduled at 2026-06-01 13:11:17.434080+05:30)
+2026-06-01 13:11:19,069 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:12:17 IST)" executed successfully
+2026-06-01 13:11:22,938 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:11:25,504 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:11:41,240 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:11:41,319 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:11:42,140 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:11:42,189 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:11:42,396 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:11:43,499 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:12:08,477 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:12:08,868 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:12:08,884 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:12:10,373 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:12:17,446 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:13:17 IST)" (scheduled at 2026-06-01 13:12:17.434080+05:30)
+2026-06-01 13:12:18,533 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:13:17 IST)" executed successfully
+2026-06-01 13:12:21,355 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:12:27,044 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:12:39,586 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:13:08,110 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:13:17,442 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:14:17 IST)" (scheduled at 2026-06-01 13:13:17.434080+05:30)
+2026-06-01 13:13:18,527 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:14:17 IST)" executed successfully
+2026-06-01 13:13:19,155 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:13:25,797 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:14:17,445 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:15:17 IST)" (scheduled at 2026-06-01 13:14:17.434080+05:30)
+2026-06-01 13:14:18,542 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:15:17 IST)" executed successfully
+2026-06-01 13:15:17,448 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:16:17 IST)" (scheduled at 2026-06-01 13:15:17.434080+05:30)
+2026-06-01 13:15:18,553 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:16:17 IST)" executed successfully
+2026-06-01 13:16:17,451 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:17:17 IST)" (scheduled at 2026-06-01 13:16:17.434080+05:30)
+2026-06-01 13:16:18,585 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:17:17 IST)" executed successfully
+2026-06-01 13:17:17,440 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:18:17 IST)" (scheduled at 2026-06-01 13:17:17.434080+05:30)
+2026-06-01 13:17:18,537 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:18:17 IST)" executed successfully
+2026-06-01 13:18:17,442 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:19:17 IST)" (scheduled at 2026-06-01 13:18:17.434080+05:30)
+2026-06-01 13:18:18,523 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:19:17 IST)" executed successfully
+2026-06-01 13:19:17,444 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:20:17 IST)" (scheduled at 2026-06-01 13:19:17.434080+05:30)
+2026-06-01 13:19:18,577 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:20:17 IST)" executed successfully
+2026-06-01 13:20:17,447 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:21:17 IST)" (scheduled at 2026-06-01 13:20:17.434080+05:30)
+2026-06-01 13:20:18,512 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:21:17 IST)" executed successfully
+2026-06-01 13:21:17,451 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:22:17 IST)" (scheduled at 2026-06-01 13:21:17.434080+05:30)
+2026-06-01 13:21:18,518 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:22:17 IST)" executed successfully
+2026-06-01 13:21:44,825 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:21:45,077 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:22:17,447 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:23:17 IST)" (scheduled at 2026-06-01 13:22:17.434080+05:30)
+2026-06-01 13:22:18,515 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:23:17 IST)" executed successfully
+2026-06-01 13:23:17,460 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:24:17 IST)" (scheduled at 2026-06-01 13:23:17.434080+05:30)
+2026-06-01 13:23:18,594 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:24:17 IST)" executed successfully
+2026-06-01 13:24:17,444 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:25:17 IST)" (scheduled at 2026-06-01 13:24:17.434080+05:30)
+2026-06-01 13:24:18,497 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:25:17 IST)" executed successfully
+2026-06-01 13:25:17,442 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:26:17 IST)" (scheduled at 2026-06-01 13:25:17.434080+05:30)
+2026-06-01 13:25:18,569 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:26:17 IST)" executed successfully
+2026-06-01 13:25:35,779 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:25:35,781 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:25:35,785 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:25:36,526 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:25:41,322 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:25:41,339 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:25:41,388 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:25:42,091 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:00,856 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:00,861 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:00,897 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:02,809 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:05,803 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:07,727 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:17,445 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:27:17 IST)" (scheduled at 2026-06-01 13:26:17.434080+05:30)
+2026-06-01 13:26:18,516 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:27:17 IST)" executed successfully
+2026-06-01 13:26:21,434 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:26:21,452 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:26:25,260 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:26:32,338 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:26:39,678 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:26:56,550 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:56,564 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:56,574 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:57,290 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:57,550 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:26:58,623 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:03,049 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:03,079 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:15,334 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:17,443 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:28:17 IST)" (scheduled at 2026-06-01 13:27:17.434080+05:30)
+2026-06-01 13:27:18,512 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:28:17 IST)" executed successfully
+2026-06-01 13:27:20,854 [INFO] backend.auth - User CS_TCH017 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:42,408 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:42,660 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:42,660 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:43,348 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:43,565 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:44,843 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:50,055 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:27:51,885 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:03,364 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:05,217 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:07,482 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:07,683 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:07,928 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:08,612 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:08,749 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:09,596 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:15,699 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:17,447 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:29:17 IST)" (scheduled at 2026-06-01 13:28:17.434080+05:30)
+2026-06-01 13:28:18,540 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:29:17 IST)" executed successfully
+2026-06-01 13:28:31,352 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:31,588 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:31,588 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:32,379 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:38,278 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:28:40,105 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:29:17,459 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:30:17 IST)" (scheduled at 2026-06-01 13:29:17.434080+05:30)
+2026-06-01 13:29:18,576 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:30:17 IST)" executed successfully
+2026-06-01 13:30:17,449 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:31:17 IST)" (scheduled at 2026-06-01 13:30:17.434080+05:30)
+2026-06-01 13:30:18,568 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:31:17 IST)" executed successfully
+2026-06-01 13:30:19,149 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:30:19,159 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:30:22,982 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:31:17,437 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:32:17 IST)" (scheduled at 2026-06-01 13:31:17.434080+05:30)
+2026-06-01 13:31:18,515 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:32:17 IST)" executed successfully
+2026-06-01 13:32:17,446 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:33:17 IST)" (scheduled at 2026-06-01 13:32:17.434080+05:30)
+2026-06-01 13:32:18,531 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:33:17 IST)" executed successfully
+2026-06-01 13:33:17,443 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:34:17 IST)" (scheduled at 2026-06-01 13:33:17.434080+05:30)
+2026-06-01 13:33:18,560 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:34:17 IST)" executed successfully
+2026-06-01 13:34:17,444 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:35:17 IST)" (scheduled at 2026-06-01 13:34:17.434080+05:30)
+2026-06-01 13:34:18,535 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:35:17 IST)" executed successfully
+2026-06-01 13:35:10,050 [INFO] apscheduler.scheduler - Scheduler has been shut down
+2026-06-01 13:35:28,410 [INFO] backend.main - SchoolSync API started. Schema managed externally — skipping create_all.
+2026-06-01 13:35:28,418 [INFO] apscheduler.scheduler - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-06-01 13:35:28,421 [INFO] apscheduler.scheduler - Added job "startup.<locals>._expiry_job" to job store "default"
+2026-06-01 13:35:28,422 [INFO] apscheduler.scheduler - Scheduler started
+2026-06-01 13:35:39,691 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:36:28,432 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:37:28 IST)" (scheduled at 2026-06-01 13:36:28.418890+05:30)
+2026-06-01 13:36:30,092 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:37:28 IST)" executed successfully
+2026-06-01 13:36:35,944 [INFO] apscheduler.scheduler - Scheduler has been shut down
+2026-06-01 13:36:52,086 [INFO] backend.main - SchoolSync API started. Schema managed externally — skipping create_all.
+2026-06-01 13:36:52,102 [INFO] apscheduler.scheduler - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-06-01 13:36:52,107 [INFO] apscheduler.scheduler - Added job "startup.<locals>._expiry_job" to job store "default"
+2026-06-01 13:36:52,107 [INFO] apscheduler.scheduler - Scheduler started
+2026-06-01 13:37:24,386 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:37:24,386 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:37:35,032 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:37:44,960 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:37:52,117 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:38:52 IST)" (scheduled at 2026-06-01 13:37:52.102657+05:30)
+2026-06-01 13:37:53,330 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:38:52 IST)" executed successfully
+2026-06-01 13:37:56,840 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:37:59,430 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:38:17,522 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:18,076 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:18,609 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:18,609 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:18,746 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:19,609 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:22,151 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:22,258 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:22,392 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:24,313 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:33,259 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:40,522 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:52,109 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:39:52 IST)" (scheduled at 2026-06-01 13:38:52.102657+05:30)
+2026-06-01 13:38:53,309 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:39:52 IST)" executed successfully
+2026-06-01 13:38:54,092 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:54,225 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:54,643 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:55,177 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:55,187 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:56,244 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:38:59,407 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:01,572 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:02,715 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:04,555 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:11,409 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:36,622 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:36,622 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:36,983 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:37,689 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:37,787 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:38,650 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:41,363 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:41,467 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:41,471 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:43,234 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:39:52,116 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:40:52 IST)" (scheduled at 2026-06-01 13:39:52.102657+05:30)
+2026-06-01 13:39:53,196 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:40:52 IST)" executed successfully
+2026-06-01 13:40:08,438 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:40:08,754 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:40:12,495 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:40:41,904 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:40:42,194 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:40:42,298 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:40:43,055 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:40:44,004 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:40:44,260 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:40:45,275 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:40:45,859 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:40:52,106 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:41:52 IST)" (scheduled at 2026-06-01 13:40:52.102657+05:30)
+2026-06-01 13:40:53,672 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:41:52 IST)" executed successfully
+2026-06-01 13:41:12,388 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:41:12,396 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:41:17,038 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:41:52,119 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:42:52 IST)" (scheduled at 2026-06-01 13:41:52.102657+05:30)
+2026-06-01 13:41:53,216 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:42:52 IST)" executed successfully
+2026-06-01 13:42:52,106 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:43:52 IST)" (scheduled at 2026-06-01 13:42:52.102657+05:30)
+2026-06-01 13:42:53,187 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:43:52 IST)" executed successfully
+2026-06-01 13:43:52,110 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:44:52 IST)" (scheduled at 2026-06-01 13:43:52.102657+05:30)
+2026-06-01 13:43:53,682 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:44:52 IST)" executed successfully
+2026-06-01 13:44:52,112 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:45:52 IST)" (scheduled at 2026-06-01 13:44:52.102657+05:30)
+2026-06-01 13:44:53,214 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:45:52 IST)" executed successfully
+2026-06-01 13:45:52,116 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:46:52 IST)" (scheduled at 2026-06-01 13:45:52.102657+05:30)
+2026-06-01 13:45:53,195 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:46:52 IST)" executed successfully
+2026-06-01 13:46:39,814 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:46:42,379 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:46:42,391 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:46:42,637 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:46:43,366 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:46:45,551 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:46:52,118 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:47:52 IST)" (scheduled at 2026-06-01 13:46:52.102657+05:30)
+2026-06-01 13:46:53,757 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:47:52 IST)" executed successfully
+2026-06-01 13:46:56,218 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:47:07,629 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:47:14,480 [ERROR] sqlalchemy.pool.impl.AsyncAdaptedQueuePool - Exception terminating connection <AdaptedConnection <asyncpg.connection.Connection object at 0x000001C768F94C70>>
+Traceback (most recent call last):
+  File "c:\Users\User\SchoolSync\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 373, in _close_connection
+    self._dialect.do_terminate(connection)
+  File "c:\Users\User\SchoolSync\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 1127, in do_terminate
+    dbapi_connection.terminate()
+  File "c:\Users\User\SchoolSync\.venv\Lib\site-packages\sqlalchemy\connectors\asyncio.py", line 402, in terminate
+    self.await_(asyncio.shield(self._terminate_graceful_close()))  # type: ignore[attr-defined] # noqa: E501
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\User\SchoolSync\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\User\SchoolSync\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError: Cancelled via cancel scope 1c768fd9b50 by <Task pending name='Task-231' coro=<RequestResponseCycle.run_asgi() running at c:\Users\User\SchoolSync\.venv\Lib\site-packages\uvicorn\protocols\http\h11_impl.py:415> cb=[set.discard()]>
+2026-06-01 13:47:14,609 [ERROR] sqlalchemy.pool.impl.AsyncAdaptedQueuePool - Exception terminating connection <AdaptedConnection <asyncpg.connection.Connection object at 0x000001C768F36F20>>
+Traceback (most recent call last):
+  File "c:\Users\User\SchoolSync\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 373, in _close_connection
+    self._dialect.do_terminate(connection)
+  File "c:\Users\User\SchoolSync\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 1127, in do_terminate
+    dbapi_connection.terminate()
+  File "c:\Users\User\SchoolSync\.venv\Lib\site-packages\sqlalchemy\connectors\asyncio.py", line 402, in terminate
+    self.await_(asyncio.shield(self._terminate_graceful_close()))  # type: ignore[attr-defined] # noqa: E501
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\User\SchoolSync\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\User\SchoolSync\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError: Cancelled via cancel scope 1c768fe74d0 by <Task pending name='Task-228' coro=<RequestResponseCycle.run_asgi() running at c:\Users\User\SchoolSync\.venv\Lib\site-packages\uvicorn\protocols\http\h11_impl.py:415> cb=[set.discard()]>
+2026-06-01 13:47:30,528 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:47:30,584 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:47:30,702 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:47:30,712 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:47:30,826 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:47:32,765 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:47:35,443 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:47:35,523 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:47:35,629 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:47:37,286 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:47:43,393 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:47:52,116 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:48:52 IST)" (scheduled at 2026-06-01 13:47:52.102657+05:30)
+2026-06-01 13:47:53,681 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:48:52 IST)" executed successfully
+2026-06-01 13:48:19,918 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:48:26,542 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:48:52,109 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:49:52 IST)" (scheduled at 2026-06-01 13:48:52.102657+05:30)
+2026-06-01 13:48:53,196 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:49:52 IST)" executed successfully
+2026-06-01 13:48:58,523 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:48:58,523 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:48:58,523 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:48:59,468 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:48:59,511 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:00,605 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:32,801 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:33,156 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:33,317 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:34,095 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:34,139 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:34,923 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:36,699 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:36,699 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:36,852 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:37,464 [INFO] backend.auth - User TCH003 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:49:52,106 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:50:52 IST)" (scheduled at 2026-06-01 13:49:52.102657+05:30)
+2026-06-01 13:49:53,329 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:50:52 IST)" executed successfully
+2026-06-01 13:50:13,686 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:50:14,115 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:50:17,700 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:50:20,621 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:50:20,941 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:50:21,064 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:50:21,603 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:50:24,000 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:50:28,051 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:50:32,776 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:50:47,036 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:50:52,108 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:51:52 IST)" (scheduled at 2026-06-01 13:50:52.102657+05:30)
+2026-06-01 13:50:53,173 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:51:52 IST)" executed successfully
+2026-06-01 13:50:54,107 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:50:56,547 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:51:13,462 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:13,462 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:13,893 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:14,572 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:14,706 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:15,590 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:20,042 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:20,087 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:33,157 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:38,795 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:45,979 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:51,178 [INFO] backend.auth - User CS_TCH014 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:51:52,117 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:52:52 IST)" (scheduled at 2026-06-01 13:51:52.102657+05:30)
+2026-06-01 13:51:53,193 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:52:52 IST)" executed successfully
+2026-06-01 13:52:07,629 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:52:07,646 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:52:10,946 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:52:13,385 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:52:13,404 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:52:15,463 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:52:18,672 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:52:46,711 [INFO] backend.auth - User TCH001 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:52:46,727 [INFO] backend.auth - User TCH001 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:52:46,959 [INFO] backend.auth - User TCH001 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:52:48,190 [INFO] backend.auth - User TCH001 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:52:48,317 [INFO] backend.auth - User TCH001 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:52:49,306 [INFO] backend.auth - User TCH001 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:52:52,108 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:53:52 IST)" (scheduled at 2026-06-01 13:52:52.102657+05:30)
+2026-06-01 13:52:53,716 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:53:52 IST)" executed successfully
+2026-06-01 13:53:04,472 [INFO] backend.auth - User TCH001 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:53:17,537 [INFO] backend.auth - User TCH001 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:53:44,764 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:53:45,098 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:53:48,557 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:53:52,104 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:54:52 IST)" (scheduled at 2026-06-01 13:53:52.102657+05:30)
+2026-06-01 13:53:53,170 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:54:52 IST)" executed successfully
+2026-06-01 13:53:54,132 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:54:09,752 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:54:10,083 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:54:13,380 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:54:15,840 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:54:15,847 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:54:16,176 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:54:18,971 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:54:21,124 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:54:23,128 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:54:31,991 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:54:52,115 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:55:52 IST)" (scheduled at 2026-06-01 13:54:52.102657+05:30)
+2026-06-01 13:54:53,730 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:55:52 IST)" executed successfully
+2026-06-01 13:54:54,446 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:54:54,446 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:54:55,291 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:54:55,374 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:54:55,465 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:54:55,797 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:54:58,929 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:54:59,002 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:55:00,089 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:55:00,791 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:55:14,150 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:55:19,300 [INFO] backend.auth - User TCH002 (UserRole.TEACHER) authenticated successfully.
+2026-06-01 13:55:31,595 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:55:31,627 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:55:35,512 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:55:37,974 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:55:38,045 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:55:38,265 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated via token param.
+2026-06-01 13:55:41,072 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:55:45,102 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:55:52,107 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:56:52 IST)" (scheduled at 2026-06-01 13:55:52.102657+05:30)
+2026-06-01 13:55:53,715 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:56:52 IST)" executed successfully
+2026-06-01 13:56:11,113 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:56:13,523 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:56:42,256 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:56:44,683 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:56:52,116 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:57:52 IST)" (scheduled at 2026-06-01 13:56:52.102657+05:30)
+2026-06-01 13:56:53,678 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:57:52 IST)" executed successfully
+2026-06-01 13:57:13,346 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:57:15,773 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:57:44,408 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:57:46,829 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:57:52,104 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:58:52 IST)" (scheduled at 2026-06-01 13:57:52.102657+05:30)
+2026-06-01 13:57:53,203 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:58:52 IST)" executed successfully
+2026-06-01 13:58:15,522 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:58:17,981 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:58:46,615 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:58:49,048 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:58:52,111 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:59:52 IST)" (scheduled at 2026-06-01 13:58:52.102657+05:30)
+2026-06-01 13:58:53,512 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:59:52 IST)" executed successfully
+2026-06-01 13:59:17,718 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:59:20,133 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:59:48,831 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:59:51,285 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 13:59:52,117 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 14:00:52 IST)" (scheduled at 2026-06-01 13:59:52.102657+05:30)
+2026-06-01 13:59:53,192 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 14:00:52 IST)" executed successfully
+2026-06-01 14:00:19,962 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 14:00:22,416 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 14:00:51,367 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 14:00:52,117 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 14:01:52 IST)" (scheduled at 2026-06-01 14:00:52.102657+05:30)
+2026-06-01 14:00:53,212 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 14:01:52 IST)" executed successfully
+2026-06-01 14:00:54,502 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 14:01:22,138 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 14:01:24,546 [INFO] backend.auth - User HOD001 (UserRole.HOD) authenticated successfully.
+2026-06-01 14:01:36,295 [INFO] apscheduler.scheduler - Scheduler has been shut down

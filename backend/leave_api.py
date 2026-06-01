@@ -56,6 +56,9 @@ class ReliefRespondRequest(BaseModel):
     status:       models.ReliefStatus
     flag_reason:  Optional[str] = None
     flag_comment: Optional[str] = None
+    # Accepted mode: "swap" (trade a period) or "consume" (take as extra hour)
+    mode:         Optional[str] = None   # "swap" | "consume"
+    swap_slot_id: Optional[UUID] = None  # required when mode == "swap"
 
 class AdminOverrideRequest(BaseModel):
     relief_teacher_id: UUID
@@ -220,6 +223,13 @@ async def _rollover_relief(assignment_id: UUID):
             await db.commit()
             return
 
+        # Capture the rejecting teacher's name before we overwrite the assignment
+        rejecting_teacher_result = await db.execute(
+            select(models.Teacher).where(models.Teacher.id == assignment.relief_teacher_id)
+        )
+        rejecting_teacher = rejecting_teacher_result.scalar_one_or_none()
+        rejecting_name = rejecting_teacher.name if rejecting_teacher else "Previous teacher"
+
         assignment.relief_teacher_id = next_candidate.teacher.id
         assignment.score = next_candidate.total_score
         assignment.status = models.ReliefStatus.PENDING
@@ -227,6 +237,44 @@ async def _rollover_relief(assignment_id: UUID):
         assignment.reason_text = f"Rollover: previous teacher rejected."
         await db.commit()
         print(f"[ROLLOVER] Reassigned slot {assignment.slot_id} to {next_candidate.teacher.name}.")
+
+        # Push SSE so HOD page updates immediately
+        from .relief_router import notify_absence_updated
+        notify_absence_updated(str(assignment.absence_id))
+
+        new_teacher = next_candidate.teacher
+        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+        day_str = day_names[slot.day_of_week] if slot.day_of_week is not None else "—"
+
+        # Notify HOD of the rollover
+        if absent_teacher.department_id:
+            dept_result = await db.execute(
+                select(models.Department).where(models.Department.id == absent_teacher.department_id)
+            )
+            dept = dept_result.scalar_one_or_none()
+            if dept and dept.hod_id:
+                hod_result = await db.execute(
+                    select(models.Teacher).where(models.Teacher.id == dept.hod_id)
+                )
+                hod = hod_result.scalar_one_or_none()
+                if hod and hod.user_id:
+                    await notify(
+                        db, hod.user_id,
+                        "Relief Request Rolled Over",
+                        f"{rejecting_name} declined the relief duty for {absent_teacher.name}'s class ({day_str}, Period {slot.period}). Reassigned to {new_teacher.name}.",
+                        "RELIEF_REQUEST",
+                        "/hod/relief",
+                    )
+
+        # Notify the newly assigned teacher
+        if new_teacher.user_id:
+            await notify(
+                db, new_teacher.user_id,
+                "New Relief Assignment",
+                f"You have been assigned to cover {absent_teacher.name}'s class on {day_str}, Period {slot.period}. Please accept or reject.",
+                "RELIEF_REQUEST",
+                "/dashboard/relief-duties",
+            )
 
 
 # ─── Helper: dispatch relief ──────────────────────────────────────────────────
@@ -661,12 +709,17 @@ async def get_approved_leaves(
     def derive_relief_status(statuses):
         if not statuses:
             return None
-        if all(s == models.ReliefStatus.ACCEPTED for s in statuses):
+        covered_statuses = {models.ReliefStatus.ACCEPTED, models.ReliefStatus.AWAITING_CONFIRMATION}
+        if all(s in covered_statuses for s in statuses):
             return "covered"
         if any(s == models.ReliefStatus.PENDING for s in statuses):
             return "requested"
-        if any(s == models.ReliefStatus.ACCEPTED for s in statuses):
+        if any(s in covered_statuses for s in statuses):
             return "partial"
+        # All assignments are REJECTED (rollover in progress) or FLAGGED —
+        # still show as "requested" so HOD doesn't see it as unassigned
+        if any(s in (models.ReliefStatus.REJECTED, models.ReliefStatus.FLAGGED) for s in statuses):
+            return "requested"
         return None
 
     return {
@@ -835,6 +888,49 @@ async def respond_to_relief(
     assignment.status = body.status
 
     if body.status == models.ReliefStatus.ACCEPTED:
+        # ── Handle assignment mode ──────────────────────────────────────────
+        if body.mode == "swap":
+            if not body.swap_slot_id:
+                raise HTTPException(status_code=400, detail="swap_slot_id is required when mode is 'swap'.")
+            # Verify the swap slot belongs to this teacher
+            swap_slot_result = await db.execute(
+                select(models.TimetableSlot).where(
+                    models.TimetableSlot.id == body.swap_slot_id,
+                    models.TimetableSlot.teacher_id == teacher.id,
+                )
+            )
+            swap_slot = swap_slot_result.scalar_one_or_none()
+            if not swap_slot:
+                raise HTTPException(status_code=404, detail="Swap slot not found or does not belong to you.")
+            assignment.assignment_mode = models.AssignmentMode.SWAP
+            assignment.swapped_slot_id = body.swap_slot_id
+        elif body.mode == "consume":
+            assignment.assignment_mode = models.AssignmentMode.CONSUME
+            # Override status — absent teacher must confirm before this counts as accepted
+            assignment.status = models.ReliefStatus.AWAITING_CONFIRMATION
+            assignment.consume_substitute_confirmed = True
+            assignment.consume_absent_confirmed = False
+
+            # Notify the absent teacher to approve or reject
+            absence_result = await db.execute(
+                select(models.Absence).where(models.Absence.id == assignment.absence_id)
+            )
+            absence = absence_result.scalar_one_or_none()
+            if absence:
+                absent_teacher_result = await db.execute(
+                    select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
+                )
+                absent_teacher = absent_teacher_result.scalar_one_or_none()
+                if absent_teacher and absent_teacher.user_id:
+                    background_tasks.add_task(
+                        notify, db, absent_teacher.user_id,
+                        "Relief consume request pending",
+                        f"{teacher.name} has offered to cover your class as extra work. Please approve or reject.",
+                        "RELIEF_REQUEST",
+                        "/dashboard",
+                    )
+        # If no mode provided, treat as a direct accept (legacy / simple flow)
+
         assignment.acknowledged_at    = datetime.utcnow()
         teacher.current_relief_hours += 1
         teacher.total_hours_worked   += 1
@@ -906,6 +1002,181 @@ async def respond_to_relief(
     return {
         "success": True,
         "message": f"Relief {body.status.value} successfully.",
+        "data": {"id": str(assignment.id), "status": assignment.status},
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ABSENT TEACHER: Get pending consume approvals (someone offered to cover me)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/relief/my/pending-consume-approvals")
+async def get_pending_consume_approvals(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return relief assignments where this teacher is absent and a substitute
+    has offered to take it as extra work — awaiting this teacher's approval."""
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found.")
+
+    # Find absences for this teacher
+    absences_result = await db.execute(
+        select(models.Absence).where(models.Absence.teacher_id == teacher.id)
+    )
+    absence_ids = [a.id for a in absences_result.scalars().all()]
+    if not absence_ids:
+        return []
+
+    result = await db.execute(
+        select(models.ReliefAssignment).where(
+            models.ReliefAssignment.absence_id.in_(absence_ids),
+            models.ReliefAssignment.status == models.ReliefStatus.AWAITING_CONFIRMATION,
+            models.ReliefAssignment.assignment_mode == models.AssignmentMode.CONSUME,
+        )
+    )
+    assignments = result.scalars().all()
+
+    output = []
+    for a in assignments:
+        substitute_result = await db.execute(
+            select(models.Teacher).where(models.Teacher.id == a.relief_teacher_id)
+        )
+        substitute = substitute_result.scalar_one_or_none()
+
+        slot_info = {}
+        if a.slot_id:
+            slot_result = await db.execute(
+                select(models.TimetableSlot).where(models.TimetableSlot.id == a.slot_id)
+            )
+            slot = slot_result.scalar_one_or_none()
+            if slot:
+                subject_name = None
+                class_name = None
+                if slot.subject_id:
+                    subj_result = await db.execute(
+                        select(models.Subject).where(models.Subject.id == slot.subject_id)
+                    )
+                    subj = subj_result.scalar_one_or_none()
+                    subject_name = subj.name if subj else None
+                if slot.class_id:
+                    cls_result = await db.execute(
+                        select(models.ClassRoom).where(models.ClassRoom.id == slot.class_id)
+                    )
+                    cls = cls_result.scalar_one_or_none()
+                    class_name = cls.name if cls else None
+                day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+                slot_info = {
+                    "period":    slot.period,
+                    "day":       day_names[slot.day_of_week] if slot.day_of_week is not None else "—",
+                    "subject":   subject_name,
+                    "class":     class_name,
+                }
+
+        output.append({
+            "id":           str(a.id),
+            "substitute":   substitute.name if substitute else "Unknown",
+            "subject":      slot_info.get("subject", "—"),
+            "class":        slot_info.get("class", "—"),
+            "period":       slot_info.get("period", "—"),
+            "day":          slot_info.get("day", "—"),
+        })
+
+    return output
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ABSENT TEACHER: Approve or reject a consume relief request
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ConsumeRespondRequest(BaseModel):
+    action: str  # "approve" | "reject"
+
+@router.put("/relief/{assignment_id}/consume-respond")
+async def consume_respond(
+    assignment_id: UUID,
+    body: ConsumeRespondRequest,
+    background_tasks: BackgroundTasks,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.action not in ("approve", "reject"):
+        raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'.")
+
+    teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
+    )
+    absent_teacher = teacher_result.scalar_one_or_none()
+    if not absent_teacher:
+        raise HTTPException(status_code=404, detail="Teacher profile not found.")
+
+    result = await db.execute(
+        select(models.ReliefAssignment).where(models.ReliefAssignment.id == assignment_id)
+    )
+    assignment = result.scalar_one_or_none()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Relief assignment not found.")
+    if assignment.status != models.ReliefStatus.AWAITING_CONFIRMATION:
+        raise HTTPException(status_code=409, detail=f"Assignment is not awaiting confirmation (status: {assignment.status}).")
+
+    # Verify this teacher is actually the absent teacher for this assignment
+    absence_result = await db.execute(
+        select(models.Absence).where(models.Absence.id == assignment.absence_id)
+    )
+    absence = absence_result.scalar_one_or_none()
+    if not absence or absence.teacher_id != absent_teacher.id:
+        raise HTTPException(status_code=403, detail="You are not the absent teacher for this assignment.")
+
+    # Fetch substitute teacher for notifications
+    sub_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.id == assignment.relief_teacher_id)
+    )
+    substitute = sub_result.scalar_one_or_none()
+
+    if body.action == "approve":
+        assignment.status = models.ReliefStatus.ACCEPTED
+        assignment.consume_absent_confirmed = True
+        assignment.acknowledged_at = datetime.utcnow()
+        # Credit the substitute's relief hours now that it's confirmed
+        if substitute:
+            substitute.current_relief_hours += 1
+            substitute.total_hours_worked   += 1
+        if substitute and substitute.user_id:
+            background_tasks.add_task(
+                notify, db, substitute.user_id,
+                "Consume request approved",
+                f"{absent_teacher.name} has approved your extra hour. Your relief hours have been updated.",
+                "RELIEF_ACCEPTED",
+                "/dashboard/relief-duties",
+            )
+    else:
+        # Reject — revert to pending and trigger rollover so someone else gets assigned
+        assignment.status = models.ReliefStatus.PENDING
+        assignment.assignment_mode = None
+        assignment.consume_substitute_confirmed = False
+        assignment.consume_absent_confirmed = False
+        if substitute and substitute.user_id:
+            background_tasks.add_task(
+                notify, db, substitute.user_id,
+                "Consume request rejected",
+                f"{absent_teacher.name} has declined your extra hour offer. The relief slot has been reassigned.",
+                "RELIEF_REJECTED",
+                "/dashboard/relief-duties",
+            )
+        background_tasks.add_task(_rollover_relief, assignment_id)
+
+    await db.commit()
+    from .relief_router import notify_absence_updated
+    notify_absence_updated(str(assignment.absence_id))
+    await db.refresh(assignment)
+
+    return {
+        "success": True,
+        "message": f"Consume request {'approved' if body.action == 'approve' else 'rejected'}.",
         "data": {"id": str(assignment.id), "status": assignment.status},
     }
 

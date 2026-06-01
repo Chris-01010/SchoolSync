@@ -51,12 +51,15 @@ const modalContent = {
 };
 
 const statusConfig = {
-  pending:    { label: "Pending",          pill: "bg-blue-50 text-blue-700 ring-blue-500/20",          dot: "bg-blue-500" },
-  approved:   { label: "Approved",         pill: "bg-emerald-50 text-emerald-700 ring-emerald-500/20", dot: "bg-emerald-500" },
-  requested:  { label: "Relief Requested", pill: "bg-indigo-50 text-indigo-700 ring-indigo-500/20",    dot: "bg-indigo-500" },
-  covered:    { label: "Covered",          pill: "bg-emerald-50 text-emerald-700 ring-emerald-500/20", dot: "bg-emerald-500" },
-  rejected:   { label: "Rejected",         pill: "bg-red-50 text-red-700 ring-red-500/20",             dot: "bg-red-500" },
-  flagged:    { label: "Flagged",          pill: "bg-orange-50 text-orange-700 ring-orange-500/20",    dot: "bg-orange-500" },
+  pending:               { label: "Pending",            pill: "bg-blue-50 text-blue-700 ring-blue-500/20",          dot: "bg-blue-500"   },
+  approved:              { label: "Approved",           pill: "bg-emerald-50 text-emerald-700 ring-emerald-500/20", dot: "bg-emerald-500" },
+  requested:             { label: "Relief Requested",   pill: "bg-indigo-50 text-indigo-700 ring-indigo-500/20",    dot: "bg-indigo-500" },
+  covered:               { label: "Covered",            pill: "bg-emerald-50 text-emerald-700 ring-emerald-500/20", dot: "bg-emerald-500" },
+  rejected:              { label: "Rejected",           pill: "bg-red-50 text-red-700 ring-red-500/20",             dot: "bg-red-500"    },
+  flagged:               { label: "Flagged",            pill: "bg-orange-50 text-orange-700 ring-orange-500/20",    dot: "bg-orange-500" },
+  awaiting_confirmation: { label: "Awaiting Confirm",   pill: "bg-amber-50 text-amber-700 ring-amber-500/20",       dot: "bg-amber-500"  },
+  AWAITING_CONFIRMATION: { label: "Awaiting Confirm",   pill: "bg-amber-50 text-amber-700 ring-amber-500/20",       dot: "bg-amber-500"  },
+  ACCEPTED:              { label: "Covered",            pill: "bg-emerald-50 text-emerald-700 ring-emerald-500/20", dot: "bg-emerald-500" },
 };
 
 // ── Auto-assign result popup ──────────────────────────────────────────────────
@@ -253,6 +256,40 @@ export default function ReliefManagementPage() {
   const [autoAssignToast, setAutoAssignToast] = useState(null); // { results: [...] }
 
   const sseRefs = useRef({});
+  // Stable ref to fetchAbsences — lets subscribeToAbsence call it without
+  // creating a circular useCallback dependency.
+  const fetchAbsencesRef = useRef(null);
+
+  const subscribeToAbsence = useCallback((absenceId) => {
+    if (sseRefs.current[absenceId]) return;
+    const token = getToken();
+    const es = new EventSource(`${API}/relief/stream/${absenceId}?token=${token}`);
+    es.onopen = () => setSseConnected(true);
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        // Normalise statuses to lowercase so all downstream comparisons work
+        const assignments = (data.assignments || []).map(a => ({
+          ...a,
+          status: (a.status ?? '').toLowerCase(),
+        }));
+        setAbsences(prev =>
+          prev.map(a => a.id === absenceId ? { ...a, _assignments: assignments } : a)
+        );
+        const coveredStatuses = ["accepted", "awaiting_confirmation"];
+        const allCovered = assignments.length > 0 &&
+          assignments.every(a => coveredStatuses.includes(a.status));
+        if (allCovered) fetchAbsencesRef.current?.(true);
+      } catch {}
+    };
+    es.onerror = () => {
+      es.close();
+      delete sseRefs.current[absenceId];
+      if (Object.keys(sseRefs.current).length === 0) setSseConnected(false);
+    };
+    sseRefs.current[absenceId] = es;
+    setSseConnected(true);
+  }, []); // no deps — uses ref to avoid circular dependency
 
   // ── Fetch approved absences ───────────────────────────────────────────────
   const fetchAbsences = useCallback(async (silent = false) => {
@@ -262,9 +299,10 @@ export default function ReliefManagementPage() {
       const res = await fetch(`${API}/leaves/approved`, { headers: authHeaders() });
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
+      const rows = data.data || [];
       setAbsences(prev => {
         const prevMap = Object.fromEntries(prev.map(a => [a.id, a]));
-        return (data.data || []).map(a => ({
+        return rows.map(a => ({
           ...a,
           // Seed from API-returned relief_status so status survives page refresh.
           // Fall back to in-memory optimistic value if the API hasn't caught up yet.
@@ -273,12 +311,18 @@ export default function ReliefManagementPage() {
         }));
       });
       setLastRefresh(new Date());
+      // Subscribe to live SSE for every absence so HOD page stays live without
+      // needing to trigger auto-assign first.
+      rows.forEach(a => subscribeToAbsence(a.id));
     } catch (e) {
       setError("Could not load absences. Check your connection.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [subscribeToAbsence]);
+
+  // Keep ref in sync
+  useEffect(() => { fetchAbsencesRef.current = fetchAbsences; }, [fetchAbsences]);
 
   useEffect(() => { fetchAbsences(); }, [fetchAbsences]);
 
@@ -289,32 +333,6 @@ export default function ReliefManagementPage() {
       sseRefs.current = {};
     };
   }, []);
-
-  const subscribeToAbsence = useCallback((absenceId) => {
-    if (sseRefs.current[absenceId]) return;
-    const token = getToken();
-    const es = new EventSource(`${API}/relief/stream/${absenceId}?token=${token}`);
-    es.onopen = () => setSseConnected(true);
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        setAbsences(prev =>
-          prev.map(a => a.id === absenceId ? { ...a, _assignments: data.assignments } : a)
-        );
-        const allAccepted =
-          data.assignments?.length > 0 &&
-          data.assignments.every(a => a.status === "accepted");
-        if (allAccepted) fetchAbsences(true);
-      } catch {}
-    };
-    es.onerror = () => {
-      es.close();
-      delete sseRefs.current[absenceId];
-      if (Object.keys(sseRefs.current).length === 0) setSseConnected(false);
-    };
-    sseRefs.current[absenceId] = es;
-    setSseConnected(true);
-  }, [fetchAbsences]);
 
   // ── History ───────────────────────────────────────────────────────────────
   const fetchHistory = useCallback(async () => {
@@ -459,10 +477,10 @@ export default function ReliefManagementPage() {
   // ── Derived counts ────────────────────────────────────────────────────────
   const totalToday = absences.length;
   const unassigned = absences.filter(
-    a => !a._reliefStatus && !a._assignments?.some(x => x.status === "accepted")
+    a => !a._reliefStatus && !a._assignments?.some(x => x.status === "accepted" || x.status === "awaiting_confirmation")
   ).length;
   const assigned = absences.filter(
-    a => a._reliefStatus === "requested" || a._assignments?.some(x => x.status === "accepted")
+    a => a._reliefStatus === "requested" || a._assignments?.some(x => x.status === "accepted" || x.status === "awaiting_confirmation")
   ).length;
 
   // 3 stat cards — "LIVE UPDATES" card is removed
@@ -612,7 +630,7 @@ export default function ReliefManagementPage() {
                     </tr>
                   )}
                   {!loading && absences.map((absence) => {
-                    const isCovered   = absence._assignments?.some(a => a.status === "accepted");
+                    const isCovered   = absence._assignments?.some(a => a.status === "accepted" || a.status === "awaiting_confirmation");
                     const isRequested = absence._reliefStatus === "requested" || absence._assignments?.some(a => a.status === "pending");
                     const displayStatus = isCovered ? "covered" : isRequested ? "requested" : "pending";
                     const isAutoAssigning = autoAssigning === absence.id;
@@ -729,7 +747,7 @@ export default function ReliefManagementPage() {
                     const coverageStatus =
                       item.coverage === "covered"   ? "covered"   :
                       item.coverage === "requested" ? "requested" : "pending";
-                    const acceptedCount = (item.assignments || []).filter(a => a.status === "accepted").length;
+                    const acceptedCount = (item.assignments || []).filter(a => a.status === "accepted" || a.status === "awaiting_confirmation").length;
                     const pendingCount  = (item.assignments || []).filter(a => a.status === "pending").length;
                     const total         = (item.assignments || []).length;
                     return (

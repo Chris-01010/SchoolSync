@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, AlertTriangle, X, ArrowLeftRight, PlusCircle, CheckCircle2, ChevronLeft } from 'lucide-react';
+import { CheckCircle, XCircle, X, ArrowLeftRight, PlusCircle, CheckCircle2, ChevronLeft } from 'lucide-react';
 
 const BASE = 'http://localhost:8000';
 
@@ -111,7 +111,6 @@ function FlagModal({ onSubmit, onClose, loading }) {
 // view: 'actions' | 'mode' | 'swap' | 'consume'
 export default function ReliefRequestCard({ request, onResponded }) {
   const [loading, setLoading]           = useState(false);
-  const [flagOpen, setFlagOpen]         = useState(false);
   const [toast, setToast]               = useState(null);
   const [view, setView]                 = useState('actions');
   const [mySlots, setMySlots]           = useState([]);
@@ -149,9 +148,13 @@ export default function ReliefRequestCard({ request, onResponded }) {
   const respond = async (status, extras = {}) => {
     setLoading(true);
     try {
-      const body = { status };
+      // Backend ReliefStatus enum values are UPPERCASE
+      const statusMap = { accepted: 'ACCEPTED', rejected: 'REJECTED', flagged: 'FLAGGED' };
+      const body = { status: statusMap[status] ?? status.toUpperCase() };
       if (extras.flag_reason)  body.flag_reason  = extras.flag_reason;
       if (extras.flag_comment) body.flag_comment = extras.flag_comment;
+      if (extras.mode)         body.mode         = extras.mode;
+      if (extras.swap_slot_id) body.swap_slot_id = extras.swap_slot_id;
 
       const res = await fetch(
         `${BASE}/leaves/relief/${request.id}/respond`,
@@ -159,11 +162,24 @@ export default function ReliefRequestCard({ request, onResponded }) {
       );
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `Server error ${res.status}`);
+        let detail = `Server error ${res.status}`;
+        try {
+          const err = await res.json();
+          // FastAPI validation errors come as { detail: [...] } or { detail: "string" }
+          if (typeof err.detail === 'string') {
+            detail = err.detail;
+          } else if (Array.isArray(err.detail)) {
+            detail = err.detail.map(e => e.msg ?? JSON.stringify(e)).join('; ');
+          } else if (err.detail) {
+            detail = JSON.stringify(err.detail);
+          }
+        } catch { /* keep default */ }
+        throw new Error(detail);
       }
 
       const msg =
+        status === 'accepted' && extras.mode === 'swap'    ? 'Swap confirmed! Timetable updated.' :
+        status === 'accepted' && extras.mode === 'consume' ? 'Consume request sent — awaiting absent teacher confirmation.' :
         status === 'accepted' ? 'Relief accepted successfully.' :
         status === 'rejected' ? 'Relief request rejected.' :
         'Request flagged for admin review.';
@@ -174,7 +190,6 @@ export default function ReliefRequestCard({ request, onResponded }) {
       showToast(e.message || 'Network error. Please try again.', 'error');
     } finally {
       setLoading(false);
-      setFlagOpen(false);
     }
   };
 
@@ -186,14 +201,6 @@ export default function ReliefRequestCard({ request, onResponded }) {
         }`}>
           {toast.msg}
         </div>
-      )}
-
-      {flagOpen && (
-        <FlagModal
-          loading={loading}
-          onClose={() => setFlagOpen(false)}
-          onSubmit={(reason, comment) => respond('flagged', { flag_reason: reason, flag_comment: comment })}
-        />
       )}
 
       <div className="bg-white border border-gray-100 rounded-xl p-3.5 shadow-sm">
@@ -213,10 +220,6 @@ export default function ReliefRequestCard({ request, onResponded }) {
             <button onClick={() => respond('rejected')} disabled={loading}
               className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[11px] font-semibold rounded-lg disabled:opacity-50 transition-colors">
               <XCircle size={12} /> Reject
-            </button>
-            <button onClick={() => setFlagOpen(true)} disabled={loading}
-              className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-amber-400 hover:bg-amber-500 text-white text-[11px] font-semibold rounded-lg disabled:opacity-50 transition-colors">
-              <AlertTriangle size={12} /> Flag
             </button>
             <button onClick={() => setView('mode')} disabled={loading}
               className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-semibold rounded-lg disabled:opacity-50 transition-colors">
