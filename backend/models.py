@@ -26,10 +26,6 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from .database import Base
 
 
-# ---------------------------------------------------------------------------
-# UUID type
-# ---------------------------------------------------------------------------
-
 class GUID(TypeDecorator):
     impl = CHAR
     cache_ok = True
@@ -61,10 +57,6 @@ class GUID(TypeDecorator):
                 return value
 
 
-# ---------------------------------------------------------------------------
-# Enums
-# ---------------------------------------------------------------------------
-
 class UserRole(str, PyEnum):
     ADMIN   = "ADMIN"
     HOD     = "HOD"
@@ -72,10 +64,10 @@ class UserRole(str, PyEnum):
 
 
 class AbsenceStatus(str, PyEnum):
-    PENDING                 = "PENDING"
-    APPROVED                = "APPROVED"
-    REJECTED                = "REJECTED"
-    CLARIFICATION_REQUESTED = "CLARIFICATION_REQUESTED"
+    PENDING                 = "pending"
+    APPROVED                = "approved"
+    REJECTED                = "rejected"
+    CLARIFICATION_REQUESTED = "clarification_requested"
 
 
 class ReliefStatus(str, PyEnum):
@@ -103,10 +95,6 @@ class NotificationType(str, PyEnum):
     ANNOUNCEMENT    = "ANNOUNCEMENT"
     GENERAL         = "GENERAL"
 
-
-# ---------------------------------------------------------------------------
-# Models
-# ---------------------------------------------------------------------------
 
 class User(Base):
     __tablename__ = "users"
@@ -189,6 +177,7 @@ class Teacher(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    absences = relationship("Absence", back_populates="teacher")
 
 
 class Subject(Base):
@@ -207,14 +196,14 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id                = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    user_id           = Column(GUID(), ForeignKey("users.id"), nullable=False)
-    notification_type = Column(Enum(NotificationType), default=NotificationType.GENERAL, nullable=True)
+    user_id           = Column(GUID(), ForeignKey("users.id"))
     title             = Column(String, nullable=False)
     content           = Column(Text, nullable=False)
     is_read           = Column(Boolean, default=False)
-    read_at           = Column(DateTime(timezone=True), nullable=True)
     created_at        = Column(DateTime(timezone=True), server_default=func.now())
+    notification_type = Column(String, default="GENERAL")
     action_url        = Column(String, nullable=True)
+    read_at           = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="notifications")
 
@@ -284,6 +273,7 @@ class Absence(Base):
     id                     = Column(GUID(), primary_key=True, default=uuid.uuid4)
     teacher_id             = Column(GUID(), ForeignKey("teachers.id"))
     date                   = Column(Date, nullable=False)
+    end_date               = Column(Date, nullable=True)
     period_start           = Column(SmallInteger)
     period_end             = Column(SmallInteger)
     leave_type             = Column(String)
@@ -293,12 +283,13 @@ class Absence(Base):
     resolved               = Column(Boolean, default=False)
     resolution_report_url  = Column(String)
     clarification_note     = Column(String, nullable=True)
+    is_full_day            = Column(Boolean, default=True)
     is_emergency           = Column(Boolean, default=False)
     emergency_submitted_at = Column(DateTime(timezone=True), nullable=True)
     hod_response_deadline  = Column(DateTime(timezone=True), nullable=True)
     auto_approved          = Column(Boolean, default=False)
 
-    teacher = relationship("Teacher")
+    teacher = relationship("Teacher", back_populates="absences")
 
 
 class ReliefAssignment(Base):
@@ -342,6 +333,10 @@ class BlockedSlot(Base):
     clarification = Column(String, nullable=True)
 
     teacher = relationship("Teacher", back_populates="blocked_slot_entries")
+
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "day", "period", name="uq_blocked_slot"),
+    )
 
 
 class AuditLog(Base):
@@ -394,11 +389,11 @@ class TeacherLeaveBalance(Base):
 
     id                  = Column(GUID(), primary_key=True, default=uuid.uuid4)
     teacher_id          = Column(GUID(), ForeignKey("teachers.id"), nullable=False, unique=True)
-    academic_year       = Column(String, nullable=False)
-    balance             = Column(Float, nullable=False)
-    used_ytd            = Column(Float, nullable=False)
-    carry_over          = Column(Float, nullable=False)
+    academic_year       = Column(String(9), nullable=False, default="2026-27")
+    balance             = Column(Float, nullable=False, default=0.0)
+    used_ytd            = Column(Float, nullable=False, default=0.0)
+    carry_over          = Column(Float, nullable=False, default=0.0)
     last_credited_month = Column(Integer, nullable=True)
-    last_updated        = Column(DateTime(timezone=True), server_default=func.now())
+    last_updated        = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     teacher = relationship("Teacher", back_populates="leave_balance")

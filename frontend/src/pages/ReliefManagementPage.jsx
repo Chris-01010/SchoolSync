@@ -266,7 +266,9 @@ export default function ReliefManagementPage() {
         const prevMap = Object.fromEntries(prev.map(a => [a.id, a]));
         return (data.data || []).map(a => ({
           ...a,
-          _reliefStatus: prevMap[a.id]?._reliefStatus ?? null,
+          // Seed from API-returned relief_status so status survives page refresh.
+          // Fall back to in-memory optimistic value if the API hasn't caught up yet.
+          _reliefStatus: a.relief_status ?? prevMap[a.id]?._reliefStatus ?? null,
           _assignments:  prevMap[a.id]?._assignments  ?? [],
         }));
       });
@@ -859,16 +861,6 @@ export default function ReliefManagementPage() {
                 )}
 
                 {!candidatesLoading && candidates.length === 0 && (
-                  <div className="py-10 text-center">
-                    <AlertTriangle size={28} className="mx-auto mb-3 text-amber-400" />
-                    <p className="text-sm font-medium text-gray-600">No timetable slots found.</p>
-                    <p className="mt-1 text-xs text-gray-400">
-                      The absent teacher has no scheduled classes in this period, or the timetable has not been set up yet.
-                    </p>
-                  </div>
-                )}
-
-                {!candidatesLoading && candidates.length > 0 && selectedSlot && (selectedSlot.candidates?.length ?? 0) === 0 && (
                   <div className="py-10 text-center">
                     <AlertTriangle size={28} className="mx-auto mb-3 text-amber-400" />
                     <p className="text-sm font-medium text-gray-600">No eligible candidates found.</p>

@@ -350,6 +350,7 @@ async def apply_leave(
         raise HTTPException(status_code=400, detail="start_date is required.")
 
     absence_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+    end_date = datetime.strptime(body.end_date, "%Y-%m-%d").date() if body.end_date else absence_date
 
     p_start = body.period_start if body.period_start is not None else 1
     p_end   = body.period_end   if body.period_end   is not None else 8
@@ -357,6 +358,7 @@ async def apply_leave(
     absence = models.Absence(
         teacher_id   = teacher.id,
         date         = absence_date,
+        end_date     = end_date,
         period_start = p_start,
         period_end   = p_end,
         leave_type   = body.leave_type.value,
@@ -447,9 +449,10 @@ async def get_my_leaves(
         "data": [
             {
                 "id":                 str(l.id),
-                "date":               str(l.date),
+                "teacher_id":         str(l.teacher_id),
+                "teacher_name":       l.teacher.name if l.teacher else "Unknown Teacher",
                 "start_date":         str(l.date),
-                "end_date":           str(l.date),
+                "end_date":           str(l.end_date) if l.end_date else str(l.date),
                 "leave_type":         l.leave_type,
                 "reason":             l.reason,
                 "status":             l.status,
@@ -594,10 +597,11 @@ async def get_pending_leaves(
         "count":   len(leaves),
         "data": [
             {
-                "id":                 str(l.id),
-                "teacher_name":       l.teacher.name if l.teacher else "Unknown Teacher",
+                "id":           str(l.id),
+                "teacher_id":   str(l.teacher_id),  
+                "teacher_name": l.teacher.name if l.teacher else "Unknown Teacher",
                 "start_date":         str(l.date),
-                "end_date":           str(l.date),
+                "end_date":           str(l.end_date) if l.end_date else str(l.date),
                 "leave_type":         l.leave_type,
                 "reason":             l.reason,
                 "status":             l.status,
@@ -639,6 +643,34 @@ async def get_approved_leaves(
     result = await db.execute(query)
     absences = result.scalars().all()
 
+    if not absences:
+        return {"success": True, "data": []}
+
+    # Batch-fetch all relief assignments for these absences in one query
+    absence_ids = [a.id for a in absences]
+    relief_result = await db.execute(
+        select(
+            models.ReliefAssignment.absence_id,
+            models.ReliefAssignment.status,
+        ).where(models.ReliefAssignment.absence_id.in_(absence_ids))
+    )
+    # Build a map: absence_id -> list of relief statuses
+    from collections import defaultdict
+    relief_statuses: dict = defaultdict(list)
+    for row in relief_result.all():
+        relief_statuses[str(row[0])].append(row[1])
+
+    def derive_relief_status(statuses):
+        if not statuses:
+            return None
+        if all(s == models.ReliefStatus.ACCEPTED for s in statuses):
+            return "covered"
+        if any(s == models.ReliefStatus.PENDING for s in statuses):
+            return "requested"
+        if any(s == models.ReliefStatus.ACCEPTED for s in statuses):
+            return "partial"
+        return None
+
     return {
         "success": True,
         "data": [
@@ -650,6 +682,8 @@ async def get_approved_leaves(
                 "period_start": a.period_start,
                 "period_end": a.period_end,
                 "status": a.status,
+                # relief_status persists across page refreshes
+                "relief_status": derive_relief_status(relief_statuses.get(str(a.id), [])),
             }
             for a in absences
         ],
@@ -709,11 +743,31 @@ async def hod_action_on_leave(
 
     if body.action == HODAction.APPROVE:
         absence.status = models.AbsenceStatus.APPROVED
-        background_tasks.add_task(dispatch_relief_for_absence, absence.id)
-        notif_msg  = f"Your {absence.leave_type} leave on {absence.date} has been approved."
+        async def safe_dispatch(absence_id):
+            try:
+                await dispatch_relief_for_absence(absence_id)
+            except Exception as e:
+                print(f"[RELIEF DISPATCH ERROR] {e}")
+
+        background_tasks.add_task(safe_dispatch, absence.id)
+        balance_result = await db.execute(
+            select(models.TeacherLeaveBalance).where(
+                models.TeacherLeaveBalance.teacher_id == absence.teacher_id
+            )
+        )
+        leave_balance = balance_result.scalar_one_or_none()
+        if leave_balance:
+            # Calculate actual days from date range
+            end_date = getattr(absence, 'end_date', None) or absence.date
+            days_to_deduct = max(1.0, float((end_date - absence.date).days + 1))
+            leave_balance.balance = round(
+                max(0.0, leave_balance.balance - days_to_deduct), 1
+            )
+            leave_balance.used_ytd = round(
+                leave_balance.used_ytd + days_to_deduct, 1
+            )
+        notif_msg = f"Your {absence.leave_type} leave on {absence.date} has been approved."
         notif_type = "LEAVE_APPROVED"
-        from .relief_router import notify_absence_updated
-        notify_absence_updated(str(absence.id))
 
     elif body.action == HODAction.REJECT:
         absence.status = models.AbsenceStatus.REJECTED
@@ -867,8 +921,6 @@ async def respond_to_relief(
                     )
 
     await db.commit()
-    from .relief_router import notify_absence_updated
-    notify_absence_updated(str(assignment.absence_id))
     await db.refresh(assignment)
 
     return {
@@ -1100,9 +1152,6 @@ async def assign_relief_teacher(
             "RELIEF_REQUEST",
             "/dashboard/relief-duties",
         )
-
-    from .relief_router import notify_absence_updated
-    notify_absence_updated(str(absence_id))
 
     return {
         "message": "Relief assigned successfully",
