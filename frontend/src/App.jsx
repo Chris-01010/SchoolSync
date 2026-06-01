@@ -6,8 +6,8 @@ import { PublicRoute, PrivateRoute, RoleRoute } from './components/auth/RouteGua
 // ─── Role redirect ────────────────────────────────────────────────────────────
 function RoleRedirect() {
   const { role } = useAuth();
-  if (role === 'hod')   return <Navigate to="/hod"       replace />;
-  if (role === 'admin') return <Navigate to="/admin"     replace />;
+  if (role === 'HOD')   return <Navigate to="/hod"       replace />;
+  if (role === 'ADMIN') return <Navigate to="/admin"     replace />;
   return                       <Navigate to="/dashboard" replace />;
 }
 
@@ -99,7 +99,7 @@ export default function App() {
             <Route path="/reset-password"  element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
 
             {/* ── Admin Portal ─────────────────────────────────────────────── */}
-            <Route path="/admin" element={<RoleRoute allowedRoles={['admin']}><AdminLayout /></RoleRoute>}>
+            <Route path="/admin" element={<RoleRoute allowedRoles={['ADMIN']}><AdminLayout /></RoleRoute>}>
               <Route index              element={<AdminHome />} />
               <Route path="timetables"  element={<TimetablePage />} />
               <Route path="relief"      element={<ReliefManagementPage />} />
@@ -114,7 +114,7 @@ export default function App() {
             </Route>
 
             {/* ── HOD Portal ───────────────────────────────────────────────── */}
-            <Route path="/hod" element={<RoleRoute allowedRoles={['hod']}><HODLayout /></RoleRoute>}>
+            <Route path="/hod" element={<RoleRoute allowedRoles={['HOD']}><HODLayout /></RoleRoute>}>
               <Route index             element={<HODDashboard />} />
               <Route path="timetables" element={<TimetablePage />} />
               <Route path="leave"      element={<LeaveManagement />} />
@@ -124,7 +124,7 @@ export default function App() {
             </Route>
 
             {/* ── Teacher Portal ───────────────────────────────────────────── */}
-            <Route path="/dashboard" element={<RoleRoute allowedRoles={['teacher']}><TeacherLayout /></RoleRoute>}>
+            <Route path="/dashboard" element={<RoleRoute allowedRoles={['TEACHER']}><TeacherLayout /></RoleRoute>}>
               <Route index                   element={<TeacherHome />} />
               <Route path="timetable"        element={<MyTimetable />} />
               <Route path="relief-timetable" element={<ReliefTimetable />} />

@@ -74,10 +74,7 @@ const StatusBadge = ({ status, teacherName, originalName }) => {
 
 const MiniBar = ({ value, color, max = 100 }) => (
   <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-    <div
-      className={`h-full rounded-full ${color}`}
-      style={{ width: `${(value / max) * 100}%` }}
-    />
+    <div className={`h-full rounded-full ${color}`} style={{ width: `${(value / max) * 100}%` }} />
   </div>
 );
 
@@ -176,20 +173,22 @@ const HODDashboard = ({ user }) => {
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
 
-      {/* ── Stat Cards Row ─────────────────────────────────────────────── */}
+      {/* Dept Header */}
+      {stats?.department_name && (
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+            {stats.department_name} Department
+          </span>
+        </div>
+      )}
+
+      {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((card, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.07 }}
-            className={`bg-white border ${card.borderColor} rounded-xl p-4 shadow-sm`}
-          >
+          <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
+            className={`bg-white border ${card.borderColor} rounded-xl p-4 shadow-sm`}>
             <div className="flex items-start justify-between mb-3">
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${card.badgeColor}`}>
-                {card.badge}
-              </span>
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${card.badgeColor}`}>{card.badge}</span>
             </div>
             <p className="text-2xl font-bold text-gray-900">{card.value}</p>
             <p className="text-[11px] text-gray-400 font-medium mt-0.5">{card.label}</p>
@@ -209,14 +208,10 @@ const HODDashboard = ({ user }) => {
           ].map((qa) => {
             const Icon = qa.icon;
             return (
-              <motion.button
-                key={qa.label}
-                onClick={() => navigate(qa.path)}
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.97 }}
+              <motion.button key={qa.label} onClick={() => navigate(qa.path)}
+                whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-                className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-5 text-center transition-colors hover:border-blue-300 hover:bg-blue-50/50 shadow-sm"
-              >
+                className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-5 text-center transition-colors hover:border-blue-300 hover:bg-blue-50/50 shadow-sm">
                 <Icon size={22} strokeWidth={1.8} className="text-blue-500 transition group-hover:text-blue-700" />
                 <span className="text-[11px] font-semibold text-gray-700 group-hover:text-blue-700 leading-tight">{qa.label}</span>
               </motion.button>
@@ -227,8 +222,6 @@ const HODDashboard = ({ user }) => {
 
       {/* ── Main Grid ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-
-        {/* Left column (col-span-3) */}
         <div className="lg:col-span-3 space-y-4">
 
           {/* Critical Alerts — only show if there are vacant slots */}
@@ -273,7 +266,6 @@ const HODDashboard = ({ user }) => {
                 Full Schedule <ArrowRight size={11} />
               </button>
             </div>
-
             <div className="overflow-x-auto">
               {timetable.length === 0 ? (
                 <p className="text-[12px] text-gray-400 text-center py-6">
@@ -318,7 +310,6 @@ const HODDashboard = ({ user }) => {
           </div>
         </div>
 
-        {/* Right column (col-span-2) */}
         <div className="lg:col-span-2 space-y-4">
 
           {/* Staff Availability */}
@@ -348,11 +339,8 @@ const HODDashboard = ({ user }) => {
           <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[13px] font-semibold text-gray-800">Weekly Workload</h3>
-              <button className="p-1 rounded text-gray-400 hover:text-gray-600">
-                <MoreVertical size={13} />
-              </button>
+              <button className="p-1 rounded text-gray-400 hover:text-gray-600"><MoreVertical size={13} /></button>
             </div>
-
             <div className="space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -386,11 +374,7 @@ const HODDashboard = ({ user }) => {
         </div>
       </div>
 
-      {/* FAB */}
-      <button
-        className="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center hover:bg-blue-700 transition-colors z-50"
-        title="Quick Action"
-      >
+      <button className="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center hover:bg-blue-700 transition-colors z-50">
         <Plus size={20} />
       </button>
     </div>

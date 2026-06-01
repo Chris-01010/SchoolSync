@@ -235,6 +235,7 @@ async def list_users_admin_view(db: AsyncSession = Depends(get_db), _: User = De
         ))
     return admin_views
 
+
 @router.put("/users/{user_id}/reset-password", status_code=status.HTTP_200_OK, tags=["Users"])
 async def admin_reset_password(user_id: UUID, payload: ResetPasswordPayload, db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
     result = await db.execute(select(User).where(User.id == user_id))

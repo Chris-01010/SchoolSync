@@ -1,7 +1,7 @@
 import secrets
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from .relief_router import router as relief_router
 from .relief_dispatch import expire_overdue_assignments
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, status, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
@@ -9,36 +9,45 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
 from typing import List, Optional
 from uuid import UUID
-from datetime import timedelta, datetime 
-from pathlib import Path 
+from datetime import timedelta, datetime, timezone
+from pathlib import Path
 import time
 import collections
 import logging
-import os 
+import os
 from pydantic import BaseModel
 from .email_service import send_verification_email, send_password_reset_email
 from dotenv import load_dotenv
 from sqlalchemy.orm import selectinload
-from pathlib import Path
-import os
+
+load_dotenv()
 
 print("DATABASE_URL:", os.getenv("DATABASE_URL"))
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set")
+
 from .database import engine, Base, get_db
 from . import models
 from . import schemas
-from . import relief
 from . import auth
+from . import leave_api
 from . import relief_router
+from . import leave_balance_api
 from .worker import generate_timetable_task
+
+from .email_service import (
+    send_verification_email,
+    send_password_reset_email,
+)
+
 from .crud import router as master_router
 from .leave_api import router as leaves_router
 from .admin_dashboard import router as admin_dashboard_router
 from .rooms import router as rooms_router
 from .blockedslot import router as blocked_slots_router
+
 
 async def _validate_slot_modification(user: models.User, teacher_id, db: AsyncSession):
     if user.role == models.UserRole.ADMIN:
@@ -54,7 +63,6 @@ async def _validate_slot_modification(user: models.User, teacher_id, db: AsyncSe
             raise HTTPException(status_code=403, detail="HOD can only modify slots in their department")
         return
     raise HTTPException(status_code=403, detail="Not authorized to modify timetable")
-
 
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
@@ -106,21 +114,36 @@ app.add_middleware(
         "http://127.0.0.1:5175",
         "http://localhost:5177",
         "http://127.0.0.1:5177",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+# ─── Startup ───────────────────────────────────────────────────────────────────
 _scheduler = AsyncIOScheduler()
+
+# ─── Routers ───────────────────────────────────────────────────────────────────
+
+app.include_router(master_router, prefix="/api/v1")
+app.include_router(admin_dashboard_router, prefix="/api/v1")
+app.include_router(rooms_router, prefix="/api/v1")
+app.include_router(blocked_slots_router, prefix="/api/v1")
+app.include_router(leave_api.router, prefix="/leaves", tags=["leaves"])
+app.include_router(relief_router.router, prefix="/relief", tags=["relief"])
+app.include_router(leave_balance_api.router, prefix="/leave-balance", tags=["leave-balance"])
+
 
 @app.on_event("startup")
 async def startup():
+    logger.info("SchoolSync API started. Schema managed externally — skipping create_all.")
     async def _expiry_job():
         async for db in get_db():
-            await expire_overdue_assignments(db)
+            try:
+                await expire_overdue_assignments(db)
+            except Exception:
+                logger.exception("Error in relief expiry job")
+            finally:
+                await db.close()
 
     _scheduler.add_job(_expiry_job, "interval", minutes=1, id="relief_expiry")
     _scheduler.start()
@@ -132,8 +155,8 @@ async def shutdown():
 
 app.include_router(master_router, prefix="/api/v1")
 app.include_router(admin_dashboard_router, prefix="/api/v1")
-app.include_router(rooms_router, prefix="/api/v1") 
-app.include_router(blocked_slots_router, prefix="/api/v1")  
+app.include_router(rooms_router, prefix="/api/v1")
+app.include_router(blocked_slots_router, prefix="/api/v1")
 app.include_router(leaves_router, prefix="/leaves")
 app.include_router(relief_router.router, prefix="/relief")
 
@@ -172,8 +195,10 @@ async def login_json(payload: EmailLoginRequest, response: Response, db: AsyncSe
     user.refresh_token = refresh_token
     user.refresh_token_expires_at = datetime.utcnow() + timedelta(days=auth.REFRESH_TOKEN_EXPIRE_DAYS)
     await db.commit()
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, samesite="lax", max_age=int(timedelta(days=auth.REFRESH_TOKEN_EXPIRE_DAYS).total_seconds()))
-    response.set_cookie(key="access_token", value=access_token, httponly=True, samesite="lax", max_age=int(access_token_expires.total_seconds()))
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, samesite="lax",
+        max_age=int(timedelta(days=auth.REFRESH_TOKEN_EXPIRE_DAYS).total_seconds()))
+    response.set_cookie(key="access_token", value=access_token, httponly=True, samesite="lax",
+        max_age=int(access_token_expires.total_seconds()))
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/auth/refresh", response_model=schemas.Token)
@@ -214,11 +239,15 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
     result = await db.execute(select(models.User).filter(models.User.email == form_data.username))
     user = result.scalars().first()
     if not user or not auth.verify_password(form_data.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"})
     if not user.is_verified:
-        raise HTTPException(status_code=403, detail="Email not verified.")
+        raise HTTPException(status_code=403, detail="Email not verified. Please check your inbox or request a new verification email.")
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token(data={"sub": user.college_id, "role": user.role}, expires_delta=access_token_expires)
+    access_token = auth.create_access_token(
+        data={"sub": user.college_id, "role": user.role},
+        expires_delta=access_token_expires
+    )
     return {"access_token": access_token, "token_type": "bearer"}
 
 # ─── Social OAuth stubs ────────────────────────────────────────────────────────
@@ -263,9 +292,25 @@ async def signup(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
         )
         db.add(teacher_profile)
         await db.commit()
+
+        leave_balance = models.TeacherLeaveBalance(
+            teacher_id=teacher_profile.id,
+            academic_year=leave_balance_api.get_current_academic_year(),
+            balance=2.0,
+            used_ytd=0.0,
+            carry_over=0.0,
+            last_credited_month=None,
+        )
+        db.add(leave_balance)
+        await db.commit()
+
+    
+    # Generate verification token and send email
     token = secrets.token_urlsafe(32)
     db_user.verification_token = token
     db_user.verification_token_expires_at = datetime.utcnow() + timedelta(hours=24)
+    if os.getenv("DEV_AUTO_VERIFY", "").lower() == "true":
+        db_user.is_verified = True
     await db.commit()
     send_verification_email(db_user.email, db_user.college_id, token)
     return db_user
@@ -277,8 +322,10 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=400, detail="Invalid verification token.")
-    if user.verification_token_expires_at < datetime.utcnow():
+    if user.verification_token_expires_at is None or user.verification_token_expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Verification token expired.")
+    if user.is_verified:
+        return {"message": "Email verified successfully. You can now log in."}
     user.is_verified = True
     user.verification_token = None
     user.verification_token_expires_at = None
@@ -301,7 +348,7 @@ async def resend_verification(email: str, db: AsyncSession = Depends(get_db)):
     send_verification_email(user.email, user.college_id, token)
     return {"message": "If that email exists, a verification link has been sent."}
 
-# ─── Forgot Password ───────────────────────────────────────────────────────────
+# ─── Password Reset ────────────────────────────────────────────────────────────
 @app.post("/auth/forgot-password")
 async def forgot_password(email: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.User).filter(models.User.email == email))
@@ -329,7 +376,7 @@ async def reset_password(token: str, new_password: str, db: AsyncSession = Depen
     user.reset_token_expires_at = None
     await db.commit()
     logger.info(f"Password reset successful for {user.college_id}")
-    return {"message": "Password reset successfully. You can now log in."}
+    return {"message": "Password reset successfully."}
 
 @app.get("/auth/me", response_model=schemas.User)
 async def get_me(current_user: models.User = Depends(auth.get_current_user)):
@@ -355,13 +402,11 @@ async def generate_timetable_sync(db: AsyncSession = Depends(get_db)):
     if not classes:
         raise HTTPException(status_code=400, detail="No classes found in database")
 
-    # Wipe previous timetable data first
     await db.execute(delete(models.ReliefAssignment))
     await db.execute(delete(models.TimetableSlot))
     await db.execute(delete(models.TimetableVersion))
     await db.commit()
 
-    # Create the new active version
     version = models.TimetableVersion(
         id=str(uuid_module.uuid4()),
         is_active=True,
@@ -370,7 +415,7 @@ async def generate_timetable_sync(db: AsyncSession = Depends(get_db)):
     )
     db.add(version)
     await db.flush()
-    # All IDs as strings, no UUID/string mixing
+
     room_ids = [str(r.id) for r in rooms]
     teacher_by_id = {str(t.id): t for t in teachers}
     subject_ids = [str(s.id) for s in subjects]
@@ -459,7 +504,6 @@ async def generate_timetable_sync(db: AsyncSession = Depends(get_db)):
                         "reason": reason,
                     })
 
-    # Pre-flight duplicate check — fail fast with clear error if the planner has a bug
     seen_room, seen_teacher, seen_class = set(), set(), set()
     for s in planned:
         rk = (s["room_id"], s["day"], s["period"])
@@ -531,7 +575,7 @@ async def list_teachers(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 @app.get("/api/v1/teachers/me")
-async def get_my_teacher_profile(
+async def get_my_teacher_profile_v1(
     current_user: models.User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -552,95 +596,10 @@ async def get_my_teacher_profile(
         "is_active": teacher.is_active,
     }
 
-# ─── Teacher Dashboard ─────────────────────────────────────────────────────────
-@app.get("/teachers/me/dashboard", response_model=schemas.DashboardSummary, dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))])
-async def get_teacher_dashboard(current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
-    teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.user_id == current_user.id))
-    teacher = teacher_result.scalar_one_or_none()
-    if not teacher:
-        raise HTTPException(status_code=404, detail="Teacher profile not found")
-    relief_result = await db.execute(
-        select(models.ReliefAssignment)
-        .where(models.ReliefAssignment.relief_teacher_id == teacher.id, models.ReliefAssignment.status == models.ReliefStatus.PENDING)
-    )
-    pending_requests = relief_result.scalars().all()
-    return {
-        "timetable": [],
-        "relief_duties": [],
-        "total_hours": teacher.total_hours_worked,
-        "relief_hours": teacher.current_relief_hours,
-        "pending_requests": []
-    }
-
-# ─── Timetable Management ──────────────────────────────────────────────────────
+# ─── Timetable ─────────────────────────────────────────────────────────────────
 @app.get("/timetable/versions", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def list_timetable_versions(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.TimetableVersion).order_by(models.TimetableVersion.published_at.desc()))
-    return result.scalars().all()
-
-# ─── Approve Leave ─────────────────────────────────────────────────────────────
-@app.put("/absences/{absence_id}/approve", response_model=schemas.AbsenceOut, dependencies=[Depends(auth.check_role([models.UserRole.HOD]))])
-async def approve_leave(
-    absence_id: UUID,
-    approval: schemas.AbsenceDecision,
-    current_user: models.User = Depends(auth.get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    result = await db.execute(select(models.Absence).where(models.Absence.id == absence_id))
-    absence = result.scalar_one_or_none()
-    if not absence:
-        raise HTTPException(status_code=404, detail="Absence not found")
-    if absence.status != models.AbsenceStatus.PENDING:
-        raise HTTPException(status_code=400, detail=f"Cannot update a leave that is already {absence.status}.")
-    absence.status = approval.status
-    teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.id == absence.teacher_id))
-    teacher = teacher_result.scalar_one_or_none()
-    if teacher:
-        if approval.status == models.AbsenceStatus.APPROVED:
-            title = "Leave Request Approved"
-            content = f"Your leave on {absence.date} has been approved."
-        else:
-            title = "Leave Request Rejected"
-            content = f"Your leave on {absence.date} has been rejected."
-        db.add(models.Notification(user_id=teacher.user_id, title=title, content=content, is_read=False))
-    await db.commit()
-    await db.refresh(absence)
-    return absence
-
-# ─── Relief Assignment Response ────────────────────────────────────────────────
-@app.put("/relief-assignments/{assignment_id}/respond", response_model=schemas.ReliefAssignmentBase, dependencies=[Depends(auth.check_role([models.UserRole.TEACHER, models.UserRole.HOD]))])
-async def respond_to_relief(
-    assignment_id: UUID,
-    response: schemas.ReliefResponse,
-    current_user: models.User = Depends(auth.get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    teacher_result = await db.execute(select(models.Teacher).where(models.Teacher.user_id == current_user.id))
-    teacher = teacher_result.scalar_one_or_none()
-    if not teacher:
-        raise HTTPException(status_code=404, detail="Teacher profile not found")
-    result = await db.execute(select(models.ReliefAssignment).where(models.ReliefAssignment.id == assignment_id))
-    assignment = result.scalar_one_or_none()
-    if not assignment:
-        raise HTTPException(status_code=404, detail="Relief assignment not found")
-    if assignment.relief_teacher_id != teacher.id:
-        raise HTTPException(status_code=403, detail="Not authorized to respond to this assignment")
-    if response.status == models.ReliefStatus.FLAGGED:
-        raise HTTPException(
-            status_code=403,
-            detail="Teachers cannot flag relief requests."
-        )
-    assignment.status = response.status
-    if response.status == models.ReliefStatus.ACCEPTED:
-        assignment.acknowledged_at = datetime.utcnow()
-    await db.commit()
-    await db.refresh(assignment)
-    return assignment
-
-# ─── Timetable Slots CRUD ──────────────────────────────────────────────────────
-@app.get("/timetable/slots/admin-all", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
-async def list_timetable_slots_admin(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.TimetableSlot))
     return result.scalars().all()
 
 @app.get("/timetable/slots")
@@ -692,28 +651,6 @@ async def get_timetable_view(scope: str, scope_id: UUID, current_user: models.Us
         grouped[day].append(slot)
     return {"scope": scope, "scope_id": str(scope_id), "timetable": grouped}
 
-@app.post("/timetable/slots", response_model=schemas.TimetableSlot, dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
-async def create_timetable_slot(slot: schemas.TimetableSlotCreate, db: AsyncSession = Depends(get_db)):
-    db_slot = models.TimetableSlot(**slot.dict())
-    db.add(db_slot)
-    try:
-        await db.commit()
-        await db.refresh(db_slot)
-        return db_slot
-    except Exception:
-        await db.rollback()
-        raise HTTPException(status_code=409, detail="Scheduling conflict: teacher, room or class already booked at this slot")
-
-@app.delete("/timetable/slots/{slot_id}", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
-async def delete_timetable_slot(slot_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(models.TimetableSlot).where(models.TimetableSlot.id == slot_id))
-    slot = result.scalar_one_or_none()
-    if not slot:
-        raise HTTPException(status_code=404, detail="Slot not found")
-    await db.delete(slot)
-    await db.commit()
-    return {"status": "deleted"}
-
 @app.post("/generate-timetable/", dependencies=[Depends(auth.check_role([models.UserRole.ADMIN]))])
 async def trigger_timetable_generation(request: schemas.TimetableGenerateRequest):
     task = generate_timetable_task.delay(str(request.school_id))
@@ -731,12 +668,6 @@ async def activate_timetable_version(version_id: str, db: AsyncSession = Depends
     version.is_active = True
     await db.commit()
     return {"status": "success"}
-
-@app.get("/timetable/versions")
-async def get_timetable_versions(db: AsyncSession = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    result = await db.execute(select(models.TimetableVersion).order_by(models.TimetableVersion.published_at.desc()))
-    versions = result.scalars().all()
-    return [{"id": str(v.id), "is_active": v.is_active, "published_at": str(v.published_at)} for v in versions]
 
 @app.get("/timetable/meta")
 async def get_timetable_meta(db: AsyncSession = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
@@ -814,8 +745,6 @@ async def update_timetable_slot(slot_id: str, payload: TimetableSlotUpdate, db: 
     if not slot:
         raise HTTPException(status_code=404, detail="Slot not found")
     await _validate_slot_modification(current_user, str(slot.teacher_id), db)
-    if payload.teacher_id and str(payload.teacher_id) != str(slot.teacher_id):
-        await _validate_slot_modification(current_user, payload.teacher_id, db)
     new_day = payload.day_of_week if payload.day_of_week is not None else slot.day_of_week
     new_period = payload.period if payload.period is not None else slot.period
     new_teacher = payload.teacher_id or str(slot.teacher_id)
@@ -830,18 +759,12 @@ async def update_timetable_slot(slot_id: str, payload: TimetableSlotUpdate, db: 
     class_conflict = await db.execute(select(models.TimetableSlot).filter(models.TimetableSlot.class_id == new_class, models.TimetableSlot.day_of_week == new_day, models.TimetableSlot.period == new_period, models.TimetableSlot.id != slot_id))
     if class_conflict.scalars().first():
         raise HTTPException(status_code=409, detail="This class already has a slot at this time")
-    if payload.teacher_id:
-        slot.teacher_id = payload.teacher_id
-    if payload.class_id:
-        slot.class_id = payload.class_id
-    if payload.room_id:
-        slot.room_id = payload.room_id
-    if payload.subject_id:
-        slot.subject_id = payload.subject_id
-    if payload.day_of_week is not None:
-        slot.day_of_week = payload.day_of_week
-    if payload.period is not None:
-        slot.period = payload.period
+    if payload.teacher_id: slot.teacher_id = payload.teacher_id
+    if payload.class_id: slot.class_id = payload.class_id
+    if payload.room_id: slot.room_id = payload.room_id
+    if payload.subject_id: slot.subject_id = payload.subject_id
+    if payload.day_of_week is not None: slot.day_of_week = payload.day_of_week
+    if payload.period is not None: slot.period = payload.period
     await db.commit()
     return {"status": "success", "slot_id": slot_id}
 
@@ -928,29 +851,24 @@ async def remove_subject_from_teacher(teacher_id: str, subject_id: str, db: Asyn
     await db.commit()
     return {"status": "success"}
 
-
-@app.get("/hod/profile")    
+@app.get("/hod/profile")
 async def get_hod_profile(
-    current_user: models.User = Depends(auth.check_role([models.UserRole.HOD])   # ← ensure HOD role is allowed
-    ),
+    current_user: models.User = Depends(auth.check_role([models.UserRole.HOD])),
     db: AsyncSession = Depends(get_db),
 ):
-    # Fetch the Teacher row linked to this user (has name, email, department)
     result = await db.execute(
         select(models.Teacher)
         .options(selectinload(models.Teacher.dept_link))
         .where(models.Teacher.user_id == current_user.id)
     )
     teacher = result.scalar_one_or_none()
-
     if not teacher:
         raise HTTPException(status_code=404, detail="HOD profile not found")
-
     return {
         "name":         teacher.name,
-        "employee_id":  str(current_user.college_id),   # college_id is the employee ID
+        "employee_id":  str(current_user.college_id),
         "email":        teacher.email,
         "department":   teacher.dept_link.name if teacher.dept_link else None,
-        "role":         current_user.role.value,         # "hod"
+        "role":         current_user.role.value,
         "joining_date": current_user.created_at.date().isoformat() if current_user.created_at else None,
     }

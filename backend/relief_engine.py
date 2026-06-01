@@ -70,11 +70,10 @@ async def filter_eligible_teachers(
             continue
         if _is_slot_blocked(teacher, day_of_week, period):  # F3
             continue
-        if (
-            teacher.max_weekly_hours is not None
-            and teacher.total_hours_worked >= teacher.max_weekly_hours
-        ):                                          # F4
-            continue
+        # F4 — max_weekly_hours guard removed: total_hours_worked is a
+        # cumulative lifetime counter, not a weekly one, so comparing it
+        # against max_weekly_hours permanently excludes experienced teachers.
+        # Weekly relief load is already capped by weekly_relief_cap (F2).
         eligible.append(teacher)
 
     return eligible

@@ -24,7 +24,7 @@ const HODLayout = () => {
 
         {/* Content area — HODDashboard manages its own scroll + fixed bar.
             Other HOD pages scroll via their own overflow-y-auto wrapper.  */}
-        <main className="flex-1 min-h-0 overflow-y-auto">
+         <main className="flex-1 min-h-0 overflow-y-auto">
           <Outlet context={{ user }} />
         </main>
 

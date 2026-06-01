@@ -98,8 +98,66 @@ const Navbar = ({ onMenuClick, user }) => {
       <div className="flex-1" />
 
       <div className="flex items-center gap-1.5">
-        
-          
+
+        <button
+          onClick={() => { window.location.href = '/hod/relief#create-relief'; }}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          + Create Relief
+        </button>
+
+        {/* Notification Bell */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="relative p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <Bell size={16} />
+            {unread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                {unread > 9 ? '9+' : unread}
+              </span>
+            )}
+          </button>
+
+          {open && (
+            <div className="absolute right-0 top-9 w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+                <span className="text-[13px] font-semibold text-gray-800">Notifications</span>
+                {unread > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    <Check size={11} /> Mark all read
+                  </button>
+                )}
+              </div>
+              <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
+                {notifs.length === 0 ? (
+                  <p className="text-[12px] text-gray-400 text-center py-6">No notifications</p>
+                ) : (
+                  notifs.slice(0, 20).map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => handleNotifClick(n)}
+                      className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${!n.is_read ? 'bg-blue-50/40' : ''}`}
+                    >
+                      <p className={`text-[12px] font-semibold text-gray-800 ${!n.is_read ? 'text-blue-800' : ''}`}>
+                        {n.title}
+                      </p>
+                      <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">{n.content}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {n.created_at ? new Date(n.created_at).toLocaleString() : ''}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <button className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
           <Settings size={16} />
         </button>

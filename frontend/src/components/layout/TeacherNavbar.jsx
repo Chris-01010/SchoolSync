@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { Bell, Clock, LogOut, Menu, Plus, CheckCircle2, Repeat2, Users, X, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -125,7 +125,6 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   const handleReliefClick = () => {
     const assignment = pendingReliefs.length > 0 ? toModalShape(pendingReliefs[0]) : mockReliefAssignment;
     setActiveAssignment(assignment);
-    setNotifOpen(false);
     setReliefModalOpen(true);
   };
 

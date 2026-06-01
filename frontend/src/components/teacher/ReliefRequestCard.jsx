@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, X, ArrowLeftRight, PlusCircle, CheckCircle2, ChevronLeft } from 'lucide-react';
-import { api } from '../services/api';
+
+const BASE = 'http://localhost:8000';
+
+function getHeaders() {
+  const token = localStorage.getItem('schoolsync_token') ||
+                localStorage.getItem('access_token') ||
+                localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -123,7 +134,8 @@ export default function ReliefRequestCard({ request, onResponded }) {
     setView('swap');
     setSlotsLoading(true);
     try {
-      const data = await api.get('/relief/my-slots');
+      const res = await fetch(`${BASE}/relief/my-slots`, { headers: getHeaders() });
+      const data = await res.json();
       setMySlots(data.slots ?? []);
     } catch {
       showToast('Could not load your slots.', 'error');
@@ -133,31 +145,33 @@ export default function ReliefRequestCard({ request, onResponded }) {
     }
   };
 
+  // ── Core respond — calls PUT /leaves/relief/{id}/respond ──────────────────
   const respond = async (status, extras = {}) => {
     setLoading(true);
     try {
-      if (status === 'accepted') {
-        const body = { response: 'accepted', mode: extras.mode };
-        if (extras.mode === 'swap') body.swap_slot_id = extras.swap_slot_id;
-        await api.post(`/relief/assignments/${request.id}/respond`, body);
-        const msg = extras.mode === 'consume'
-          ? 'Consume request sent — awaiting absent teacher confirmation.'
-          : 'Swap accepted! Your timetable has been updated.';
-        showToast(msg);
-      } else if (status === 'rejected') {
-        await api.post(`/relief/assignments/${request.id}/respond`, { response: 'rejected' });
-        showToast('Relief request rejected.');
-      } else if (status === 'flagged') {
-        await api.post(`/relief/assignments/${request.id}/respond`, {
-          response: 'flagged',
-          flag_reason: extras.flag_reason,
-          flag_comment: extras.flag_comment,
-        });
-        showToast('Request flagged for admin review.');
+      const body = { status };
+      if (extras.flag_reason)  body.flag_reason  = extras.flag_reason;
+      if (extras.flag_comment) body.flag_comment = extras.flag_comment;
+
+      const res = await fetch(
+        `${BASE}/leaves/relief/${request.id}/respond`,
+        { method: 'PUT', headers: getHeaders(), body: JSON.stringify(body) }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Server error ${res.status}`);
       }
+
+      const msg =
+        status === 'accepted' ? 'Relief accepted successfully.' :
+        status === 'rejected' ? 'Relief request rejected.' :
+        'Request flagged for admin review.';
+
+      showToast(msg);
       setTimeout(() => onResponded?.(request.id), 1200);
-    } catch {
-      showToast('Network error. Please try again.', 'error');
+    } catch (e) {
+      showToast(e.message || 'Network error. Please try again.', 'error');
     } finally {
       setLoading(false);
       setFlagOpen(false);
@@ -204,7 +218,6 @@ export default function ReliefRequestCard({ request, onResponded }) {
               className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-amber-400 hover:bg-amber-500 text-white text-[11px] font-semibold rounded-lg disabled:opacity-50 transition-colors">
               <AlertTriangle size={12} /> Flag
             </button>
-            {/* Accept now opens mode picker */}
             <button onClick={() => setView('mode')} disabled={loading}
               className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-semibold rounded-lg disabled:opacity-50 transition-colors">
               <CheckCircle size={12} /> Accept
