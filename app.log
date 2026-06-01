@@ -6282,3 +6282,22 @@ asyncio.exceptions.CancelledError
 2026-06-01 13:24:54,690 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:25:53 IST)" executed successfully
 2026-06-01 13:25:53,056 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:26:53 IST)" (scheduled at 2026-06-01 13:25:53.051327+05:30)
 2026-06-01 13:25:54,722 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:26:53 IST)" executed successfully
+2026-06-01 13:29:13,013 [INFO] backend.main - SchoolSync API started. Schema managed externally — skipping create_all.
+2026-06-01 13:29:13,016 [INFO] apscheduler.scheduler - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-06-01 13:29:13,018 [INFO] apscheduler.scheduler - Added job "startup.<locals>._expiry_job" to job store "default"
+2026-06-01 13:29:13,018 [INFO] apscheduler.scheduler - Scheduler started
+2026-06-01 13:29:13,053 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:29:13,056 [WARNING] backend.auth - Invalid or expired JWT token received.
+2026-06-01 13:30:13,022 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:31:13 IST)" (scheduled at 2026-06-01 13:30:13.016146+05:30)
+2026-06-01 13:30:18,274 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:31:13 IST)" executed successfully
+2026-06-01 13:31:13,021 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:32:13 IST)" (scheduled at 2026-06-01 13:31:13.016146+05:30)
+2026-06-01 13:31:14,614 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:32:13 IST)" executed successfully
+2026-06-01 13:32:13,028 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:33:13 IST)" (scheduled at 2026-06-01 13:32:13.016146+05:30)
+2026-06-01 13:32:14,501 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:33:13 IST)" executed successfully
+2026-06-01 13:33:13,031 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:34:13 IST)" (scheduled at 2026-06-01 13:33:13.016146+05:30)
+2026-06-01 13:33:14,421 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:34:13 IST)" executed successfully
+2026-06-01 13:34:13,018 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:35:13 IST)" (scheduled at 2026-06-01 13:34:13.016146+05:30)
+2026-06-01 13:34:14,731 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:35:13 IST)" executed successfully
+2026-06-01 13:35:13,023 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:36:13 IST)" (scheduled at 2026-06-01 13:35:13.016146+05:30)
+2026-06-01 13:35:14,627 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:36:13 IST)" executed successfully
+2026-06-01 13:35:46,170 [INFO] apscheduler.scheduler - Scheduler has been shut down
