@@ -641,6 +641,34 @@ async def get_approved_leaves(
     result = await db.execute(query)
     absences = result.scalars().all()
 
+    if not absences:
+        return {"success": True, "data": []}
+
+    # Batch-fetch all relief assignments for these absences in one query
+    absence_ids = [a.id for a in absences]
+    relief_result = await db.execute(
+        select(
+            models.ReliefAssignment.absence_id,
+            models.ReliefAssignment.status,
+        ).where(models.ReliefAssignment.absence_id.in_(absence_ids))
+    )
+    # Build a map: absence_id -> list of relief statuses
+    from collections import defaultdict
+    relief_statuses: dict = defaultdict(list)
+    for row in relief_result.all():
+        relief_statuses[str(row[0])].append(row[1])
+
+    def derive_relief_status(statuses):
+        if not statuses:
+            return None
+        if all(s == models.ReliefStatus.ACCEPTED for s in statuses):
+            return "covered"
+        if any(s == models.ReliefStatus.PENDING for s in statuses):
+            return "requested"
+        if any(s == models.ReliefStatus.ACCEPTED for s in statuses):
+            return "partial"
+        return None
+
     return {
         "success": True,
         "data": [
@@ -652,6 +680,8 @@ async def get_approved_leaves(
                 "period_start": a.period_start,
                 "period_end": a.period_end,
                 "status": a.status,
+                # relief_status persists across page refreshes
+                "relief_status": derive_relief_status(relief_statuses.get(str(a.id), [])),
             }
             for a in absences
         ],
