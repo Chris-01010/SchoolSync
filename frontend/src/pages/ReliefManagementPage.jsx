@@ -14,6 +14,8 @@ import {
   Clock,
   Wifi,
   WifiOff,
+  Zap,
+  SlidersHorizontal,
 } from "lucide-react";
 
 const API = "http://localhost:8000";
@@ -57,6 +59,96 @@ const statusConfig = {
   flagged:    { label: "Flagged",          pill: "bg-orange-50 text-orange-700 ring-orange-500/20",    dot: "bg-orange-500" },
 };
 
+// ── Auto-assign result popup ──────────────────────────────────────────────────
+function AutoAssignToast({ results, onClose }) {
+  const assigned = results.filter(r => r.status === "assigned");
+  const failed   = results.filter(r => r.status === "no_candidate");
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 32, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0,  scale: 1 }}
+      exit={{    opacity: 0, y: 16, scale: 0.97 }}
+      transition={{ type: "spring", stiffness: 380, damping: 28 }}
+      className="fixed bottom-6 right-6 z-[200] w-full max-w-sm rounded-2xl bg-white
+                 border border-gray-100 shadow-2xl overflow-hidden"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-indigo-600">
+        <div className="flex items-center gap-2">
+          <Zap size={15} className="text-white" />
+          <span className="text-[13px] font-bold text-white">Auto-Assign Complete</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-indigo-200 hover:text-white transition-colors"
+        >
+          <X size={15} />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="px-4 py-3 space-y-2 max-h-56 overflow-y-auto">
+        {assigned.length === 0 && failed.length === 0 && (
+          <p className="text-[12px] text-gray-400 text-center py-3">
+            All slots already assigned — nothing to do.
+          </p>
+        )}
+
+        {assigned.map((r) => (
+          <div
+            key={r.slot_id}
+            className="flex items-start gap-2.5 p-2.5 rounded-xl bg-emerald-50 border border-emerald-100"
+          >
+            <CheckCircle2 size={14} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-[12px] font-semibold text-emerald-800">
+                Period {r.period} → <span className="font-bold">{r.teacher_name}</span>
+              </p>
+              <p className="text-[10px] text-emerald-600 mt-0.5">
+                Request sent · Score {r.score}
+              </p>
+            </div>
+          </div>
+        ))}
+
+        {failed.map((r, i) => (
+          <div
+            key={r.slot_id ?? `no-slot-${i}`}
+            className="flex items-start gap-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-100"
+          >
+            <AlertTriangle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-[12px] font-semibold text-amber-800">
+                {r.period && r.period !== "—"
+                  ? `Period ${r.period} — No eligible teacher`
+                  : r.message || "No timetable slots found for this absence"}
+              </p>
+              <p className="text-[10px] text-amber-600 mt-0.5">
+                Use Override to assign manually
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+        <p className="text-[10px] text-gray-400">
+          {assigned.length} assigned · {failed.length} need manual override
+        </p>
+        <button
+          onClick={onClose}
+          className="text-[11px] font-semibold text-indigo-600 hover:underline"
+        >
+          Dismiss
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── ScoreBar & CandidateCard (for Override modal) ─────────────────────────────
 function ScoreBar({ label, value, max, color }) {
   return (
     <div className="flex items-center gap-2 text-xs">
@@ -131,6 +223,7 @@ function StatusPill({ status }) {
   );
 }
 
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function ReliefManagementPage() {
   const [activeTab, setActiveTab] = useState("active");
 
@@ -138,13 +231,12 @@ export default function ReliefManagementPage() {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
   const [lastRefresh, setLastRefresh] = useState(null);
-
-  // SSE connection indicator — replaces the "LIVE UPDATES" stat card
   const [sseConnected, setSseConnected] = useState(false);
 
   const [history, setHistory]               = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // ── Override modal state (manual candidate selection) ─────────────────────
   const [modalOpen, setModalOpen]                   = useState(false);
   const [modalAbsence, setModalAbsence]             = useState(null);
   const [candidates, setCandidates]                 = useState([]);
@@ -153,12 +245,16 @@ export default function ReliefManagementPage() {
   const [selectedCandidates, setSelectedCandidates] = useState({});
   const [dispatching, setDispatching]               = useState(false);
   const [dispatchSuccess, setDispatchSuccess]       = useState(false);
+  const [dispatchError, setDispatchError]           = useState(null);
   const [overrideNote, setOverrideNote]             = useState("");
 
-  // Map of absenceId → EventSource (one stream per dispatched absence)
+  // ── Auto-assign state ─────────────────────────────────────────────────────
+  const [autoAssigning, setAutoAssigning]     = useState(null); // absence id being auto-assigned
+  const [autoAssignToast, setAutoAssignToast] = useState(null); // { results: [...] }
+
   const sseRefs = useRef({});
 
-  // ── Initial load — one-time only, no polling ──────────────────────────────
+  // ── Fetch approved absences ───────────────────────────────────────────────
   const fetchAbsences = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
@@ -177,18 +273,14 @@ export default function ReliefManagementPage() {
       setLastRefresh(new Date());
     } catch (e) {
       setError("Could not load absences. Check your connection.");
-      console.error(e);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Load once on mount — no setInterval
-  useEffect(() => {
-    fetchAbsences();
-  }, [fetchAbsences]);
+  useEffect(() => { fetchAbsences(); }, [fetchAbsences]);
 
-  // Cleanup all SSE streams on unmount
+  // Cleanup SSE on unmount
   useEffect(() => {
     return () => {
       Object.values(sseRefs.current).forEach(es => es.close());
@@ -196,44 +288,33 @@ export default function ReliefManagementPage() {
     };
   }, []);
 
-  // ── Per-absence SSE subscription (opened after dispatch) ─────────────────
   const subscribeToAbsence = useCallback((absenceId) => {
-    if (sseRefs.current[absenceId]) return; // already subscribed
-
+    if (sseRefs.current[absenceId]) return;
     const token = getToken();
     const es = new EventSource(`${API}/relief/stream/${absenceId}?token=${token}`);
-
     es.onopen = () => setSseConnected(true);
-
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
         setAbsences(prev =>
-          prev.map(a =>
-            a.id === absenceId
-              ? { ...a, _assignments: data.assignments }
-              : a
-          )
+          prev.map(a => a.id === absenceId ? { ...a, _assignments: data.assignments } : a)
         );
-        // When all slots fully accepted, silently resync the list
         const allAccepted =
           data.assignments?.length > 0 &&
           data.assignments.every(a => a.status === "accepted");
         if (allAccepted) fetchAbsences(true);
       } catch {}
     };
-
     es.onerror = () => {
       es.close();
       delete sseRefs.current[absenceId];
       if (Object.keys(sseRefs.current).length === 0) setSseConnected(false);
     };
-
     sseRefs.current[absenceId] = es;
     setSseConnected(true);
   }, [fetchAbsences]);
 
-  // ── History tab ───────────────────────────────────────────────────────────
+  // ── History ───────────────────────────────────────────────────────────────
   const fetchHistory = useCallback(async () => {
     try {
       setHistoryLoading(true);
@@ -252,14 +333,59 @@ export default function ReliefManagementPage() {
     if (activeTab === "history") fetchHistory();
   }, [activeTab, fetchHistory]);
 
-  // ── Modal open ────────────────────────────────────────────────────────────
-  const openAssign = async (absence) => {
+  // ── AUTO-ASSIGN handler ───────────────────────────────────────────────────
+  const handleAutoAssign = async (absence) => {
+    setAutoAssigning(absence.id);
+    try {
+      const res = await fetch(`${API}/relief/auto-assign/${absence.id}`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.detail || `Server error ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      // Update local absence status optimistically
+      const anyAssigned = data.assignments?.some(a => a.status === "assigned");
+      if (anyAssigned) {
+        setAbsences(prev =>
+          prev.map(a =>
+            a.id === absence.id ? { ...a, _reliefStatus: "requested" } : a
+          )
+        );
+        subscribeToAbsence(absence.id);
+      }
+
+      // Show the results popup
+      setAutoAssignToast({ results: data.assignments || [] });
+
+    } catch (e) {
+      setAutoAssignToast({
+        results: [{
+          slot_id: "error",
+          period: null,
+          status: "no_candidate",
+          message: e.message || "Auto-assign failed. Try again or use Override.",
+        }],
+      });
+    } finally {
+      setAutoAssigning(null);
+    }
+  };
+
+  // ── OVERRIDE modal handlers ───────────────────────────────────────────────
+  const openOverride = async (absence) => {
     setModalAbsence(absence);
     setModalOpen(true);
     setCandidates([]);
     setSelectedSlot(null);
     setSelectedCandidates({});
     setDispatchSuccess(false);
+    setDispatchError(null);
     setOverrideNote("");
     setCandidatesLoading(true);
     try {
@@ -280,7 +406,6 @@ export default function ReliefManagementPage() {
     }
   };
 
-  // ── Modal close — never touches absences state ────────────────────────────
   const closeModal = () => {
     if (dispatching) return;
     setModalOpen(false);
@@ -289,53 +414,47 @@ export default function ReliefManagementPage() {
     setSelectedCandidates({});
     setSelectedSlot(null);
     setDispatchSuccess(false);
+    setDispatchError(null);
     setOverrideNote("");
   };
 
-  // ── Dispatch ──────────────────────────────────────────────────────────────
-  const handleDispatch = async () => {
+  // Override dispatch — manual selection
+  const handleOverrideDispatch = async () => {
     if (Object.keys(selectedCandidates).length === 0 || !modalAbsence) return;
     setDispatching(true);
+    setDispatchError(null);
     try {
-      const results = await Promise.all(
-        Object.entries(selectedCandidates).map(([slot_id, candidate]) =>
-          fetch(`${API}/leaves/relief/${modalAbsence.id}/assign`, {
-            method: "POST",
-            headers: authHeaders(),
-            body: JSON.stringify({
-              relief_teacher_id: candidate.teacher_id,
-              slot_id,
-              note: overrideNote || undefined,
-            }),
-          })
-        )
-      );
-      if (results.some(r => !r.ok)) throw new Error("One or more assignments failed");
-
+      for (const [slot_id, candidate] of Object.entries(selectedCandidates)) {
+        const res = await fetch(`${API}/leaves/relief/${modalAbsence.id}/assign`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            relief_teacher_id: candidate.teacher_id,
+            slot_id,
+            note: overrideNote || "Manual override by HOD",
+          }),
+        });
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.detail || `Server error ${res.status}`);
+        }
+      }
       setDispatchSuccess(true);
-
-      // Update row in place — do NOT remove it
       setAbsences(prev =>
         prev.map(a =>
-          a.id === modalAbsence.id
-            ? { ...a, _reliefStatus: "requested" }
-            : a
+          a.id === modalAbsence.id ? { ...a, _reliefStatus: "requested" } : a
         )
       );
-
-      // Open SSE stream for this absence to receive teacher accept/reject live
       subscribeToAbsence(modalAbsence.id);
-
       setTimeout(() => setModalOpen(false), 1500);
     } catch (e) {
-      console.error("Dispatch failed:", e);
-      alert("Failed to assign relief. Please try again.");
+      setDispatchError(e.message || "Failed to assign relief. Please try again.");
     } finally {
       setDispatching(false);
     }
   };
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
+  // ── Derived counts ────────────────────────────────────────────────────────
   const totalToday = absences.length;
   const unassigned = absences.filter(
     a => !a._reliefStatus && !a._assignments?.some(x => x.status === "accepted")
@@ -355,7 +474,7 @@ export default function ReliefManagementPage() {
   const totalSlots    = candidates.length;
 
   return (
-    <>
+    <div className="overflow-y-auto">
       <motion.div variants={containerV} initial="hidden" animate="visible" className="space-y-7">
 
         {/* HEADER */}
@@ -372,16 +491,12 @@ export default function ReliefManagementPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Live indicator pill — replaces the LIVE UPDATES card */}
             <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
               sseConnected
                 ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                 : "border-gray-200 bg-gray-50 text-gray-400"
             }`}>
-              {sseConnected
-                ? <><Wifi size={12} /> Live</>
-                : <><WifiOff size={12} /> Offline</>
-              }
+              {sseConnected ? <><Wifi size={12} /> Live</> : <><WifiOff size={12} /> Offline</>}
             </div>
             <button
               onClick={() => fetchAbsences()}
@@ -397,7 +512,7 @@ export default function ReliefManagementPage() {
           </div>
         </motion.div>
 
-        {/* STAT CARDS — 3 cols, no LIVE UPDATES card */}
+        {/* STAT CARDS */}
         <motion.div variants={itemV} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {summaryStats.map((s) => {
             const Icon = s.icon;
@@ -498,6 +613,8 @@ export default function ReliefManagementPage() {
                     const isCovered   = absence._assignments?.some(a => a.status === "accepted");
                     const isRequested = absence._reliefStatus === "requested" || absence._assignments?.some(a => a.status === "pending");
                     const displayStatus = isCovered ? "covered" : isRequested ? "requested" : "pending";
+                    const isAutoAssigning = autoAssigning === absence.id;
+
                     return (
                       <tr key={absence.id} className="border-b border-gray-100 transition-colors hover:bg-gray-50/60">
                         <td className="whitespace-nowrap px-5 py-3.5 text-[13px] text-gray-600">
@@ -521,16 +638,40 @@ export default function ReliefManagementPage() {
                               <CheckCircle2 size={13} /> Covered
                             </span>
                           ) : isRequested ? (
-                            <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-indigo-500">
-                              <Clock size={13} /> Awaiting response
-                            </span>
-                          ) : (
+                            // Already requested — show Override only
                             <button
-                              onClick={() => openAssign(absence)}
-                              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                              onClick={() => openOverride(absence)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-[12px] font-semibold text-indigo-700 shadow-sm transition hover:bg-indigo-100"
                             >
-                              Assign Relief
+                              <SlidersHorizontal size={12} />
+                              Override
                             </button>
+                          ) : (
+                            // Not yet assigned — show Auto Assign + Override
+                            <div className="flex items-center gap-2">
+                              {/* Auto Assign */}
+                              <button
+                                onClick={() => handleAutoAssign(absence)}
+                                disabled={isAutoAssigning}
+                                className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                              >
+                                {isAutoAssigning ? (
+                                  <><Loader2 size={12} className="animate-spin" /> Assigning…</>
+                                ) : (
+                                  <><Zap size={12} /> Auto Assign</>
+                                )}
+                              </button>
+
+                              {/* Override */}
+                              <button
+                                onClick={() => openOverride(absence)}
+                                disabled={isAutoAssigning}
+                                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                              >
+                                <SlidersHorizontal size={12} />
+                                Override
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -628,7 +769,17 @@ export default function ReliefManagementPage() {
 
       </motion.div>
 
-      {/* ── ASSIGN RELIEF MODAL ── */}
+      {/* ── AUTO-ASSIGN TOAST ───────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {autoAssignToast && (
+          <AutoAssignToast
+            results={autoAssignToast.results}
+            onClose={() => setAutoAssignToast(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── OVERRIDE MODAL (manual candidate selection) ─────────────────────── */}
       <AnimatePresence>
         {modalOpen && (
           <motion.div
@@ -645,7 +796,10 @@ export default function ReliefManagementPage() {
             >
               <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Assign Relief Teacher</h2>
+                  <div className="flex items-center gap-2">
+                    <SlidersHorizontal size={16} className="text-indigo-500" />
+                    <h2 className="text-lg font-bold text-gray-900">Override Relief Assignment</h2>
+                  </div>
                   {modalAbsence && (
                     <p className="text-xs text-gray-400 mt-0.5">
                       {new Date(modalAbsence.date).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
@@ -660,6 +814,7 @@ export default function ReliefManagementPage() {
               </div>
 
               <div className="overflow-y-auto px-6 py-5 flex-1">
+                {/* Slot selector */}
                 {candidates.length > 1 && (
                   <div className="mb-5">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
@@ -700,11 +855,20 @@ export default function ReliefManagementPage() {
                   <div className="flex flex-col items-center py-10 gap-3">
                     <Loader2 size={28} className="animate-spin text-indigo-400" />
                     <p className="text-sm text-gray-400">Ranking eligible teachers...</p>
-                    <p className="text-xs text-gray-300">Checking timetable, workload, expertise & fairness</p>
                   </div>
                 )}
 
                 {!candidatesLoading && candidates.length === 0 && (
+                  <div className="py-10 text-center">
+                    <AlertTriangle size={28} className="mx-auto mb-3 text-amber-400" />
+                    <p className="text-sm font-medium text-gray-600">No timetable slots found.</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      The absent teacher has no scheduled classes in this period, or the timetable has not been set up yet.
+                    </p>
+                  </div>
+                )}
+
+                {!candidatesLoading && candidates.length > 0 && selectedSlot && (selectedSlot.candidates?.length ?? 0) === 0 && (
                   <div className="py-10 text-center">
                     <AlertTriangle size={28} className="mx-auto mb-3 text-amber-400" />
                     <p className="text-sm font-medium text-gray-600">No eligible candidates found.</p>
@@ -750,21 +914,23 @@ export default function ReliefManagementPage() {
                   </>
                 )}
 
+                {/* Note field */}
                 {selectedCount > 0 && (
                   <div className="mt-4">
                     <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                      Note (optional)
+                      Override Note (optional)
                     </label>
                     <textarea
                       rows={2}
                       value={overrideNote}
                       onChange={(e) => setOverrideNote(e.target.value)}
-                      placeholder="Add a note for this assignment..."
+                      placeholder="Reason for manual override..."
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 placeholder-gray-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
                     />
                   </div>
                 )}
 
+                {/* Assignment summary */}
                 {selectedCount > 0 && !dispatchSuccess && (
                   <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-400 mb-2">
@@ -791,6 +957,7 @@ export default function ReliefManagementPage() {
                   </div>
                 )}
 
+                {/* Success */}
                 {dispatchSuccess && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -798,7 +965,22 @@ export default function ReliefManagementPage() {
                     className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm font-semibold text-emerald-700"
                   >
                     <CheckCircle2 size={16} />
-                    {selectedCount} relief request{selectedCount > 1 ? "s" : ""} sent! Waiting for responses.
+                    {selectedCount} relief request{selectedCount > 1 ? "s" : ""} sent!
+                  </motion.div>
+                )}
+
+                {/* Error */}
+                {dispatchError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+                  >
+                    <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-semibold">Assignment failed</p>
+                      <p className="mt-0.5 text-xs">{dispatchError}</p>
+                    </div>
                   </motion.div>
                 )}
               </div>
@@ -818,7 +1000,7 @@ export default function ReliefManagementPage() {
                     Cancel
                   </button>
                   <button
-                    onClick={handleDispatch}
+                    onClick={handleOverrideDispatch}
                     disabled={selectedCount === 0 || dispatching || dispatchSuccess}
                     className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -827,7 +1009,7 @@ export default function ReliefManagementPage() {
                     ) : dispatchSuccess ? (
                       <><CheckCircle2 size={14} />Sent!</>
                     ) : (
-                      `Dispatch ${selectedCount > 0 ? `${selectedCount} ` : ""}Relief Request${selectedCount > 1 ? "s" : ""}`
+                      `Override ${selectedCount > 0 ? `${selectedCount} ` : ""}Slot${selectedCount > 1 ? "s" : ""}`
                     )}
                   </button>
                 </div>
@@ -836,6 +1018,6 @@ export default function ReliefManagementPage() {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }

@@ -7,17 +7,16 @@ import {
 import ApplyLeaveModal from '../../components/teacher/ApplyLeaveModal';
 import { api } from '../../services/api';
 
-// ─── Status config ────────────────────────────────────────────────────────────
 const STATUS = {
-  pending:                  { label: 'Pending',       color: 'bg-amber-50 text-amber-700 border-amber-200',        icon: Clock,         dot: 'bg-amber-400'  },
-  approved:                 { label: 'Approved',      color: 'bg-emerald-50 text-emerald-700 border-emerald-200',  icon: CheckCircle2,  dot: 'bg-emerald-500'},
-  rejected:                 { label: 'Rejected',      color: 'bg-red-50 text-red-600 border-red-200',              icon: XCircle,       dot: 'bg-red-500'    },
-  clarification_requested:  { label: 'Action Needed', color: 'bg-purple-50 text-purple-700 border-purple-200',     icon: MessageSquare, dot: 'bg-purple-500' },
-  clarification:            { label: 'Action Needed', color: 'bg-purple-50 text-purple-700 border-purple-200',     icon: MessageSquare, dot: 'bg-purple-500' },
-  cancelled:                { label: 'Cancelled',     color: 'bg-gray-100 text-gray-500 border-gray-200',          icon: MinusCircle,   dot: 'bg-gray-400'   },
+  pending:                 { label: 'Pending',      color: 'bg-amber-50 text-amber-700 border-amber-200',       icon: Clock,         dot: 'bg-amber-400' },
+  approved:                { label: 'Approved',     color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2,  dot: 'bg-emerald-500' },
+  rejected:                { label: 'Rejected',     color: 'bg-red-50 text-red-600 border-red-200',             icon: XCircle,       dot: 'bg-red-500' },
+  clarification_requested: { label: 'Action Needed',color: 'bg-purple-50 text-purple-700 border-purple-200',    icon: MessageSquare, dot: 'bg-purple-500' },
+  clarification:           { label: 'Action Needed',color: 'bg-purple-50 text-purple-700 border-purple-200',    icon: MessageSquare, dot: 'bg-purple-500' },
+  cancelled:               { label: 'Cancelled',    color: 'bg-gray-100 text-gray-500 border-gray-200',         icon: MinusCircle,   dot: 'bg-gray-400' },
 };
 
-const TABS       = ['Active Requests', 'History', 'Clarifications'];
+const TABS = ['Active Requests', 'History', 'Clarifications'];
 const LEAVE_TYPES = ['sick', 'casual', 'other'];
 
 const StatusBadge = ({ status }) => {
@@ -36,7 +35,6 @@ const fmt = (d) => {
   catch { return d; }
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function calcDays(raw) {
   if (raw.start_date && raw.end_date) {
     const start = new Date(raw.start_date);
@@ -54,7 +52,6 @@ function calcPeriods(raw) {
   return '—';
 }
 
-// ─── Map backend leave → UI shape ─────────────────────────────────────────────
 function mapLeave(raw) {
   const rawStatus = (raw.status || 'pending').toLowerCase();
   const status    = rawStatus.includes('clarif') ? 'clarification_requested' : rawStatus;
@@ -72,12 +69,10 @@ function mapLeave(raw) {
   };
 }
 
-// ─── View Details Modal ───────────────────────────────────────────────────────
 function ViewDetailsModal({ req, onClose }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-      onClick={onClose}>
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, y: 8 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
         onClick={e => e.stopPropagation()}
         className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md border border-gray-100 space-y-4">
@@ -119,40 +114,26 @@ function ViewDetailsModal({ req, onClose }) {
   );
 }
 
-// ─── Edit Modal ───────────────────────────────────────────────────────────────
 function EditModal({ req, onClose, onSaved }) {
-  const [form, setForm] = useState({
-    leave_type: req.type,
-    date: req.from || '',
-    reason: req.reason || '',
-  });
+  const [form, setForm] = useState({ leave_type: req.type, date: req.from || '', reason: req.reason || '' });
   const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState(null);
+  const [error, setError] = useState(null);
 
   const handleSubmit = async () => {
-    setSaving(true);
-    setError(null);
+    setSaving(true); setError(null);
     try {
       const isoDate = new Date(form.date).toISOString().split('T')[0];
       await api.put(`/leaves/${req.id}/edit`, {
-        start_date:  isoDate,
-        leave_type:  form.leave_type,
-        reason:      form.reason,
-        is_full_day: true,
+        start_date: isoDate, leave_type: form.leave_type, reason: form.reason, is_full_day: true,
       });
-      onSaved();
-      onClose();
-    } catch (e) {
-      setError(e.message || 'Failed to update leave.');
-    } finally {
-      setSaving(false);
-    }
+      onSaved(); onClose();
+    } catch (e) { setError(e.message || 'Failed to update leave.'); }
+    finally { setSaving(false); }
   };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-      onClick={onClose}>
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, y: 8 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
         onClick={e => e.stopPropagation()}
         className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md border border-gray-100 space-y-4">
@@ -176,8 +157,8 @@ function EditModal({ req, onClose, onSaved }) {
           </div>
           <div>
             <label className="text-[11px] font-semibold text-gray-600 block mb-1">Reason</label>
-            <textarea value={form.reason} onChange={e => setForm(p => ({ ...p, reason: e.target.value }))}
-              rows={3} className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white resize-none focus:outline-none focus:border-blue-400" />
+            <textarea value={form.reason} onChange={e => setForm(p => ({ ...p, reason: e.target.value }))} rows={3}
+              className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white resize-none focus:outline-none focus:border-blue-400" />
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
@@ -192,26 +173,16 @@ function EditModal({ req, onClose, onSaved }) {
   );
 }
 
-// ─── Cancel Confirm Modal ─────────────────────────────────────────────────────
 function CancelModal({ req, onClose, onCancelled }) {
   const [loading, setLoading] = useState(false);
-
   const handleConfirm = async () => {
     setLoading(true);
-    try {
-      await api.delete(`/leaves/${req.id}`);
-    } catch {
-      // optimistic — remove from UI regardless
-    } finally {
-      onCancelled(req.id);
-      onClose();
-    }
+    try { await api.delete(`/leaves/${req.id}`); } catch {}
+    finally { onCancelled(req.id); onClose(); }
   };
-
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-      onClick={onClose}>
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, y: 8 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
         onClick={e => e.stopPropagation()}
         className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm border border-gray-100">
@@ -229,11 +200,9 @@ function CancelModal({ req, onClose, onCancelled }) {
   );
 }
 
-// ─── Leave Card ───────────────────────────────────────────────────────────────
 const LeaveCard = ({ req, onView, onEdit, onCancel }) => {
-  const canEdit   = req.status === 'pending' || req.status === 'clarification_requested';
+  const canEdit = req.status === 'pending' || req.status === 'clarification_requested';
   const canCancel = req.status === 'pending' || req.status === 'clarification_requested';
-
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} layout
       className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -251,9 +220,7 @@ const LeaveCard = ({ req, onView, onEdit, onCancel }) => {
         </div>
         <StatusBadge status={req.status} />
       </div>
-
       {req.reason && <p className="text-[11px] text-gray-500 mt-2.5 pl-10 leading-relaxed">{req.reason}</p>}
-
       {req.clarificationNote && (
         <div className="mt-2.5 ml-10 p-2.5 bg-purple-50 border border-purple-200 rounded-lg">
           <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Clarification Requested</p>
@@ -282,30 +249,24 @@ const LeaveCard = ({ req, onView, onEdit, onCancel }) => {
   );
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 export default function MyLeaves() {
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
   const [applyOpen, setApplyOpen] = useState(false);
-
-  const [viewReq,   setViewReq]   = useState(null);
-  const [editReq,   setEditReq]   = useState(null);
+  const [viewReq, setViewReq] = useState(null);
+  const [editReq, setEditReq] = useState(null);
   const [cancelReq, setCancelReq] = useState(null);
 
   const loadLeaves = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const resp = await api.get('/leaves/my');
       const list = Array.isArray(resp) ? resp : (resp?.data || []);
       setRequests(list.map(mapLeave));
-    } catch (e) {
-      setError(e.message || 'Failed to load leaves');
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setError(e.message || 'Failed to load leaves'); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => { loadLeaves(); }, [loadLeaves]);

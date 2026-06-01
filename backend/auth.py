@@ -62,6 +62,17 @@ def create_access_token_from_refresh(user) -> str:
     })
 
 # ─── Get Current User (Bearer token → User object) ─────────────────────────────
+import logging
+logger = logging.getLogger(__name__)
+
+async def get_current_user(token: str = Depends(...)):
+    logger.info(f"Token received: {token[:30] if token else 'NONE'}")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        logger.info(f"Decoded payload: {payload}")
+    except Exception as e:
+        logger.error(f"JWT decode failed: {type(e).__name__}: {e}")
+        raise
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

@@ -81,13 +81,20 @@ class Teacher(TeacherBase):
 # Subject Schemas
 class SubjectBase(BaseModel):
     name: str
-    department_id: UUID
+    department_id: Optional[UUID] = None
 
 class SubjectCreate(SubjectBase):
     pass
 
 class Subject(SubjectBase):
     id: UUID
+
+    class Config:
+        from_attributes = True
+
+class SubjectOut(BaseModel):
+    id: UUID
+    name: str
 
     class Config:
         from_attributes = True
@@ -377,6 +384,47 @@ class UserAdminView(BaseModel):
     is_active: bool
     status: str
     last_active: str
+    created_at: Optional[datetime] = None
+
+
+class UserAdminCreate(BaseModel):
+    college_id: Optional[str] = None
+    name: str
+    email: EmailStr
+    password: str
+    role: UserRole = UserRole.TEACHER
+    department_id: Optional[UUID] = None
+
+
+class UserAdminUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[UserRole] = None
+    department_id: Optional[UUID] = None
+
+
+class AuditLogOut(BaseModel):
+    id: UUID
+    performed_by_college_id: Optional[str] = None
+    action: str
+    target_college_id: Optional[str] = None
+    details: Optional[dict] = None
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+ 
+
+class BulkActionPayload(BaseModel):
+    user_ids: List[UUID]
+    action: str
+    new_password: Optional[str] = None
+
+
+
+
+# ─── Blocked Slot Schemas ──────────────────────────────────────────────────────
+
 class BlockedSlotBase(BaseModel):
     teacher_id: UUID
     day: int

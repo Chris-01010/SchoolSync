@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Bell, Clock, LogOut, Menu, Plus, CheckCircle2, Repeat2, Users, X, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -65,7 +65,7 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   useEffect(() => { fetchNotifs(); }, []);
 
   useEffect(() => {
-    api.get("/teacher/me/relief/pending")
+    api.get("/relief/assignments/pending")
       .then((data) => setPendingReliefs(Array.isArray(data) ? data : []))
       .catch(() => setPendingReliefs([]));
   }, []);
@@ -131,7 +131,6 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
 
   const handleAccept = () => { setPendingReliefs((p) => p.slice(1)); setToastMessage({ text: "Assignment accepted", kind: "accept" }); };
   const handleReject = () => { setPendingReliefs((p) => p.slice(1)); setToastMessage({ text: "Assignment rejected", kind: "reject" }); };
-  const handleFlag   = () => { setPendingReliefs((p) => p.slice(1)); setToastMessage({ text: "Assignment flagged for admin review", kind: "flag" }); };
 
   const isOnLeavesPage = /leaves|my-leaves/i.test(location.pathname);
 
@@ -156,7 +155,6 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
   const toastStyles = {
     accept: "bg-emerald-50 border-emerald-200 text-emerald-700",
     reject: "bg-gray-50 border-gray-200 text-gray-700",
-    flag:   "bg-amber-50 border-amber-200 text-amber-700",
     error:  "bg-red-50 border-red-200 text-red-700",
   };
 
@@ -274,12 +272,11 @@ const TeacherNavbar = ({ onMenuClick, user, onApplyLeave }) => {
       </header>
 
       <ReliefAssignmentModal
-        isOpen={reliefModalOpen}
-        onClose={() => setReliefModalOpen(false)}
-        assignment={activeAssignment}
-        onAccept={handleAccept}
-        onReject={handleReject}
-        onFlag={handleFlag}
+          isOpen={reliefModalOpen}
+          onClose={() => setReliefModalOpen(false)}
+          assignment={activeAssignment}
+          onAccept={handleAccept}
+          onReject={handleReject}
       />
 
       <AnimatePresence>
