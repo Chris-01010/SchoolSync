@@ -49,7 +49,8 @@ const CTA = {
 
 const Sidebar = ({ open, onClose, user, onApplyLeave }) => {
   const navigate = useNavigate();
-  const role     = user?.role ?? 'teacher';
+const role = (user?.role ?? 'teacher').toLowerCase();
+
   const navItems = role === 'hod' ? HOD_NAV : role === 'admin' ? ADMIN_NAV : TEACHER_NAV;
   const brand    = BRAND[role] ?? BRAND.teacher;
   const cta      = CTA[role]   ?? CTA.teacher;

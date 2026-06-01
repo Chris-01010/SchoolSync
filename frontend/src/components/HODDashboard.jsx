@@ -4,36 +4,22 @@ import { useNavigate } from 'react-router-dom';
 import { CalendarDays, ClipboardCheck, UserCheck, BarChart3 } from 'lucide-react';
 import {
   AlertCircle,
-  Users,
-  Clock,
+  Wifi,
   ArrowRight,
   Plus,
   MoreVertical,
-  Wifi,
 } from 'lucide-react';
+import { api } from '../services/api';
 
 // ─── Fallback mock data (used only if API fails) ────────────────────────────
 const MOCK_STATS = {
-  department_name: 'CS',
+  department_name: '',
   pending_approvals_count: 0,
   missing_reliefs: 0,
-  teacher_workload_alert: false,
+  teacher_workload_warning: false,
   active_conflicts: 0,
+  total_teachers: 0,
 };
-
-const MOCK_STAFF = [
-  { name: 'Ms. Julia Lee',   free: 'Free: Periods 4, 5, 8', initials: 'JL', color: 'bg-purple-100 text-purple-700' },
-  { name: 'Mr. David Smith', free: 'Free: Period 4 ONLY',   initials: 'DS', color: 'bg-blue-100 text-blue-700'   },
-  { name: 'Ms. Sarah Oh',    free: 'In Class (Ends 12:20)', initials: 'SO', color: 'bg-green-100 text-green-700' },
-];
-
-const WORKLOAD_DATA = [
-  { day: 'M', teaching: 70, relief: 20 },
-  { day: 'T', teaching: 60, relief: 15 },
-  { day: 'W', teaching: 85, relief: 30 },
-  { day: 'T', teaching: 65, relief: 25 },
-  { day: 'F', teaching: 75, relief: 10 },
-];
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -74,60 +60,145 @@ const StatusBadge = ({ status, teacherName, originalName }) => {
 
 const MiniBar = ({ value, color, max = 100 }) => (
   <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-    <div className={`h-full rounded-full ${color}`} style={{ width: `${(value / max) * 100}%` }} />
+    <div
+      className={`h-full rounded-full ${color}`}
+      style={{ width: `${Math.min(100, (value / max) * 100)}%` }}
+    />
   </div>
 );
 
+// ─── Staff availability card item ────────────────────────────────────────────
+const AVATAR_COLORS = [
+  'bg-purple-100 text-purple-700',
+  'bg-blue-100 text-blue-700',
+  'bg-green-100 text-green-700',
+  'bg-amber-100 text-amber-700',
+  'bg-pink-100 text-pink-700',
+];
+
+const StaffItem = ({ teacher, index }) => {
+  const color = AVATAR_COLORS[index % AVATAR_COLORS.length];
+  const initials = teacher.name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  const reliefUsed  = teacher.current_relief_hours ?? 0;
+  const reliefCap   = teacher.weekly_relief_cap ?? 3;
+  const hoursWorked = teacher.total_hours_worked ?? 0;
+  const maxHours    = teacher.max_weekly_hours ?? 30;
+
+  const atRelief  = reliefCap > 0 && reliefUsed >= reliefCap;
+  const nearLimit = !atRelief && reliefCap > 0 && reliefUsed >= reliefCap - 1;
+
+  const subText = atRelief
+    ? `Relief cap reached (${reliefUsed}/${reliefCap})`
+    : nearLimit
+    ? `Near relief cap (${reliefUsed}/${reliefCap})`
+    : `${hoursWorked}h worked · ${reliefUsed}/${reliefCap} relief`;
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <div
+        className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${color}`}
+      >
+        {initials}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[12px] font-semibold text-gray-800 truncate">{teacher.name}</p>
+        <p className={`text-[10px] truncate ${atRelief ? 'text-red-400' : 'text-gray-400'}`}>
+          {subText}
+        </p>
+      </div>
+      {atRelief && (
+        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-50 text-red-500 flex-shrink-0">
+          FULL
+        </span>
+      )}
+    </div>
+  );
+};
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 const HODDashboard = ({ user }) => {
-  const [stats, setStats]           = useState(MOCK_STATS);
+  const [stats, setStats]               = useState(MOCK_STATS);
   const [pendingLeaves, setPendingLeaves] = useState([]);
-  const [timetable, setTimetable]   = useState([]);
-  const [isLoading, setIsLoading]   = useState(true);
+  const [teachers, setTeachers]         = useState([]);
+  const [isLoading, setIsLoading]       = useState(true);
+  const [errors, setErrors]             = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
+      const errs = {};
+
+      // 1. HOD stats — correct endpoint (was /hod/dashboard which doesn't exist)
       try {
-        const token = localStorage.getItem('schoolsync_token');
-        const headers = { Authorization: `Bearer ${token}` };
-
-        const [statsRes, leavesRes, timetableRes] = await Promise.all([
-          fetch('http://localhost:8000/hod/dashboard',           { headers }),
-          fetch('http://localhost:8000/leaves/pending',          { headers }),
-          fetch('http://localhost:8000/leaves/hod/timetable/today', { headers }),
-        ]);
-
-        // Stats — best-effort merge with mock
-        if (statsRes.ok) {
-          const statsData = await statsRes.json();
-          setStats(prev => ({ ...prev, ...statsData }));
-        }
-
-        // Pending leaves
-        if (leavesRes.ok) {
-          const leavesData = await leavesRes.json();
-          // API returns { success, count, data: [...] }
-          setPendingLeaves(leavesData.data ?? leavesData);
-        }
-
-        // Today's timetable — real data replaces mock entirely
-        if (timetableRes.ok) {
-          const ttData = await timetableRes.json();
-          setTimetable(ttData.slots ?? []);
-        }
-
-      } catch {
-        // stay on mock data
-      } finally {
-        setIsLoading(false);
+        const statsData = await api.get('/api/v1/admin/hod-stats');
+        setStats((prev) => ({ ...prev, ...statsData }));
+      } catch (e) {
+        errs.stats = e.message;
+        // keep MOCK_STATS as fallback
       }
+
+      // 2. Pending leave requests — correct endpoint, now uses api client (fixes 401)
+      try {
+        const leavesData = await api.get('/leaves/pending');
+        // API returns { success, count, data: [...] }
+        setPendingLeaves(leavesData.data ?? leavesData ?? []);
+      } catch (e) {
+        errs.leaves = e.message;
+      }
+
+      // 3. Department teachers — new endpoint (see backend fix below)
+      //    Falls back gracefully if not yet deployed
+      try {
+        const teachersData = await api.get('/api/v1/admin/hod/teachers');
+        setTeachers(Array.isArray(teachersData) ? teachersData : []);
+      } catch (e) {
+        errs.teachers = e.message;
+        // non-fatal — staff card will be empty
+      }
+
+      setErrors(errs);
+      setIsLoading(false);
     };
+
     fetchData();
   }, []);
 
-  // Derive missing relief count from real timetable data
-  const vacantCount = timetable.filter(s => s.status === 'vacant').length;
+  // ── Derived values ──────────────────────────────────────────────────────
+  // Use real pending count from leaves API, fallback to hod-stats value
+  const pendingCount = pendingLeaves.length > 0
+    ? pendingLeaves.length
+    : (stats.pending_approvals_count ?? 0);
+
+  const missingReliefs = stats.missing_reliefs ?? 0;
+
+  // Workload from real teacher data
+  const avgReliefHours  = teachers.length > 0
+    ? (teachers.reduce((s, t) => s + (t.current_relief_hours ?? 0), 0) / teachers.length).toFixed(1)
+    : 0;
+  const avgTeachingHours = teachers.length > 0
+    ? (teachers.reduce((s, t) => s + (t.total_hours_worked ?? 0), 0) / teachers.length).toFixed(1)
+    : 0;
+  const maxTeachingHours = teachers.length > 0
+    ? (teachers.reduce((s, t) => s + (t.max_weekly_hours ?? 30), 0) / teachers.length)
+    : 30;
+  const maxReliefHours = teachers.length > 0
+    ? (teachers.reduce((s, t) => s + (t.weekly_relief_cap ?? 3), 0) / teachers.length)
+    : 3;
+
+  const teachingPct = maxTeachingHours > 0
+    ? Math.min(100, Math.round((avgTeachingHours / maxTeachingHours) * 100))
+    : 0;
+  const reliefPct = maxReliefHours > 0
+    ? Math.min(100, Math.round((avgReliefHours / maxReliefHours) * 100))
+    : 0;
+
+  const workloadAlert = stats.teacher_workload_warning ?? teachingPct > 90;
 
   if (isLoading) {
     return (
@@ -139,25 +210,25 @@ const HODDashboard = ({ user }) => {
 
   const statCards = [
     {
-      value: stats.pending_approvals_count ?? pendingLeaves.length,
+      value: pendingCount,
       label: 'Pending Leave Approvals',
       badge: 'PENDING',
       badgeColor: 'bg-blue-100 text-blue-600',
       borderColor: 'border-blue-200',
     },
     {
-      value: vacantCount || stats.missing_reliefs,
+      value: missingReliefs,
       label: 'Missing Reliefs',
       badge: 'URGENT',
-      badgeColor: 'bg-red-100 text-red-600',
-      borderColor: 'border-red-200',
+      badgeColor: missingReliefs > 0 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400',
+      borderColor: missingReliefs > 0 ? 'border-red-200' : 'border-gray-100',
     },
     {
-      value: stats.teacher_workload_alert ? '⚠' : '✓',
+      value: workloadAlert ? '⚠' : '✓',
       label: 'Teacher Workload',
       badge: 'LOAD',
-      badgeColor: 'bg-amber-100 text-amber-600',
-      borderColor: 'border-amber-200',
+      badgeColor: workloadAlert ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600',
+      borderColor: workloadAlert ? 'border-amber-200' : 'border-green-200',
     },
     {
       value: stats.active_conflicts ?? 0,
@@ -171,18 +242,17 @@ const HODDashboard = ({ user }) => {
   const todayName = DAY_NAMES[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto p-4 sm:p-6">
 
-      {/* Dept Header */}
-      {stats?.department_name && (
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-            {stats.department_name} Department
-          </span>
+      {/* ── API error banner (dev-only) ─────────────────────────────────── */}
+      {Object.keys(errors).length > 0 && process.env.NODE_ENV === 'development' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-700">
+          <strong>API warnings:</strong>{' '}
+          {Object.entries(errors).map(([k, v]) => `${k}: ${v}`).join(' · ')}
         </div>
       )}
 
-      {/* Stat Cards */}
+      {/* ── Stat Cards Row ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((card, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
@@ -201,10 +271,10 @@ const HODDashboard = ({ user }) => {
         <h3 className="text-[13px] font-semibold text-gray-800 mb-3">Quick Actions</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Timetables',        icon: CalendarDays,  path: '/hod/timetables' },
-            { label: 'Leave Approvals',   icon: ClipboardCheck, path: '/hod/leave'    },
-            { label: 'Relief Management', icon: UserCheck,     path: '/hod/relief'     },
-            { label: 'Analytics',         icon: BarChart3,     path: '/hod/analytics'  },
+            { label: 'Timetables',        icon: CalendarDays,   path: '/hod/timetables' },
+            { label: 'Leave Approvals',   icon: ClipboardCheck, path: '/hod/leave'       },
+            { label: 'Relief Management', icon: UserCheck,      path: '/hod/relief'      },
+            { label: 'Analytics',         icon: BarChart3,      path: '/hod/analytics'   },
           ].map((qa) => {
             const Icon = qa.icon;
             return (
@@ -213,7 +283,9 @@ const HODDashboard = ({ user }) => {
                 transition={{ type: 'spring', stiffness: 400, damping: 22 }}
                 className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-5 text-center transition-colors hover:border-blue-300 hover:bg-blue-50/50 shadow-sm">
                 <Icon size={22} strokeWidth={1.8} className="text-blue-500 transition group-hover:text-blue-700" />
-                <span className="text-[11px] font-semibold text-gray-700 group-hover:text-blue-700 leading-tight">{qa.label}</span>
+                <span className="text-[11px] font-semibold text-gray-700 group-hover:text-blue-700 leading-tight">
+                  {qa.label}
+                </span>
               </motion.button>
             );
           })}
@@ -222,160 +294,184 @@ const HODDashboard = ({ user }) => {
 
       {/* ── Main Grid ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+
+        {/* Left column */}
         <div className="lg:col-span-3 space-y-4">
 
-          {/* Critical Alerts — only show if there are vacant slots */}
-          {vacantCount > 0 && (
+          {/* Critical Alerts — only if there are missing reliefs */}
+          {missingReliefs > 0 && (
             <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
               <div className="flex items-center gap-2 mb-3">
                 <AlertCircle size={14} className="text-red-500" />
                 <h3 className="text-[13px] font-semibold text-gray-800">Critical Alerts</h3>
               </div>
-              {timetable
-                .filter(s => s.status === 'vacant')
-                .map((s, i) => (
-                  <div key={i} className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-3 py-2.5 mb-2">
-                    <div>
-                      <p className="text-[12px] font-semibold text-gray-800">
-                        Vacant Slot: Period {s.period}
-                      </p>
-                      <p className="text-[11px] text-gray-500 mt-0.5">
-                        {s.original_teacher_name ? `Was: ${s.original_teacher_name}` : 'No teacher assigned'}
-                        {s.class_id ? ` · Class ${s.class_id}` : ''}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => navigate('/hod/relief')}
-                      className="px-3 py-1.5 bg-blue-600 text-white text-[11px] font-semibold rounded-lg"
-                    >
-                      Assign Now
-                    </button>
-                  </div>
-                ))
-              }
+              <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">
+                <div>
+                  <p className="text-[12px] font-semibold text-gray-800">
+                    {missingReliefs} Unassigned Relief{missingReliefs > 1 ? 's' : ''} Today
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Approved absences without relief coverage
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/hod/relief')}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-[11px] font-semibold rounded-lg"
+                >
+                  Assign Now
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Today's Timetable */}
+          {/* Pending Leave Requests */}
           <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[13px] font-semibold text-gray-800">
-                {todayName}'s Department Timetable
+                Pending Leave Requests
               </h3>
-              <button className="flex items-center gap-1 text-[11px] text-blue-600 font-medium hover:text-blue-700">
-                Full Schedule <ArrowRight size={11} />
+              <button
+                onClick={() => navigate('/hod/leave')}
+                className="flex items-center gap-1 text-[11px] text-blue-600 font-medium hover:text-blue-700"
+              >
+                View All <ArrowRight size={11} />
               </button>
             </div>
-            <div className="overflow-x-auto">
-              {timetable.length === 0 ? (
-                <p className="text-[12px] text-gray-400 text-center py-6">
-                  No timetable data for today.
-                </p>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
-                      <th className="text-left pb-2 pr-4">Period</th>
-                      <th className="text-left pb-2 pr-4">Teacher</th>
-                      <th className="text-left pb-2">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {timetable.map((row, i) => (
-                      <tr
-                        key={i}
-                        className={`text-[12px] ${row.status === 'vacant' ? 'bg-orange-50/40' : ''}`}
-                      >
-                        <td className="py-2 pr-4 font-semibold text-gray-600">
-                          {String(row.period).padStart(2, '0')}
-                        </td>
-                        <td className="py-2 pr-4 text-gray-700">
-                          {row.teacher_name ?? (
-                            <span className="text-orange-500 font-medium">Unassigned</span>
-                          )}
-                        </td>
-                        <td className="py-2">
-                          <StatusBadge
-                            status={row.status}
-                            teacherName={row.teacher_name}
-                            originalName={row.original_teacher_name}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+
+            {pendingLeaves.length === 0 ? (
+              <p className="text-[12px] text-gray-400 text-center py-6">
+                No pending leave requests.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {pendingLeaves.slice(0, 5).map((leave) => (
+                  <div
+                    key={leave.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2.5 hover:bg-gray-50"
+                  >
+                    <div>
+                      <p className="text-[12px] font-semibold text-gray-800">
+                        {leave.teacher_name ?? 'Unknown Teacher'}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {leave.leave_type} · {leave.start_date ?? leave.date}
+                        {leave.end_date && leave.end_date !== (leave.start_date ?? leave.date)
+                          ? ` → ${leave.end_date}`
+                          : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate('/hod/leave')}
+                      className="px-2.5 py-1 bg-blue-50 text-blue-600 text-[10px] font-semibold rounded-lg hover:bg-blue-100"
+                    >
+                      Review
+                    </button>
+                  </div>
+                ))}
+                {pendingLeaves.length > 5 && (
+                  <p className="text-[11px] text-gray-400 text-center pt-1">
+                    +{pendingLeaves.length - 5} more · <button onClick={() => navigate('/hod/leave')} className="text-blue-500 hover:underline">View All</button>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
+        {/* Right column */}
         <div className="lg:col-span-2 space-y-4">
 
-          {/* Staff Availability */}
+          {/* Staff Availability — real data from /api/v1/admin/hod/teachers */}
           <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[13px] font-semibold text-gray-800">Staff Availability</h3>
+              <h3 className="text-[13px] font-semibold text-gray-800">
+                Staff ({stats.total_teachers ?? teachers.length})
+              </h3>
               <span className="flex items-center gap-1 text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-md">
-                <Wifi size={8} /> LIVE NOW
+                <Wifi size={8} /> LIVE
               </span>
             </div>
-            <div className="space-y-2.5">
-              {MOCK_STAFF.map((staff, i) => (
-                <div key={i} className="flex items-center gap-2.5">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${staff.color}`}>
-                    {staff.initials}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-semibold text-gray-800 truncate">{staff.name}</p>
-                    <p className="text-[10px] text-gray-400 truncate">{staff.free}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {teachers.length === 0 ? (
+              <p className="text-[11px] text-gray-400 text-center py-4">
+                {errors.teachers ? 'Could not load staff data.' : 'No teachers found.'}
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {teachers.slice(0, 5).map((t, i) => (
+                  <StaffItem key={t.id} teacher={t} index={i} />
+                ))}
+                {teachers.length > 5 && (
+                  <p className="text-[10px] text-gray-400 text-center pt-1">
+                    +{teachers.length - 5} more teachers
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Weekly Workload */}
+          {/* Weekly Workload — real averages from teacher data */}
           <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[13px] font-semibold text-gray-800">Weekly Workload</h3>
-              <button className="p-1 rounded text-gray-400 hover:text-gray-600"><MoreVertical size={13} /></button>
+              <h3 className="text-[13px] font-semibold text-gray-800">Dept Workload</h3>
+              <button className="p-1 rounded text-gray-400 hover:text-gray-600">
+                <MoreVertical size={13} />
+              </button>
             </div>
             <div className="space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] text-gray-500">Teaching Hours</span>
-                  <span className="text-[10px] text-gray-400 font-medium">Avg: 22h</span>
+                  <span className="text-[11px] text-gray-500">Avg Teaching Hours</span>
+                  <span className="text-[10px] text-gray-400 font-medium">{avgTeachingHours}h</span>
                 </div>
-                <MiniBar value={78} color="bg-blue-500" />
+                <MiniBar value={teachingPct} color="bg-blue-500" />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] text-gray-500">Relief Duties</span>
-                  <span className="text-[10px] text-gray-400 font-medium">Avg: 4h</span>
+                  <span className="text-[11px] text-gray-500">Avg Relief Hours</span>
+                  <span className="text-[10px] text-gray-400 font-medium">{avgReliefHours}h</span>
                 </div>
-                <MiniBar value={35} color="bg-amber-400" />
+                <MiniBar value={reliefPct} color="bg-amber-400" />
               </div>
-              <div className="flex items-end justify-between gap-1.5 pt-2" style={{ height: 64 }}>
-                {WORKLOAD_DATA.map((d, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="w-full flex flex-col items-center justify-end gap-0.5" style={{ height: 52 }}>
-                      <div className="w-full rounded-t-sm bg-blue-200" style={{ height: `${(d.teaching / 100) * 44}px` }} />
-                      <div className="w-full rounded-b-sm bg-blue-500" style={{ height: `${(d.relief / 100) * 44}px` }} />
-                    </div>
-                    <span className={`text-[9px] font-semibold ${d.day === 'W' ? 'text-blue-600' : 'text-gray-400'}`}>
-                      {d.day}
-                    </span>
-                  </div>
-                ))}
-              </div>
+
+              {/* Per-teacher relief bars */}
+              {teachers.length > 0 && (
+                <div className="pt-2 space-y-1.5">
+                  <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-2">Relief by Teacher</p>
+                  {teachers.slice(0, 4).map((t) => {
+                    const pct = t.weekly_relief_cap > 0
+                      ? Math.min(100, Math.round((t.current_relief_hours / t.weekly_relief_cap) * 100))
+                      : 0;
+                    return (
+                      <div key={t.id} className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-500 truncate w-20 flex-shrink-0">
+                          {t.name.split(' ').slice(-1)[0]}
+                        </span>
+                        <div className="flex-1">
+                          <MiniBar
+                            value={pct}
+                            color={pct >= 100 ? 'bg-red-400' : pct >= 75 ? 'bg-amber-400' : 'bg-blue-400'}
+                          />
+                        </div>
+                        <span className="text-[9px] text-gray-400 w-6 text-right flex-shrink-0">
+                          {t.current_relief_hours}/{t.weekly_relief_cap}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <button className="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center hover:bg-blue-700 transition-colors z-50">
-        <Plus size={20} />
+      {/* FAB */}
+      <button
+        onClick={() => navigate('/hod/leave')}
+        className="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center hover:bg-blue-700 transition-colors z-50"
+        title="Review Pending Leaves"
+      >
+        <ClipboardCheck size={20} />
       </button>
     </div>
   );
