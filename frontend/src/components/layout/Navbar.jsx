@@ -142,7 +142,7 @@ const Navbar = ({ onMenuClick, user }) => {
                       }`}
                     >
                       <p className={`text-[12px] leading-snug ${!n.is_read ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
-                        {n.message}
+                        {n.title}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-0.5">
                         {new Date(n.created_at).toLocaleString()}
