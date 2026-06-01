@@ -25,6 +25,7 @@ const TimetableGrid      = lazy(() => import('./components/TimetableGrid'));
 const LeaveManagement    = lazy(() => import('./pages/LeaveManagement'));
 const ReliefManagement   = lazy(() => import('./pages/ReliefManagement'));
 const HODAnalyticsPage   = lazy(() => import('./pages/HODAnalyticsPage'));
+const HODProfile = lazy(() => import('./pages/HODProfile'));
 
 // ─── Teacher layout + pages ──────────────────────────────────────────────────
 const TeacherLayout        = lazy(() => import('./components/layout/TeacherLayout'));
@@ -115,10 +116,11 @@ export default function App() {
             {/* ── HOD Portal ───────────────────────────────────────────────── */}
             <Route path="/hod" element={<RoleRoute allowedRoles={['hod']}><HODLayout /></RoleRoute>}>
               <Route index             element={<HODDashboard />} />
-              <Route path="timetables" element={<TimetableGrid />} />
+              <Route path="timetables" element={<TimetablePage />} />
               <Route path="leave"      element={<LeaveManagement />} />
               <Route path="relief" element={<ReliefManagementPage />} />
               <Route path="analytics"  element={<AnalyticsPlaceholder />} />
+              <Route path="profile" element={<HODProfile />} />
             </Route>
 
             {/* ── Teacher Portal ───────────────────────────────────────────── */}

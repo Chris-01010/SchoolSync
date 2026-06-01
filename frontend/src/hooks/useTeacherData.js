@@ -8,7 +8,7 @@ export function useTeacherProfile() {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    fetch(`${BASE}/api/v1/teachers/me`, { headers: getHeaders() })
+    fetch(`${BASE}/api/v1/my/teacher-profile`, { headers: getHeaders() })
       .then(r => r.json())
       .then(setData)
       .catch(console.error)

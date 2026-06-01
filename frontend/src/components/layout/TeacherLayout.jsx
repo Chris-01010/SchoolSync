@@ -30,7 +30,7 @@ const TeacherLayout = () => {
 
         {/* Content area — TeacherHome manages its own scroll + fixed bar.
             Other pages scroll via their own overflow-y-auto wrapper.      */}
-        <main className="flex-1 min-h-0 overflow-hidden">
+        <main className="flex-1 min-h-0 overflow-y-auto">
           <Outlet context={{ user, leaveModalOpen, setLeaveModalOpen }} />
         </main>
 
