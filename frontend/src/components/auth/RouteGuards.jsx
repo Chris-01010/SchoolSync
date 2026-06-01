@@ -4,9 +4,9 @@ import { useAuth } from '../../context/AuthContext';
 
 // ─── Helper: where does each role land? ──────────────────────────────────────
 function roleHome(role) {
-  if (role === 'hod')   return '/hod';
-  if (role === 'admin') return '/admin';
-  return '/dashboard'; // teacher (default)
+  if (role === 'HOD')   return '/hod';
+  if (role === 'ADMIN') return '/admin';
+  return '/dashboard';
 }
 
 /**

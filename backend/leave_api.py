@@ -67,7 +67,6 @@ class HODAssignReliefRequest(BaseModel):
     slot_id: Optional[UUID] = None
     note: Optional[str] = None
 
-
 class LeaveEditRequest(BaseModel):
     date:         str
     leave_type:   LeaveType
@@ -259,7 +258,7 @@ async def dispatch_relief_for_absence(absence_id: UUID):
 
         slots_result = await db.execute(
             select(models.TimetableSlot).where(
-                models.TimetableSlot.teacher_id == absence.teacher_id,
+                models.TimetableSlot.teacher_id == absent_teacher.id,
                 models.TimetableSlot.day_of_week == day_of_week,
                 models.TimetableSlot.period >= absence.period_start,
                 models.TimetableSlot.period <= absence.period_end,
@@ -803,18 +802,49 @@ async def respond_to_relief(
     if assignment.status != models.ReliefStatus.PENDING:
         raise HTTPException(status_code=409, detail=f"Already {assignment.status}.")
 
-    if body.status == models.ReliefStatus.FLAGGED:
-        raise HTTPException(
-            status_code=403,
-            detail="Teachers cannot flag relief requests."
-        )
-
     assignment.status = body.status
 
     if body.status == models.ReliefStatus.ACCEPTED:
         assignment.acknowledged_at    = datetime.utcnow()
         teacher.current_relief_hours += 1
         teacher.total_hours_worked   += 1
+
+        if teacher.department_id:
+            dept_result = await db.execute(
+                select(models.Department).where(models.Department.id == teacher.department_id)
+            )
+            dept = dept_result.scalar_one_or_none()
+            if dept and dept.hod_id:
+                hod_teacher_result = await db.execute(
+                    select(models.Teacher).where(models.Teacher.id == dept.hod_id)
+                )
+                hod_teacher = hod_teacher_result.scalar_one_or_none()
+                if hod_teacher and hod_teacher.user_id:
+                    background_tasks.add_task(
+                        notify, db, hod_teacher.user_id,
+                        "Relief Accepted",
+                        f"{teacher.name} has accepted the relief duty.",
+                        "RELIEF_REQUEST",
+                        "/hod/relief",
+                    )
+
+    elif body.status == models.ReliefStatus.FLAGGED:
+        if not body.flag_reason:
+            raise HTTPException(status_code=400, detail="flag_reason is required when flagging.")
+        assignment.flag_reason = (
+            f"{body.flag_reason} — {body.flag_comment}"
+            if body.flag_comment
+            else body.flag_reason
+        )
+        admins_result = await db.execute(
+            select(models.User).where(models.User.role == models.UserRole.ADMIN)
+        )
+        for admin in admins_result.scalars().all():
+            background_tasks.add_task(
+                notify, db, admin.id,
+                "Relief Assignment Flagged",
+                f"{teacher.name} flagged a relief assignment. Reason: {body.flag_reason}",
+            )
 
     elif body.status == models.ReliefStatus.REJECTED:
         background_tasks.add_task(_rollover_relief, assignment_id)
@@ -989,47 +1019,91 @@ async def assign_relief_teacher(
     current_user: models.User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if current_user.role not in (models.UserRole.HOD, models.UserRole.ADMIN):
+        raise HTTPException(status_code=403, detail="HOD or Admin access required.")
+
     result = await db.execute(
-        select(models.Absence).filter(models.Absence.id == absence_id)
+        select(models.Absence).where(models.Absence.id == absence_id)
     )
-    absence = result.scalars().first()
+    absence = result.scalar_one_or_none()
     if not absence:
         raise HTTPException(status_code=404, detail="Absence not found")
 
+    relief_teacher_result = await db.execute(
+        select(models.Teacher).where(models.Teacher.id == request.relief_teacher_id)
+    )
+    relief_teacher = relief_teacher_result.scalar_one_or_none()
+    if not relief_teacher:
+        raise HTTPException(status_code=404, detail="Relief teacher not found")
+
+    # Upsert: update existing slot assignment if present
+    if request.slot_id:
+        existing_result = await db.execute(
+            select(models.ReliefAssignment).where(
+                models.ReliefAssignment.absence_id == absence_id,
+                models.ReliefAssignment.slot_id == request.slot_id,
+            )
+        )
+        existing = existing_result.scalar_one_or_none()
+        if existing:
+            existing.relief_teacher_id = request.relief_teacher_id
+            existing.status = models.ReliefStatus.PENDING
+            existing.reason_text = request.note or "Manual override by HOD"
+            existing.assignment_mode = None
+            existing.acknowledged_at = None
+            await db.commit()
+
+            if relief_teacher.user_id:
+                background_tasks.add_task(
+                    notify, db, relief_teacher.user_id,
+                    "Relief Assignment (Override)",
+                    "You have been manually assigned a relief duty by HOD. Please check your schedule.",
+                    "RELIEF_REQUEST",
+                    "/dashboard/relief-duties",
+                )
+
+            from .relief_router import notify_absence_updated
+            notify_absence_updated(str(absence_id))
+
+            return {
+                "message": "Relief updated successfully",
+                "absence_id": str(absence.id),
+                "relief_teacher_id": str(request.relief_teacher_id),
+            }
+
+    # No existing row for this slot — create new
     relief_assignment = models.ReliefAssignment(
         absence_id=absence.id,
         slot_id=request.slot_id,
         relief_teacher_id=request.relief_teacher_id,
         status=models.ReliefStatus.PENDING,
+        reason_text=request.note or "Manual override by HOD",
+        assignment_mode=None,
     )
     db.add(relief_assignment)
     await db.commit()
     await db.refresh(relief_assignment)
 
-    # Fetch the assigned teacher to notify them
-    teacher_result = await db.execute(
-        select(models.Teacher).where(models.Teacher.id == request.relief_teacher_id)
-    )
-    relief_teacher = teacher_result.scalar_one_or_none()
+    # Build slot info string for notification
+    slot_info = ""
+    if request.slot_id:
+        slot_result = await db.execute(
+            select(models.TimetableSlot).where(models.TimetableSlot.id == request.slot_id)
+        )
+        slot = slot_result.scalar_one_or_none()
+        if slot:
+            day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+            day = day_names[slot.day_of_week] if 0 <= slot.day_of_week <= 4 else ""
+            slot_info = f" — {day}, Period {slot.period}"
 
-    if relief_teacher and relief_teacher.user_id:
-        # Get slot details for the notification message
-        slot_info = ""
-        if request.slot_id:
-            slot_result = await db.execute(
-                select(models.TimetableSlot).where(models.TimetableSlot.id == request.slot_id)
-            )
-            slot = slot_result.scalar_one_or_none()
-            if slot:
-                day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-                day = day_names[slot.day_of_week] if 0 <= slot.day_of_week <= 4 else ""
-                slot_info = f" — {day}, Period {slot.period}"
-
+    if relief_teacher.user_id:
         background_tasks.add_task(
             notify, db, relief_teacher.user_id,
             "Relief Duty Assigned",
             f"You have been assigned a relief duty on {absence.date}{slot_info}. "
             f"Please accept or reject from your dashboard.",
+            "RELIEF_REQUEST",
+            "/dashboard/relief-duties",
         )
 
     from .relief_router import notify_absence_updated
@@ -1038,7 +1112,6 @@ async def assign_relief_teacher(
     return {
         "message": "Relief assigned successfully",
         "absence_id": str(absence.id),
-        "assignment_id": str(relief_assignment.id),
         "relief_teacher_id": str(request.relief_teacher_id),
     }
 

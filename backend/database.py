@@ -2,7 +2,7 @@ import uuid
 from dotenv import load_dotenv
 load_dotenv()
 import os
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 
@@ -19,10 +19,14 @@ clean_url = DATABASE_URL.split("?")[0]
 engine = create_async_engine(
     clean_url,
     echo=False,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-    pool_recycle=300,
+    # Supabase free tier: session-mode pooler caps at 15 total connections.
+    # pool_size=3 + max_overflow=5 → 8 max, leaving 7 free for APScheduler,
+    # Supabase internals, and burst headroom.
+    pool_size=3,
+    max_overflow=5,
+    pool_pre_ping=True,     # drop stale connections silently
+    pool_recycle=1800,      # recycle idle connections after 30 min
+    pool_timeout=10,        # wait up to 10 s before raising on pool exhaustion
     connect_args={
         "statement_cache_size": 0,
         "prepared_statement_cache_size": 0,

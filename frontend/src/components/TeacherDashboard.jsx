@@ -5,6 +5,7 @@ import TimetableGrid from './TimetableGrid';
 import ReliefRequestCard from './ReliefRequestCard';
 import LeaveApplicationForm from './LeaveApplicationForm';
 import { useAuth } from '../context/AuthContext';
+import { useTeacherReliefPending, useTeacherReliefConfirmed } from '../hooks/useTeacherData';
 
 const BASE = 'http://localhost:8000';
 
@@ -190,12 +191,20 @@ function NotificationsPanel({ notifs, onMarkRead, onMarkAllRead, onSelect }) {
 export default function TeacherDashboard() {
   const { user } = useAuth();
 
-  const [teacherData, setTeacherData]         = useState(null);
-  const [timetable, setTimetable]             = useState({});
-  const [pending, setPending]                 = useState([]);
-  const [confirmed, setConfirmed]             = useState([]);
-  const [isLoadingData, setIsLoadingData]     = useState(true);
+  // ── Relief data from hooks ──
+  const { data: pending,   loading: pendingLoading   } = useTeacherReliefPending();
+  const { data: confirmed, loading: confirmedLoading  } = useTeacherReliefConfirmed();
+  const isLoadingData = pendingLoading || confirmedLoading;
 
+  const teacherName       = user?.email ?? 'Teacher';
+  const teacherDept       = '';
+  const teachingCompleted = 0;
+  const teachingTotal     = 30;
+  const reliefCompleted   = confirmed.length;
+  const reliefTotal       = 5;
+  const remainingCap      = 0;
+
+  const [timetable, setTimetable]             = useState({});
   const [localNotifs, setLocalNotifs]         = useState([]);
   const [selectedNotif, setSelectedNotif]     = useState(null);
 
@@ -256,8 +265,21 @@ export default function TeacherDashboard() {
         setPending(Array.isArray(pendingData) ? pendingData : []);
         setConfirmed(Array.isArray(confirmedData) ? confirmedData : []);
       })
-      .catch(err => console.error('Dashboard fetch error:', err))
-      .finally(() => setIsLoadingData(false));
+      .catch(console.error);
+  }, []);
+
+  // ── Fetch timetable ──
+  useEffect(() => {
+    const token = localStorage.getItem('schoolsync_token');
+    if (!token) return;
+    fetch(`${BASE}/timetable/view?scope=teacher`, { headers: getHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        if (d.timetable) setTimetable(d.timetable);
+        else if (typeof d === 'object') setTimetable(d);
+      })
+      .catch(console.error);
   }, []);
 
   // ── Focus trap ──

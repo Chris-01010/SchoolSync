@@ -1,7 +1,7 @@
 import secrets
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from .relief_router import router as relief_router
 from .relief_dispatch import expire_overdue_assignments
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, status, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
 from typing import List, Optional
 from uuid import UUID
-from datetime import timedelta, datetime 
+from datetime import timedelta, datetime, timezone 
 from pathlib import Path 
 import time
 import collections
@@ -118,9 +118,21 @@ _scheduler = AsyncIOScheduler()
 
 @app.on_event("startup")
 async def startup():
+    # DB is managed by Supabase/Alembic — never call create_all on a live DB.
+    # It tries to CREATE TYPE for every Enum, but they already exist in PG,
+    # which causes a mid-connection crash on startup.
+    logger.info("SchoolSync API started. Schema managed externally — skipping create_all.")
     async def _expiry_job():
+        # Always open a FRESH session for each scheduled run — never reuse
+        # a session across invocations. get_db() is an async generator that
+        # yields one session and closes it on exit, so use it as a context.
         async for db in get_db():
-            await expire_overdue_assignments(db)
+            try:
+                await expire_overdue_assignments(db)
+            except Exception:
+                logger.exception("Error in relief expiry job")
+            finally:
+                await db.close()
 
     _scheduler.add_job(_expiry_job, "interval", minutes=1, id="relief_expiry")
     _scheduler.start()
@@ -277,8 +289,11 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=400, detail="Invalid verification token.")
-    if user.verification_token_expires_at < datetime.utcnow():
+    # Guard against NULL expiry (would throw TypeError and strip CORS headers)
+    if user.verification_token_expires_at is None or user.verification_token_expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Verification token expired.")
+    if user.is_verified:
+        return {"message": "Email verified successfully. You can now log in."}
     user.is_verified = True
     user.verification_token = None
     user.verification_token_expires_at = None
