@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Settings, Search, Menu, Plus, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../services/api';
 
 const BASE = 'http://localhost:8000';
 function getHeaders() {
