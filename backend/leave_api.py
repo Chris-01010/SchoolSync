@@ -57,6 +57,7 @@ class ReliefRespondRequest(BaseModel):
     flag_reason:  Optional[str] = None
     flag_comment: Optional[str] = None
 
+
 class AdminOverrideRequest(BaseModel):
     relief_teacher_id: UUID
     override_note:     Optional[str] = None
@@ -64,8 +65,9 @@ class AdminOverrideRequest(BaseModel):
 
 class HODAssignReliefRequest(BaseModel):
     relief_teacher_id: UUID
-    slot_id: Optional[UUID] = None
-    note: Optional[str] = None
+    slot_id:           Optional[UUID] = None
+    note:              Optional[str] = None
+
 
 class LeaveEditRequest(BaseModel):
     date:         str
@@ -78,11 +80,11 @@ class LeaveEditRequest(BaseModel):
 
 async def notify(
     db: AsyncSession,
-    user_id: UUID,
+    user_id,
     title: str,
     content: str,
     notification_type: str = "GENERAL",
-    action_url: Optional[str] = None,
+    action_url: str = None,
 ):
     """Save an in-app notification AND broadcast to connected SSE clients."""
     from .database import AsyncSessionLocal
@@ -368,7 +370,6 @@ async def apply_leave(
     await db.commit()
     await db.refresh(absence)
 
-    # Notify teacher (confirmation)
     background_tasks.add_task(
         notify, db, current_user.id,
         "Leave Request Submitted",
@@ -377,7 +378,6 @@ async def apply_leave(
         "/dashboard/leaves",
     )
 
-    # Notify HOD
     dept = None
     if teacher.department_id:
         dept_result = await db.execute(
@@ -398,7 +398,6 @@ async def apply_leave(
                     "/hod/leave",
                 )
 
-    # Notify all admins (view-only monitoring)
     dept_name = dept.name if dept else "Unknown Department"
     background_tasks.add_task(
         notify_all_admins, db,
@@ -525,7 +524,6 @@ async def apply_emergency_leave(
         eta=hod_deadline
     )
 
-    # Notify HODs
     try:
         hod_result = await db.execute(
             select(models.User).where(models.User.role == models.UserRole.HOD)
@@ -542,7 +540,6 @@ async def apply_emergency_leave(
     except Exception as e:
         print(f"[HOD NOTIFICATION ERROR] {e}")
 
-    # Notify teacher (confirmation)
     background_tasks.add_task(
         notify, db, current_user.id,
         "Emergency Leave Submitted",
@@ -616,6 +613,7 @@ async def get_pending_leaves(
             for l in leaves
         ],
     }
+
 
 @router.get("/approved")
 async def get_approved_leaves(
@@ -691,6 +689,7 @@ async def get_approved_leaves(
         ],
     }
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # HOD: Approve / Reject / Clarify
 # ─────────────────────────────────────────────────────────────────────────────
@@ -703,7 +702,6 @@ async def hod_action_on_leave(
     current_user: models.User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Block admin — view-only access
     if current_user.role == models.UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Admins have view-only access to leave requests.")
 
@@ -793,14 +791,12 @@ async def hod_action_on_leave(
         else "Clarification Requested"
     )
 
-    # Notify the teacher
     if absent_teacher and absent_teacher.user_id:
         background_tasks.add_task(
             notify, db, absent_teacher.user_id,
             notif_title, notif_msg, notif_type, "/dashboard/leaves",
         )
 
-    # Notify all admins (view-only monitoring)
     hod_name     = hod.name if hod else "HOD"
     teacher_name = absent_teacher.name if absent_teacher else "Teacher"
     if body.action == HODAction.APPROVE:
@@ -898,6 +894,8 @@ async def respond_to_relief(
                 notify, db, admin.id,
                 "Relief Assignment Flagged",
                 f"{teacher.name} flagged a relief assignment. Reason: {body.flag_reason}",
+                "RELIEF_REQUEST",
+                "/admin/relief",
             )
 
     elif body.status == models.ReliefStatus.REJECTED:
@@ -964,13 +962,14 @@ async def override_relief(
     await db.commit()
     await db.refresh(assignment)
 
-    background_tasks.add_task(
-        notify, db, new_teacher.user_id,
-        "Relief Assignment (Admin Override)",
-        "An admin has assigned you to a relief duty. Please check your schedule.",
-        "RELIEF_REQUEST",
-        "/dashboard/relief-duties",
-    )
+    if new_teacher.user_id:
+        background_tasks.add_task(
+            notify, db, new_teacher.user_id,
+            "Relief Assignment (Admin Override)",
+            "An admin has assigned you to a relief duty. Please check your schedule.",
+            "RELIEF_REQUEST",
+            "/dashboard/relief-duties",
+        )
 
     return {
         "success": True,
@@ -1055,7 +1054,6 @@ async def cancel_leave(
 
     await db.delete(absence)
     await db.commit()
-
     return {"success": True, "message": "Leave request cancelled successfully."}
 
 
@@ -1088,7 +1086,6 @@ async def assign_relief_teacher(
     if not relief_teacher:
         raise HTTPException(status_code=404, detail="Relief teacher not found")
 
-    # Upsert: update existing slot assignment if present
     if request.slot_id:
         existing_result = await db.execute(
             select(models.ReliefAssignment).where(
@@ -1123,7 +1120,6 @@ async def assign_relief_teacher(
                 "relief_teacher_id": str(request.relief_teacher_id),
             }
 
-    # No existing row for this slot — create new
     relief_assignment = models.ReliefAssignment(
         absence_id=absence.id,
         slot_id=request.slot_id,
@@ -1136,7 +1132,6 @@ async def assign_relief_teacher(
     await db.commit()
     await db.refresh(relief_assignment)
 
-    # Build slot info string for notification
     slot_info = ""
     if request.slot_id:
         slot_result = await db.execute(
@@ -1164,8 +1159,9 @@ async def assign_relief_teacher(
         "relief_teacher_id": str(request.relief_teacher_id),
     }
 
+
 # ─────────────────────────────────────────────────────────────────────────────
-# TEACHER: Get my pending relief assignments (duties assigned TO me)
+# TEACHER: Get my pending relief assignments
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/relief/my/pending")
@@ -1192,7 +1188,6 @@ async def get_my_pending_relief(
 
     output = []
     for a in assignments:
-        # Fetch absence details
         absence_result = await db.execute(
             select(models.Absence).where(models.Absence.id == a.absence_id)
         )
@@ -1200,13 +1195,11 @@ async def get_my_pending_relief(
         if not absence:
             continue
 
-        # Fetch absent teacher
         absent_teacher_result = await db.execute(
             select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
         )
         absent_teacher = absent_teacher_result.scalar_one_or_none()
 
-        # Fetch slot details
         slot_info = {}
         if a.slot_id:
             slot_result = await db.execute(
@@ -1214,7 +1207,6 @@ async def get_my_pending_relief(
             )
             slot = slot_result.scalar_one_or_none()
             if slot:
-                # Fetch subject and class names
                 subject_name = None
                 class_name = None
                 if slot.subject_id:
@@ -1251,14 +1243,14 @@ async def get_my_pending_relief(
             "date":           str(absence.date),
             "score":          a.score,
             "status":         a.status,
-            "deadline":       None,  # extend if you add a deadline field
+            "deadline":       None,
         })
 
     return output
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TEACHER: Get my confirmed/accepted relief duties
+# TEACHER: Get my confirmed relief duties
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/relief/my/confirmed")
@@ -1343,6 +1335,7 @@ async def get_my_confirmed_relief(
 
     return output
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Notifications
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1352,6 +1345,7 @@ async def notification_stream_sse(
     token: str = Query(..., description="JWT access token"),
     db: AsyncSession = Depends(get_db),
 ):
+    """SSE endpoint for real-time notifications. Accepts JWT via query param."""
     from .notification_hub import hub
 
     try:

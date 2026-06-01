@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-
 const BASE = 'http://localhost:8000';
-
 function getHeaders() {
   const token = localStorage.getItem('schoolsync_token');
   return { 'Authorization': `Bearer ${token}` };
@@ -23,9 +21,8 @@ function normalizeNotifType(raw) {
 }
 
 export function useTeacherProfile() {
-  const [data, setData] = useState(null);
+  const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     fetch(`${BASE}/api/v1/my/teacher-profile`, { headers: getHeaders() })
       .then(r => r.json())
@@ -33,13 +30,12 @@ export function useTeacherProfile() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
-
   return { data, loading };
 }
 
 // Uses the 2-step approach from the branch: get teacher.id first, then fetch timetable with scope_id
 export function useTeacherTimetable() {
-  const [data, setData] = useState({});
+  const [data, setData]       = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -69,11 +65,9 @@ export function useTeacherTimetable() {
 
   return { data, loading, error };
 }
-
 export function useTeacherLeaves() {
-  const [data, setData] = useState([]);
+  const [data, setData]       = useState([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     fetch(`${BASE}/leaves/my`, { headers: getHeaders() })
       .then(r => r.ok ? r.json() : null)
@@ -81,7 +75,6 @@ export function useTeacherLeaves() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
-
   return { data, loading };
 }
 

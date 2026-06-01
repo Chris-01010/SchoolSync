@@ -26,14 +26,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from .database import Base
 
 
-# ---------------------------------------------------------------------------
-# UUID type
-# ---------------------------------------------------------------------------
-
 class GUID(TypeDecorator):
-    """Platform-independent GUID type.
-    Uses PostgreSQL's UUID type, otherwise uses CHAR(36).
-    """
     impl = CHAR
     cache_ok = True
 
@@ -64,10 +57,6 @@ class GUID(TypeDecorator):
                 return value
 
 
-# ---------------------------------------------------------------------------
-# Enums  (uppercase — must match values stored in the PostgreSQL DB)
-# ---------------------------------------------------------------------------
-
 class UserRole(str, PyEnum):
     ADMIN   = "ADMIN"
     HOD     = "HOD"
@@ -79,6 +68,7 @@ class AbsenceStatus(str, PyEnum):
     APPROVED                 = "approved"
     REJECTED                 = "rejected"
     CLARIFICATION_REQUESTED  = "clarification_requested"
+
 
 
 class ReliefStatus(str, PyEnum):
@@ -106,10 +96,6 @@ class NotificationType(str, PyEnum):
     ANNOUNCEMENT    = "ANNOUNCEMENT"
     GENERAL         = "GENERAL"
 
-
-# ---------------------------------------------------------------------------
-# Models
-# ---------------------------------------------------------------------------
 
 class User(Base):
     __tablename__ = "users"
@@ -164,7 +150,6 @@ class Teacher(Base):
     current_relief_hours = Column(Integer, default=0)
     total_hours_worked   = Column(Integer, default=0)
     is_active            = Column(Boolean, default=True)
-    # {"0": [1, 2]} — day index → list of blocked period numbers
     blocked_slots_json   = Column(JSON, default=dict, name="blocked_slots")
 
     user      = relationship("User", back_populates="teacher_profile")
@@ -448,7 +433,4 @@ class TeacherLeaveBalance(Base):
         onupdate=func.now(),
     )
 
-    teacher = relationship(
-        "Teacher",
-        back_populates="leave_balance",
-    )
+    teacher = relationship("Teacher", back_populates="leave_balance")

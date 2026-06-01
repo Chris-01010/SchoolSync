@@ -8,15 +8,15 @@ import ApplyLeaveModal from '../../components/teacher/ApplyLeaveModal';
 import { api } from '../../services/api';
 
 const STATUS = {
-  pending:                 { label: 'Pending',      color: 'bg-amber-50 text-amber-700 border-amber-200',       icon: Clock,         dot: 'bg-amber-400' },
-  approved:                { label: 'Approved',     color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2,  dot: 'bg-emerald-500' },
-  rejected:                { label: 'Rejected',     color: 'bg-red-50 text-red-600 border-red-200',             icon: XCircle,       dot: 'bg-red-500' },
+  pending:                 { label: 'Pending',      color: 'bg-amber-50 text-amber-700 border-amber-200',       icon: Clock,         dot: 'bg-amber-400'  },
+  approved:                { label: 'Approved',     color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2,  dot: 'bg-emerald-500'},
+  rejected:                { label: 'Rejected',     color: 'bg-red-50 text-red-600 border-red-200',             icon: XCircle,       dot: 'bg-red-500'    },
   clarification_requested: { label: 'Action Needed',color: 'bg-purple-50 text-purple-700 border-purple-200',    icon: MessageSquare, dot: 'bg-purple-500' },
   clarification:           { label: 'Action Needed',color: 'bg-purple-50 text-purple-700 border-purple-200',    icon: MessageSquare, dot: 'bg-purple-500' },
-  cancelled:               { label: 'Cancelled',    color: 'bg-gray-100 text-gray-500 border-gray-200',         icon: MinusCircle,   dot: 'bg-gray-400' },
+  cancelled:               { label: 'Cancelled',    color: 'bg-gray-100 text-gray-500 border-gray-200',         icon: MinusCircle,   dot: 'bg-gray-400'   },
 };
 
-const TABS = ['Active Requests', 'History', 'Clarifications'];
+const TABS       = ['Active Requests', 'History', 'Clarifications'];
 const LEAVE_TYPES = ['sick', 'casual', 'other'];
 
 const StatusBadge = ({ status }) => {
@@ -24,7 +24,7 @@ const StatusBadge = ({ status }) => {
   const Icon = cfg.icon;
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.color}`}>
-      <Icon size={10} /> {cfg.label}
+      <Icon size={10} />{cfg.label}
     </span>
   );
 };
@@ -117,7 +117,7 @@ function ViewDetailsModal({ req, onClose }) {
 function EditModal({ req, onClose, onSaved }) {
   const [form, setForm] = useState({ leave_type: req.type, date: req.from || '', reason: req.reason || '' });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError]   = useState(null);
 
   const handleSubmit = async () => {
     setSaving(true); setError(null);
@@ -187,7 +187,7 @@ function CancelModal({ req, onClose, onCancelled }) {
         onClick={e => e.stopPropagation()}
         className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm border border-gray-100">
         <h3 className="text-[14px] font-bold text-gray-900 mb-2">Cancel Leave Request</h3>
-        <p className="text-[12px] text-gray-500 mb-5">Are you sure you want to cancel this leave request? This will remove it from HOD and admin views.</p>
+        <p className="text-[12px] text-gray-500 mb-5">Are you sure you want to cancel this leave request?</p>
         <div className="flex items-center gap-3 justify-end">
           <button onClick={onClose} className="px-4 py-2 text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">No, Keep It</button>
           <button onClick={handleConfirm} disabled={loading}
@@ -201,7 +201,7 @@ function CancelModal({ req, onClose, onCancelled }) {
 }
 
 const LeaveCard = ({ req, onView, onEdit, onCancel }) => {
-  const canEdit = req.status === 'pending' || req.status === 'clarification_requested';
+  const canEdit   = req.status === 'pending' || req.status === 'clarification_requested';
   const canCancel = req.status === 'pending' || req.status === 'clarification_requested';
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} layout
@@ -250,13 +250,13 @@ const LeaveCard = ({ req, onView, onEdit, onCancel }) => {
 };
 
 export default function MyLeaves() {
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [requests, setRequests]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
   const [activeTab, setActiveTab] = useState(0);
   const [applyOpen, setApplyOpen] = useState(false);
-  const [viewReq, setViewReq] = useState(null);
-  const [editReq, setEditReq] = useState(null);
+  const [viewReq, setViewReq]     = useState(null);
+  const [editReq, setEditReq]     = useState(null);
   const [cancelReq, setCancelReq] = useState(null);
 
   const loadLeaves = useCallback(async () => {
@@ -281,83 +281,82 @@ export default function MyLeaves() {
   });
 
   return (
-    <div className="space-y-5 max-w-[900px]">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[18px] font-bold text-gray-900">My Leaves</h1>
-          <p className="text-[11px] text-gray-400 mt-0.5">Manage your leave requests</p>
-        </div>
-        <button onClick={() => setApplyOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-[11px] font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-          <Plus size={13} /> Apply
-        </button>
-      </div>
-
-      <div className="flex bg-gray-100 rounded-lg p-0.5 w-fit gap-0.5">
-        {TABS.map((t, i) => (
-          <button key={t} onClick={() => setActiveTab(i)}
-            className={`px-4 py-1.5 text-[11px] font-semibold rounded-md transition-all ${activeTab === i ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            {t}
+    <div className="h-full overflow-y-auto px-3 sm:px-5 py-4">
+      <div className="space-y-5 max-w-[900px] mx-auto">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-[18px] font-bold text-gray-900">My Leaves</h1>
+            <p className="text-[11px] text-gray-400 mt-0.5">Manage your leave requests</p>
+          </div>
+          <button onClick={() => setApplyOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-[11px] font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+            <Plus size={13} /> Apply
           </button>
-        ))}
+        </div>
+
+        <div className="flex bg-gray-100 rounded-lg p-0.5 w-fit gap-0.5">
+          {TABS.map((t, i) => (
+            <button key={t} onClick={() => setActiveTab(i)}
+              className={`px-4 py-1.5 text-[11px] font-semibold rounded-md transition-all ${activeTab === i ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="text-center py-16 text-gray-400"><p className="text-[13px] font-semibold">Loading your leaves…</p></div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600 text-[12px]">
+            {error} <button onClick={loadLeaves} className="ml-3 underline">Retry</button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <AnimatePresence mode="popLayout">
+              {filtered.length === 0 ? (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 text-gray-400">
+                  <FileText size={32} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-[13px] font-semibold">No leave requests found</p>
+                  <p className="text-[11px] mt-1">Click "Apply" to submit a new request</p>
+                </motion.div>
+              ) : (
+                filtered.map(req => (
+                  <LeaveCard key={req.id} req={req}
+                    onView={setViewReq} onEdit={setEditReq} onCancel={setCancelReq} />
+                ))
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        <ApplyLeaveModal
+          isOpen={applyOpen}
+          onClose={() => setApplyOpen(false)}
+          onSubmit={async (data) => {
+            try {
+              const raw = (data.leaveType || 'sick').toLowerCase();
+              const leave_type = raw.includes('sick') ? 'sick' : raw.includes('casual') ? 'casual' : 'other';
+              await api.post('/leaves/apply', {
+                start_date:   data.fromDate || data.startDate,
+                end_date:     data.toDate || data.endDate || data.fromDate || data.startDate,
+                leave_type,
+                reason:       data.reason || 'No reason provided',
+                is_full_day:  true,
+                handover_url: data.fileDataUrl || null,
+              });
+              setApplyOpen(false);
+              await loadLeaves();
+            } catch (err) {
+              alert(`Failed to submit leave: ${err.message}`);
+            }
+          }}
+        />
+
+        <AnimatePresence>
+          {viewReq   && <ViewDetailsModal req={viewReq}   onClose={() => setViewReq(null)} />}
+          {editReq   && <EditModal        req={editReq}   onClose={() => setEditReq(null)}   onSaved={loadLeaves} />}
+          {cancelReq && <CancelModal      req={cancelReq} onClose={() => setCancelReq(null)} onCancelled={handleCancelled} />}
+        </AnimatePresence>
       </div>
-
-      {loading ? (
-        <div className="text-center py-16 text-gray-400"><p className="text-[13px] font-semibold">Loading your leaves…</p></div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600 text-[12px]">
-          {error} <button onClick={loadLeaves} className="ml-3 underline">Retry</button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <AnimatePresence mode="popLayout">
-            {filtered.length === 0 ? (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 text-gray-400">
-                <FileText size={32} className="mx-auto mb-3 opacity-30" />
-                <p className="text-[13px] font-semibold">No leave requests found</p>
-                <p className="text-[11px] mt-1">Click "Apply" to submit a new request</p>
-              </motion.div>
-            ) : (
-              filtered.map(req => (
-                <LeaveCard key={req.id} req={req}
-                  onView={setViewReq}
-                  onEdit={setEditReq}
-                  onCancel={setCancelReq} />
-              ))
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {/* Apply Modal */}
-      <ApplyLeaveModal
-        isOpen={applyOpen}
-        onClose={() => setApplyOpen(false)}
-        onSubmit={async (data) => {
-          try {
-            const raw = (data.leaveType || 'sick').toLowerCase();
-            const leave_type = raw.includes('sick') ? 'sick' : raw.includes('casual') ? 'casual' : 'other';
-            await api.post('/leaves/apply', {
-              start_date:   data.fromDate  || data.startDate,
-              end_date:     data.toDate    || data.endDate || data.fromDate || data.startDate,
-              leave_type,
-              reason:       data.reason   || 'No reason provided',
-              is_full_day:  true,
-              handover_url: data.fileDataUrl || null,
-            });
-            setApplyOpen(false);
-            await loadLeaves();
-          } catch (err) {
-            alert(`Failed to submit leave: ${err.message}`);
-          }
-        }}
-      />
-
-      <AnimatePresence>
-        {viewReq   && <ViewDetailsModal req={viewReq}   onClose={() => setViewReq(null)} />}
-        {editReq   && <EditModal        req={editReq}   onClose={() => setEditReq(null)}   onSaved={loadLeaves} />}
-        {cancelReq && <CancelModal      req={cancelReq} onClose={() => setCancelReq(null)} onCancelled={handleCancelled} />}
-      </AnimatePresence>
     </div>
   );
 }
