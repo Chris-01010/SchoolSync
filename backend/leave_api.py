@@ -716,7 +716,13 @@ async def hod_action_on_leave(
 
     if body.action == HODAction.APPROVE:
         absence.status = models.AbsenceStatus.APPROVED
-        background_tasks.add_task(dispatch_relief_for_absence, absence.id)
+        async def safe_dispatch(absence_id):
+            try:
+                await dispatch_relief_for_absence(absence_id)
+            except Exception as e:
+                print(f"[RELIEF DISPATCH ERROR] {e}")
+
+        background_tasks.add_task(safe_dispatch, absence.id)
         balance_result = await db.execute(
             select(models.TeacherLeaveBalance).where(
                 models.TeacherLeaveBalance.teacher_id == absence.teacher_id
