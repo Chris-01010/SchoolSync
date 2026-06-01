@@ -120,22 +120,71 @@ async def seed_data():
         # ── Users + Teacher profiles ──────────────────────────────────────────
         users_data = [
             # college_id, email, pwd, role, name, dept, cap, hrs
-            ("ADM001", "admin@schoolsync.com",         "admin123",   "admin",   None,                None,    None, None),
-            ("HOD001", "hod.cs@schoolsync.com",        "hod123",     "hod",     "Dr. Anita Sharma",  "CS",    5,    35),
-            ("HOD002", "hod.ad@schoolsync.com",        "hod123",     "hod",     "Dr. Rajesh Kumar",  "AD",    5,    35),
-            ("HOD003", "hod.it@schoolsync.com",        "hod123",     "hod",     "Dr. Meera Pillai",  "IT",    5,    35),
-            ("HOD004", "hod.ec@schoolsync.com",        "hod123",     "hod",     "Dr. Vikram Reddy",  "EC",    5,    35),
-            ("TCH001", "teacher@schoolsync.com",       "teacher123", "teacher", "John Doe",          "CS",    3,    30),
-            ("TCH002", "priya.menon@schoolsync.com",   "pass123",    "teacher", "Priya Menon",       "CS",    3,    30),
-            ("TCH003", "ravi.iyer@schoolsync.com",     "pass123",    "teacher", "Ravi Iyer",         "CS",    3,    30),
-            ("TCH004", "arjun.nair@schoolsync.com",    "pass123",    "teacher", "Arjun Nair",        "AD",    3,    30),
-            ("TCH005", "lakshmi.rao@schoolsync.com",   "pass123",    "teacher", "Lakshmi Rao",       "IT",    3,    30),
-            ("TCH006", "fatima.khan@schoolsync.com",   "pass123",    "teacher", "Fatima Khan",       "IT",    3,    30),
-            ("TCH007", "george.mathew@schoolsync.com", "pass123",    "teacher", "George Mathew",     "EC",    3,    30),
-            ("TCH008", "sneha.varma@schoolsync.com",   "pass123",    "teacher", "Sneha Varma",       "AEI",   3,    30),
-            ("TCH009", "david.thomas@schoolsync.com",  "pass123",    "teacher", "David Thomas",      "MECH",  3,    30),
-            ("TCH010", "kiran.joseph@schoolsync.com",  "pass123",    "teacher", "Kiran Joseph",      "CIVIL", 3,    30),
-            ("TCH011", "rahul.singh@schoolsync.com",   "pass123",    "teacher", "Rahul Singh",       "EEE",   3,    30),
+            # Admins
+            ("ADM001", "admin@schoolsync.com",              "admin123",   "admin",   None,                        None,    None, None),
+
+            # HODs
+            ("HOD001", "hod.cs@schoolsync.com",             "hod123",     "hod",     "Dr. Anita Sharma",          "CS",    5,    35),
+            ("HOD002", "hod.ad@schoolsync.com",             "hod123",     "hod",     "Dr. Rajesh Kumar",          "AD",    5,    35),
+            ("HOD003", "hod.it@schoolsync.com",             "hod123",     "hod",     "Dr. Meera Pillai",          "IT",    5,    35),
+            ("HOD004", "hod.ec@schoolsync.com",             "hod123",     "hod",     "Dr. Vikram Reddy",          "EC",    5,    35),
+
+            # Original Teachers
+            ("TCH001", "teacher@schoolsync.com",            "teacher123", "teacher", "John Doe",                  "CS",    3,    30),
+            ("TCH002", "priya.menon@schoolsync.com",        "pass123",    "teacher", "Priya Menon",               "CS",    3,    30),
+            ("TCH003", "ravi.iyer@schoolsync.com",          "pass123",    "teacher", "Ravi Iyer",                 "CS",    3,    30),
+            ("TCH004", "arjun.nair@schoolsync.com",         "pass123",    "teacher", "Arjun Nair",                "AD",    3,    30),
+            ("TCH005", "lakshmi.rao@schoolsync.com",        "pass123",    "teacher", "Lakshmi Rao",               "IT",    3,    30),
+            ("TCH006", "fatima.khan@schoolsync.com",        "pass123",    "teacher", "Fatima Khan",               "IT",    3,    30),
+            ("TCH007", "george.mathew@schoolsync.com",      "pass123",    "teacher", "George Mathew",             "EC",    3,    30),
+            ("TCH008", "sneha.varma@schoolsync.com",        "pass123",    "teacher", "Sneha Varma",               "AEI",   3,    30),
+            ("TCH009", "david.thomas@schoolsync.com",       "pass123",    "teacher", "David Thomas",              "MECH",  3,    30),
+            ("TCH010", "kiran.joseph@schoolsync.com",       "pass123",    "teacher", "Kiran Joseph",              "CIVIL", 3,    30),
+            ("TCH011", "rahul.singh@schoolsync.com",        "pass123",    "teacher", "Rahul Singh",               "EEE",   3,    30),
+
+            # Additional CS Teachers
+            ("CS_TCH013", "anil.kapoor@schoolsync.com",     "pass123",    "teacher", "Prof. Anil Kapoor",         "CS",    3,    30),
+            ("CS_TCH014", "deepa.mehta@schoolsync.com",     "pass123",    "teacher", "Dr. Deepa Mehta",           "CS",    3,    30),
+            ("CS_TCH015", "rajat.sharma@schoolsync.com",    "pass123",    "teacher", "Prof. Rajat Sharma",        "CS",    3,    30),
+            ("CS_TCH016", "neha.gupta@schoolsync.com",      "pass123",    "teacher", "Dr. Neha Gupta",            "CS",    3,    30),
+            ("CS_TCH017", "vikram.chadha@schoolsync.com",   "pass123",    "teacher", "Prof. Vikram Chadha",       "CS",    3,    30),
+            ("CS_TCH018", "aditya.kumar@schoolsync.com",    "pass123",    "teacher", "Prof. Aditya Kumar",        "CS",    3,    30),
+            ("CS_TCH019", "shreya.sinha@schoolsync.com",    "pass123",    "teacher", "Dr. Shreya Sinha",          "CS",    3,    30),
+
+            # Additional IT Teachers
+            ("IT_TCH006", "sonia.malhotra@schoolsync.com",  "pass123",    "teacher", "Prof. Sonia Malhotra",      "IT",    3,    30),
+            ("IT_TCH007", "rajeev.kumar@schoolsync.com",    "pass123",    "teacher", "Dr. Rajeev Kumar",          "IT",    3,    30),
+            ("IT_TCH008", "pallavi.joshi@schoolsync.com",   "pass123",    "teacher", "Prof. Pallavi Joshi",       "IT",    3,    30),
+            ("IT_TCH009", "manish.arora@schoolsync.com",    "pass123",    "teacher", "Dr. Manish Arora",          "IT",    3,    30),
+            ("IT_TCH010", "swati.verma@schoolsync.com",     "pass123",    "teacher", "Prof. Swati Verma",         "IT",    3,    30),
+            ("IT_TCH011", "varun.saxena@schoolsync.com",    "pass123",    "teacher", "Prof. Varun Saxena",        "IT",    3,    30),
+
+            # Additional AD Teachers
+            ("AD_TCH003", "sunita.rao@schoolsync.com",      "pass123",    "teacher", "Prof. Sunita Rao",          "AD",    3,    30),
+            ("AD_TCH004", "alok.srivastava@schoolsync.com", "pass123",    "teacher", "Dr. Alok Srivastava",       "AD",    3,    30),
+
+            # Additional EC Teachers
+            ("EC_TCH007", "ajay.nair@schoolsync.com",       "pass123",    "teacher", "Prof. Ajay Nair",           "EC",    3,    30),
+            ("EC_TCH008", "rekha.pillai@schoolsync.com",    "pass123",    "teacher", "Dr. Rekha Pillai",          "EC",    3,    30),
+            ("EC_TCH009", "sanjay.mishra@schoolsync.com",   "pass123",    "teacher", "Prof. Sanjay Mishra",       "EC",    3,    30),
+            ("EC_TCH010", "nidhi.sharma@schoolsync.com",    "pass123",    "teacher", "Dr. Nidhi Sharma",          "EC",    3,    30),
+
+            # Additional EEE Teachers
+            ("EEE_TCH004", "naveen.bansal@schoolsync.com",  "pass123",    "teacher", "Prof. Naveen Bansal",       "EEE",   3,    30),
+            ("EEE_TCH005", "preeti.choudhary@schoolsync.com","pass123",   "teacher", "Dr. Preeti Choudhary",      "EEE",   3,    30),
+
+            # Additional CIVIL Teachers
+            ("CIVIL_TCH004", "rajendra.prasad@schoolsync.com","pass123",  "teacher", "Prof. Rajendra Prasad",     "CIVIL", 3,    30),
+            ("CIVIL_TCH005", "maya.das@schoolsync.com",     "pass123",    "teacher", "Dr. Maya Das",              "CIVIL", 3,    30),
+
+            # Additional MECH Teachers
+            ("MECH_TCH004", "harish.kumar@schoolsync.com",  "pass123",    "teacher", "Prof. Harish Kumar",        "MECH",  3,    30),
+            ("MECH_TCH005", "komal.singh@schoolsync.com",   "pass123",    "teacher", "Dr. Komal Singh",           "MECH",  3,    30),
+            ("MECH_TCH006", "ankit.bhatia@schoolsync.com",  "pass123",    "teacher", "Prof. Ankit Bhatia",        "MECH",  3,    30),
+
+            # Additional AEI Teachers
+            ("AEI_TCH004", "asha.nair@schoolsync.com",      "pass123",    "teacher", "Prof. Asha Nair",           "AEI",   3,    30),
+            ("AEI_TCH005", "ravi.verma@schoolsync.com",     "pass123",    "teacher", "Dr. Ravi Verma",            "AEI",   3,    30),
         ]
 
         teacher_ids = {}
@@ -166,7 +215,7 @@ async def seed_data():
                     current_relief_hours=0,
                     total_hours_worked=0,
                     is_active=True,
-                    blocked_slots={},
+                    blocked_slots_json={},
                 )
                 db.add(teacher)
                 await db.flush()
@@ -251,9 +300,11 @@ async def seed_data():
         # Priya Menon — CS dept, teaches data structures and OOP
         priya_schedule = [
             (0, 1, "data structures",            "EEE S3-A",  "Mechanics Lab"),
-            (1, 3, "object-oriented techniques", "MECH S5-A", "Mechanics Lab"),
-            (2, 5, "data structures",            "IT S3-A",   "Mechanics Lab"),
-            (3, 2, "operating systems",          "EC S3-A",   "Mechanics Lab"),
+            (0, 2, "object-oriented techniques", "MECH S5-A", "Mechanics Lab"),  # ← ADD
+            (0, 3, "data structures",            "IT S3-A",   "Mechanics Lab"),  # ← ADD (was day=2,period=5)
+            (1, 3, "object-oriented techniques", "MECH S5-A", "Room 201"),
+            (2, 5, "data structures",            "IT S3-A",   "Electronics Lab"),
+            (3, 2, "operating systems",          "EC S3-A",   "Room 101"),
         ]
 
         # Ravi Iyer — CS dept, teaches computer structures and data structures
@@ -295,16 +346,24 @@ async def seed_data():
         days_since_tuesday = (today.weekday() - 1) % 7
         last_tuesday = today - timedelta(days=days_since_tuesday)
 
+        # Always pick the next Monday
+        def next_weekday(d, weekday):  # 0=Mon, 4=Fri
+            days_ahead = weekday - d.weekday()
+            if days_ahead <= 0:
+                days_ahead += 7
+            return d + timedelta(days=days_ahead)
+
+
         absences_data = [
             # name, date, p_start, p_end, leave_type, reason, status
-            ("Priya Menon",   today + timedelta(days=2), 1, 3, "Sick Leave",     "Fever",            models.AbsenceStatus.PENDING),
-            ("Ravi Iyer",     today + timedelta(days=3), 1, 6, "Casual Leave",   "Wedding",          models.AbsenceStatus.PENDING),
-            ("Fatima Khan",   today + timedelta(days=1), 4, 6, "Personal Leave", "Urgent matter",    models.AbsenceStatus.PENDING),
-            ("Arjun Nair",    today + timedelta(days=5), 1, 6, "Casual Leave",   "Family function",  models.AbsenceStatus.APPROVED),
-            ("Lakshmi Rao",   today + timedelta(days=7), 1, 6, "Earned Leave",   "Annual vacation",  models.AbsenceStatus.APPROVED),
-            ("John Doe",      last_tuesday,              3, 5, "Sick Leave",     "Migraine",         models.AbsenceStatus.APPROVED),
-            ("George Mathew", today - timedelta(days=5), 1, 3, "Sick Leave",     "Flu",              models.AbsenceStatus.APPROVED),
-            ("Sneha Varma",   today + timedelta(days=4), 1, 2, "Personal Leave", "Bank appointment", models.AbsenceStatus.REJECTED),
+            ("Priya Menon",   next_weekday(today, 0), 1, 3, "Sick Leave",     "Fever",            models.AbsenceStatus.PENDING),
+            ("Ravi Iyer",     next_weekday(today, 1), 1, 6, "Casual Leave",   "Wedding",          models.AbsenceStatus.PENDING),
+            ("Fatima Khan",   next_weekday(today, 2), 4, 6, "Personal Leave", "Urgent matter",    models.AbsenceStatus.PENDING),
+            ("Arjun Nair",    next_weekday(today, 3), 1, 6, "Casual Leave",   "Family function",  models.AbsenceStatus.APPROVED),
+            ("Lakshmi Rao",   next_weekday(today, 4), 1, 6, "Earned Leave",   "Annual vacation",  models.AbsenceStatus.APPROVED),
+            ("John Doe",      last_tuesday,           3, 5, "Sick Leave",     "Migraine",         models.AbsenceStatus.APPROVED),
+            ("George Mathew", today - timedelta(days=5), 1, 3, "Sick Leave",  "Flu",              models.AbsenceStatus.APPROVED),
+            ("Sneha Varma",   next_weekday(today, 4), 1, 2, "Personal Leave", "Bank appointment", models.AbsenceStatus.REJECTED),
         ]
         absence_ids = {}
         for name, abs_date, p_start, p_end, leave_type, reason, status in absences_data:
@@ -375,10 +434,11 @@ async def seed_data():
         print("Seed complete ✓")
         print("=" * 55)
         print("\nLogin credentials:")
-        print("  Admin   : admin@schoolsync.com  / admin123")
-        print("  HOD CS  : hod.cs@schoolsync.com / hod123")
-        print("  Teacher : teacher@schoolsync.com / teacher123")
-        print("  Others  : <email> / pass123")
+        print("  Admin   : admin@schoolsync.com       / admin123")
+        print("  HOD CS  : hod.cs@schoolsync.com      / hod123")
+        print("  Teacher : teacher@schoolsync.com     / teacher123")
+        print("  Others  : <email>                    / pass123")
+        print("\nAll additional teachers use: pass123")
 
 
 if __name__ == "__main__":

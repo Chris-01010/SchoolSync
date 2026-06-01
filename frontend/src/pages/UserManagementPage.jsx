@@ -2,17 +2,15 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Search, Download, ChevronDown, ChevronLeft, ChevronRight,
-  MoreHorizontal, Shield, Clock, TrendingUp, CheckCircle2, XCircle,
+  MoreHorizontal, Shield, Clock, CheckCircle2, XCircle,
   Eye, EyeOff, Users, History, KeyRound, Edit2, UserCheck, UserX,
   X, Check, AlertCircle, RefreshCw, Filter,
 } from "lucide-react";
 import { api } from "../services/api";
 
-// ─── Animation variants ───────────────────────────────────────────────────────
 const containerVariants = { hidden: {}, visible: { transition: { staggerChildren: 0.04 } } };
 const itemVariants = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: "easeOut" } } };
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const ITEMS_PER_PAGE = 10;
 const ROLES = ["TEACHER", "HOD", "ADMIN"];
 
@@ -27,7 +25,6 @@ const ACTION_LABELS = {
   bulk_reset_password: "Bulk Password Reset",
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function getInitials(name) {
   if (!name) return "??";
   const parts = name.trim().split(" ");
@@ -72,7 +69,6 @@ function formatTimestamp(ts) {
   return new Date(ts).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 }
 
-// ─── Toast system ─────────────────────────────────────────────────────────────
 function useToast() {
   const [toasts, setToasts] = useState([]);
   const add = useCallback((message, type = "success") => {
@@ -90,8 +86,7 @@ function Toasts({ toasts }) {
         {toasts.map((t) => (
           <motion.div key={t.id}
             initial={{ opacity: 0, x: 60 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 60 }}
-            className={`flex items-center gap-2.5 rounded-xl px-4 py-3 shadow-lg text-sm font-medium pointer-events-auto
-              ${t.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"}`}>
+            className={`flex items-center gap-2.5 rounded-xl px-4 py-3 shadow-lg text-sm font-medium pointer-events-auto ${t.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"}`}>
             {t.type === "success" ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
             {t.message}
           </motion.div>
@@ -101,7 +96,6 @@ function Toasts({ toasts }) {
   );
 }
 
-// ─── Shared modal shell ───────────────────────────────────────────────────────
 function ModalOverlay({ children, onClose }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === "Escape") onClose(); };
@@ -148,9 +142,8 @@ function Field({ label, error, children }) {
 const inputCls = "w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20";
 const selectCls = `${inputCls} appearance-none pr-8 cursor-pointer`;
 
-// ─── Modal: Add User ──────────────────────────────────────────────────────────
 function AddUserModal({ departments, onClose, onSuccess }) {
-  const [form, setForm] = useState({ college_id: "", name: "", email: "", password: "", role: "TEACHER", department_id: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "TEACHER", department_id: "" });
   const [errors, setErrors] = useState({});
   const [showPw, setShowPw] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -158,7 +151,6 @@ function AddUserModal({ departments, onClose, onSuccess }) {
 
   function validate() {
     const e = {};
-    if (!form.college_id.trim()) e.college_id = "College ID is required.";
     if (!form.name.trim()) e.name = "Full name is required.";
     if (!form.email.trim()) e.email = "Email is required.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Enter a valid email address.";
@@ -192,19 +184,15 @@ function AddUserModal({ departments, onClose, onSuccess }) {
             <AlertCircle size={14} className="mt-0.5 shrink-0" /> {apiError}
           </div>
         )}
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="College ID" error={errors.college_id}>
-            <input value={form.college_id} onChange={set("college_id")} placeholder="e.g. TCH042" className={inputCls} />
-          </Field>
-          <Field label="Role" error={errors.role}>
-            <div className="relative">
-              <select value={form.role} onChange={set("role")} className={selectCls}>
-                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
-              <ChevronDown size={12} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            </div>
-          </Field>
-        </div>
+        <Field label="Role" error={errors.role}>
+          <div className="relative">
+            <select value={form.role} onChange={set("role")} className={selectCls}>
+              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <ChevronDown size={12} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          </div>
+          <p className="text-[10px] text-gray-400 mt-1">College ID will be auto-generated based on the role.</p>
+        </Field>
         <Field label="Full Name" error={errors.name}>
           <input value={form.name} onChange={set("name")} placeholder="e.g. Dr. Anita Sharma" className={inputCls} />
         </Field>
@@ -242,7 +230,6 @@ function AddUserModal({ departments, onClose, onSuccess }) {
   );
 }
 
-// ─── Modal: Edit User ─────────────────────────────────────────────────────────
 function EditUserModal({ user, departments, onClose, onSuccess }) {
   const [form, setForm] = useState({
     name: user.name || "",
@@ -326,7 +313,6 @@ function EditUserModal({ user, departments, onClose, onSuccess }) {
   );
 }
 
-// ─── Modal: Reset Password ────────────────────────────────────────────────────
 function ResetPasswordModal({ user, onClose, onSuccess }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -384,16 +370,9 @@ function ResetPasswordModal({ user, onClose, onSuccess }) {
   );
 }
 
-// ─── Modal: Confirm Action ────────────────────────────────────────────────────
 function ConfirmActionModal({ title, description, confirmLabel, danger = false, onClose, onConfirm }) {
   const [loading, setLoading] = useState(false);
-
-  async function handle() {
-    setLoading(true);
-    await onConfirm();
-    setLoading(false);
-  }
-
+  async function handle() { setLoading(true); await onConfirm(); setLoading(false); }
   return (
     <ModalOverlay onClose={onClose}>
       <ModalHeader title={title} onClose={onClose} />
@@ -402,8 +381,7 @@ function ConfirmActionModal({ title, description, confirmLabel, danger = false, 
         <div className="flex items-center justify-end gap-2.5">
           <button onClick={onClose} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Cancel</button>
           <button onClick={handle} disabled={loading}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition disabled:opacity-60
-              ${danger ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}`}>
+            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition disabled:opacity-60 ${danger ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}`}>
             {loading ? <RefreshCw size={13} className="animate-spin" /> : null}
             {confirmLabel}
           </button>
@@ -413,7 +391,6 @@ function ConfirmActionModal({ title, description, confirmLabel, danger = false, 
   );
 }
 
-// ─── Modal: Bulk Reset Password ───────────────────────────────────────────────
 function BulkResetModal({ count, onClose, onConfirm }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -428,9 +405,7 @@ function BulkResetModal({ count, onClose, onConfirm }) {
     else if (password.length < 8) errs.password = "Minimum 8 characters.";
     if (password !== confirm) errs.confirm = "Passwords do not match.";
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    setLoading(true);
-    await onConfirm(password);
-    setLoading(false);
+    setLoading(true); await onConfirm(password); setLoading(false);
   }
 
   return (
@@ -464,7 +439,6 @@ function BulkResetModal({ count, onClose, onConfirm }) {
   );
 }
 
-// ─── Panel: Audit Log ─────────────────────────────────────────────────────────
 function AuditLogPanel({ targetCollegeId, onClose }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -481,33 +455,22 @@ function AuditLogPanel({ targetCollegeId, onClose }) {
 
   return (
     <>
-      {/* Backdrop */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="fixed inset-0 z-[80] bg-black/20" onClick={onClose} />
-
-      {/* Panel */}
       <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 26, stiffness: 280 }}
         className="fixed right-0 top-0 bottom-0 z-[90] flex flex-col w-[400px] max-w-full bg-white border-l border-gray-200 shadow-2xl">
-
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <h2 className="text-[15px] font-bold text-gray-900">Audit Log</h2>
-            {targetCollegeId && (
-              <p className="text-[12px] text-gray-400 mt-0.5">Filtered: {targetCollegeId}</p>
-            )}
+            {targetCollegeId && <p className="text-[12px] text-gray-400 mt-0.5">Filtered: {targetCollegeId}</p>}
           </div>
           <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
             <X size={16} />
           </button>
         </div>
-
-        {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {loading && (
-            <div className="flex items-center justify-center py-16 text-sm text-gray-400">Loading audit log…</div>
-          )}
+          {loading && <div className="flex items-center justify-center py-16 text-sm text-gray-400">Loading audit log…</div>}
           {!loading && logs.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-400">
               <History size={32} strokeWidth={1.5} />
@@ -523,9 +486,7 @@ function AuditLogPanel({ targetCollegeId, onClose }) {
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide mb-1.5 ${getAuditBadge(log.action)}`}>
                         {ACTION_LABELS[log.action] || log.action}
                       </span>
-                      <p className="text-[13px] font-semibold text-gray-800 truncate">
-                        {log.target_college_id || "—"}
-                      </p>
+                      <p className="text-[13px] font-semibold text-gray-800 truncate">{log.target_college_id || "—"}</p>
                       <p className="text-[11px] text-gray-400 mt-0.5">
                         by <span className="font-medium text-gray-500">{log.performed_by_college_id || "system"}</span>
                       </p>
@@ -539,9 +500,7 @@ function AuditLogPanel({ targetCollegeId, onClose }) {
                         </div>
                       )}
                     </div>
-                    <span className="text-[11px] text-gray-400 whitespace-nowrap shrink-0 mt-1">
-                      {formatTimestamp(log.timestamp)}
-                    </span>
+                    <span className="text-[11px] text-gray-400 whitespace-nowrap shrink-0 mt-1">{formatTimestamp(log.timestamp)}</span>
                   </div>
                 </div>
               ))}
@@ -553,7 +512,6 @@ function AuditLogPanel({ targetCollegeId, onClose }) {
   );
 }
 
-// ─── Row Actions Menu ─────────────────────────────────────────────────────────
 function RowActionsMenu({ user, onEdit, onReset, onToggle, onAudit }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -605,26 +563,22 @@ function RowActionsMenu({ user, onEdit, onReset, onToggle, onAudit }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function UserManagementPage() {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [deptFilter, setDeptFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [page, setPage] = useState(1);
-
   const [selected, setSelected] = useState(new Set());
-  const [modal, setModal] = useState(null); // { type, data? }
-  const [auditPanel, setAuditPanel] = useState(null); // null | collegeId string (or "" for all)
+  const [modal, setModal] = useState(null);
+  const [auditPanel, setAuditPanel] = useState(null);
 
   const { toasts, add: addToast } = useToast();
 
-  // ── Data fetching ─────────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
     setLoading(true); setError(null);
     try {
@@ -641,7 +595,6 @@ export default function UserManagementPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // ── Computed stats ────────────────────────────────────────────────────────
   const totalUsers = users.length;
   const activeUsers = users.filter((u) => u.is_active).length;
   const hodUsers = users.filter((u) => u.role === "HOD").length;
@@ -654,7 +607,6 @@ export default function UserManagementPage() {
     { label: "Disabled", value: disabledUsers, color: "text-red-500", sub: "Access suspended", subColor: "text-gray-400", icon: Clock, iconBg: "bg-red-50", iconText: "text-red-500" },
   ];
 
-  // ── Filtering ─────────────────────────────────────────────────────────────
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
     if (q && !u.name?.toLowerCase().includes(q) && !u.email?.toLowerCase().includes(q) && !u.college_id?.toLowerCase().includes(q)) return false;
@@ -672,15 +624,14 @@ export default function UserManagementPage() {
 
   const resetPage = () => setPage(1);
 
-  // ── Selection ─────────────────────────────────────────────────────────────
   const allPageSelected = paginated.length > 0 && paginated.every((u) => selected.has(u.id));
   const someSelected = selected.size > 0;
 
   function toggleAll() {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allPageSelected) { paginated.forEach((u) => next.delete(u.id)); }
-      else { paginated.forEach((u) => next.add(u.id)); }
+      if (allPageSelected) paginated.forEach((u) => next.delete(u.id));
+      else paginated.forEach((u) => next.add(u.id));
       return next;
     });
   }
@@ -689,7 +640,6 @@ export default function UserManagementPage() {
     setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   }
 
-  // ── Actions ───────────────────────────────────────────────────────────────
   async function handleToggleStatus(user) {
     const newStatus = !user.is_active;
     try {
@@ -715,7 +665,6 @@ export default function UserManagementPage() {
 
   const deptOptions = ["All", ...departments.map((d) => d.name)];
 
-  // ── Export CSV ────────────────────────────────────────────────────────────
   function exportCSV() {
     const header = ["College ID", "Name", "Email", "Role", "Department", "Status", "Last Active"];
     const rows = filtered.map((u) => [u.college_id, u.name, u.email, u.role, u.department || "", u.status, u.last_active]);
@@ -726,7 +675,6 @@ export default function UserManagementPage() {
     URL.revokeObjectURL(url);
   }
 
-  // ── Page number display ───────────────────────────────────────────────────
   function pageNumbers() {
     if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
     if (page <= 3) return [1, 2, 3, 4, "...", totalPages];
@@ -735,10 +683,9 @@ export default function UserManagementPage() {
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6 h-full overflow-y-auto px-1 pb-8">
       <Toasts toasts={toasts} />
 
-      {/* HEADER */}
       <motion.div variants={itemVariants} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-[28px] font-bold tracking-tight text-gray-900">User Management</h1>
@@ -756,7 +703,6 @@ export default function UserManagementPage() {
         </div>
       </motion.div>
 
-      {/* STAT CARDS */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => {
           const Icon = s.icon;
@@ -766,9 +712,7 @@ export default function UserManagementPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{s.label}</p>
-                  <p className={`mt-1 text-[34px] font-bold leading-none tracking-tight ${s.color}`}>
-                    {loading ? "—" : s.value}
-                  </p>
+                  <p className={`mt-1 text-[34px] font-bold leading-none tracking-tight ${s.color}`}>{loading ? "—" : s.value}</p>
                   <p className={`mt-2 flex items-center gap-1 text-xs font-medium ${s.subColor}`}>
                     {s.dot && <span className={`inline-block h-1.5 w-1.5 rounded-full ${s.dot}`} />}
                     {s.sub}
@@ -785,10 +729,8 @@ export default function UserManagementPage() {
         })}
       </motion.div>
 
-      {/* SEARCH + FILTERS */}
       <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Search */}
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input value={search} onChange={(e) => { setSearch(e.target.value); resetPage(); }}
@@ -801,7 +743,6 @@ export default function UserManagementPage() {
             )}
           </div>
 
-          {/* Role Filter */}
           {[
             { label: "Role", value: roleFilter, options: ["All", ...ROLES], set: (v) => { setRoleFilter(v); resetPage(); } },
             { label: "Dept", value: deptFilter, options: deptOptions, set: (v) => { setDeptFilter(v); resetPage(); } },
@@ -816,7 +757,6 @@ export default function UserManagementPage() {
             </div>
           ))}
 
-          {/* Active filter indicators */}
           {(search || roleFilter !== "All" || deptFilter !== "All" || statusFilter !== "All") && (
             <button onClick={() => { setSearch(""); setRoleFilter("All"); setDeptFilter("All"); setStatusFilter("All"); resetPage(); }}
               className="flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-600 hover:bg-indigo-100 transition">
@@ -831,7 +771,6 @@ export default function UserManagementPage() {
         </button>
       </motion.div>
 
-      {/* BULK ACTION BAR */}
       <AnimatePresence>
         {someSelected && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
@@ -858,20 +797,14 @@ export default function UserManagementPage() {
         )}
       </AnimatePresence>
 
-      {/* TABLE */}
       <motion.div variants={itemVariants} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-
-        {loading && (
-          <div className="flex items-center justify-center py-16 text-sm text-gray-400">Loading users…</div>
-        )}
-
+        {loading && <div className="flex items-center justify-center py-16 text-sm text-gray-400">Loading users…</div>}
         {error && (
           <div className="flex items-center justify-between px-5 py-4 bg-red-50 border-b border-red-100">
             <p className="text-sm font-medium text-red-600">{error}</p>
             <button onClick={fetchAll} className="ml-4 rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition">Retry</button>
           </div>
         )}
-
         {!loading && !error && (
           <>
             {filtered.length === 0 ? (
@@ -900,14 +833,10 @@ export default function UserManagementPage() {
                       return (
                         <motion.tr key={u.id} layout
                           className={`border-b border-gray-100 transition-colors hover:bg-gray-50/60 ${isSelected ? "bg-indigo-50/40" : ""}`}>
-
-                          {/* Checkbox */}
                           <td className="px-4 py-3.5">
                             <input type="checkbox" checked={isSelected} onChange={() => toggleOne(u.id)}
                               className="h-3.5 w-3.5 rounded border-gray-300 accent-indigo-600 cursor-pointer" />
                           </td>
-
-                          {/* User */}
                           <td className="px-4 py-3.5">
                             <div className="flex items-center gap-3">
                               <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${getAvatarColor(u.role)} ${disabled ? "opacity-50" : ""}`}>
@@ -919,41 +848,26 @@ export default function UserManagementPage() {
                               </div>
                             </div>
                           </td>
-
-                          {/* College ID */}
                           <td className="whitespace-nowrap px-4 py-3.5">
                             <span className="font-mono text-[12px] text-gray-500">{u.college_id}</span>
                           </td>
-
-                          {/* Role */}
                           <td className="whitespace-nowrap px-4 py-3.5">
                             <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${getRoleBadge(u.role)}`}>
                               {u.role}
                             </span>
                           </td>
-
-                          {/* Department */}
                           <td className="whitespace-nowrap px-4 py-3.5 text-[13px] text-gray-600">
                             {u.department || <span className="text-gray-300">—</span>}
                           </td>
-
-                          {/* Status */}
                           <td className="whitespace-nowrap px-4 py-3.5">
-                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset
-                              ${u.is_active
-                                ? "bg-emerald-50 text-emerald-700 ring-emerald-500/20"
-                                : "bg-red-50 text-red-600 ring-red-500/20"}`}>
+                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${u.is_active ? "bg-emerald-50 text-emerald-700 ring-emerald-500/20" : "bg-red-50 text-red-600 ring-red-500/20"}`}>
                               <span className={`inline-block h-1.5 w-1.5 rounded-full ${u.is_active ? "bg-emerald-500 animate-pulse" : "bg-red-400"}`} />
                               {u.is_active ? "Active" : "Disabled"}
                             </span>
                           </td>
-
-                          {/* Added */}
                           <td className="whitespace-nowrap px-4 py-3.5 text-[12px] text-gray-400">
                             {u.created_at ? formatRelativeTime(u.created_at) : u.last_active}
                           </td>
-
-                          {/* Actions */}
                           <td className="whitespace-nowrap px-4 py-3.5">
                             <RowActionsMenu
                               user={u}
@@ -982,7 +896,6 @@ export default function UserManagementPage() {
               </div>
             )}
 
-            {/* Pagination */}
             {filtered.length > 0 && (
               <div className="flex items-center justify-between border-t border-gray-200 px-5 py-3">
                 <p className="text-xs text-gray-500">
@@ -1001,8 +914,7 @@ export default function UserManagementPage() {
                       <span key={`ellipsis-${i}`} className="flex h-7 w-7 items-center justify-center text-xs text-gray-400">…</span>
                     ) : (
                       <button key={p} onClick={() => setPage(p)}
-                        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition
-                          ${page === p ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}>
+                        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition ${page === p ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}>
                         {p}
                       </button>
                     )
@@ -1018,20 +930,14 @@ export default function UserManagementPage() {
         )}
       </motion.div>
 
-      {/* ── Modals ── */}
       <AnimatePresence>
         {modal?.type === "add" && (
           <AddUserModal
             departments={departments}
             onClose={() => setModal(null)}
-            onSuccess={(newUser) => {
-              setUsers((prev) => [newUser, ...prev]);
-              setModal(null);
-              addToast(`${newUser.college_id} created successfully.`);
-            }}
+            onSuccess={() => { setModal(null); fetchAll(); addToast("User created successfully."); }}
           />
         )}
-
         {modal?.type === "edit" && (
           <EditUserModal
             user={modal.data}
@@ -1044,18 +950,13 @@ export default function UserManagementPage() {
             }}
           />
         )}
-
         {modal?.type === "reset" && (
           <ResetPasswordModal
             user={modal.data}
             onClose={() => setModal(null)}
-            onSuccess={() => {
-              addToast(`Password reset for ${modal.data.college_id}.`);
-              setModal(null);
-            }}
+            onSuccess={() => { addToast(`Password reset for ${modal.data.college_id}.`); setModal(null); }}
           />
         )}
-
         {modal?.type === "confirm_toggle" && (
           <ConfirmActionModal
             title={modal.data.title}
@@ -1066,7 +967,6 @@ export default function UserManagementPage() {
             onConfirm={() => handleToggleStatus(modal.data.user)}
           />
         )}
-
         {modal?.type === "bulk_confirm" && (
           <ConfirmActionModal
             title={modal.data.action === "enable" ? `Enable ${selected.size} accounts?` : `Disable ${selected.size} accounts?`}
@@ -1079,7 +979,6 @@ export default function UserManagementPage() {
             onConfirm={() => handleBulkAction(modal.data.action)}
           />
         )}
-
         {modal?.type === "bulk_reset" && (
           <BulkResetModal
             count={selected.size}
@@ -1089,7 +988,6 @@ export default function UserManagementPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Audit Log Panel ── */}
       <AnimatePresence>
         {auditPanel !== null && (
           <AuditLogPanel

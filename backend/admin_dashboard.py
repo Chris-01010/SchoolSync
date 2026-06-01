@@ -1,3 +1,4 @@
+from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
@@ -10,7 +11,7 @@ from .database import get_db
 from .models import (
     User, UserRole, Teacher, Department, ClassRoom, Absence,
     ReliefAssignment, AbsenceStatus, ReliefStatus, TimetableVersion, TimetableSlot,
-    Notification, AuditLog
+    Notification
 )
 from . import auth
 from .schemas import (

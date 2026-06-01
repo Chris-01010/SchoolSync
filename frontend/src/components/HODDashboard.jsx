@@ -3,15 +3,28 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays, ClipboardCheck, UserCheck, BarChart3 } from 'lucide-react';
 import {
-  AlertCircle, Plus, ArrowRight, MoreVertical, Wifi,
+  AlertCircle,
+  Users,
+  Clock,
+  ArrowRight,
+  Plus,
+  MoreVertical,
+  Wifi,
 } from 'lucide-react';
-import { api } from '../services/api';
 
-const MOCK_TIMETABLE = [
-  { period: '01', time: '08:30', teacher: 'Mrs. Aris',     subject: 'Biology 101',    status: 'ongoing'   },
-  { period: '02', time: '09:25', teacher: 'Dr. Singh',     subject: 'Physics AP',     status: 'relief', reliefTeacher: 'Ms. Lee' },
-  { period: '03', time: '10:40', teacher: 'Mr. Chen',      subject: 'General Science',status: 'scheduled' },
-  { period: '04', time: '11:35', teacher: 'Mr. Henderson', subject: 'Chemistry',      status: 'cancelled' },
+// ─── Fallback mock data (used only if API fails) ────────────────────────────
+const MOCK_STATS = {
+  department_name: 'CS',
+  pending_approvals_count: 0,
+  missing_reliefs: 0,
+  teacher_workload_alert: false,
+  active_conflicts: 0,
+};
+
+const MOCK_STAFF = [
+  { name: 'Ms. Julia Lee',   free: 'Free: Periods 4, 5, 8', initials: 'JL', color: 'bg-purple-100 text-purple-700' },
+  { name: 'Mr. David Smith', free: 'Free: Period 4 ONLY',   initials: 'DS', color: 'bg-blue-100 text-blue-700'   },
+  { name: 'Ms. Sarah Oh',    free: 'In Class (Ends 12:20)', initials: 'SO', color: 'bg-green-100 text-green-700' },
 ];
 
 const WORKLOAD_DATA = [
@@ -22,11 +35,40 @@ const WORKLOAD_DATA = [
   { day: 'F', teaching: 75, relief: 10 },
 ];
 
-const StatusBadge = ({ status, reliefTeacher }) => {
-  if (status === 'ongoing')   return <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-semibold border border-green-200">Ongoing</span>;
-  if (status === 'relief')    return <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-semibold border border-blue-200">Relief: {reliefTeacher}</span>;
-  if (status === 'scheduled') return <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-semibold">Scheduled</span>;
-  if (status === 'cancelled') return <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-500 text-[10px] font-semibold border border-red-100 line-through">Cancelled</span>;
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// ─── Sub-components ─────────────────────────────────────────────────────────
+const StatusBadge = ({ status, teacherName, originalName }) => {
+  if (status === 'ongoing')
+    return (
+      <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-semibold border border-green-200">
+        Ongoing
+      </span>
+    );
+  if (status === 'relief')
+    return (
+      <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-semibold border border-blue-200">
+        Relief{teacherName ? `: ${teacherName}` : ''}
+      </span>
+    );
+  if (status === 'scheduled')
+    return (
+      <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-semibold">
+        Scheduled
+      </span>
+    );
+  if (status === 'cancelled')
+    return (
+      <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-500 text-[10px] font-semibold border border-red-100 line-through decoration-red-400">
+        Cancelled
+      </span>
+    );
+  if (status === 'vacant')
+    return (
+      <span className="px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 text-[10px] font-semibold border border-orange-200">
+        ⚠ Vacant{originalName ? ` (was ${originalName})` : ''}
+      </span>
+    );
   return null;
 };
 
@@ -36,48 +78,97 @@ const MiniBar = ({ value, color, max = 100 }) => (
   </div>
 );
 
-const HODDashboard = () => {
-  const [stats, setStats]   = useState(null);
-  const [loading, setLoading] = useState(true);
+// ─── Main Component ─────────────────────────────────────────────────────────
+const HODDashboard = ({ user }) => {
+  const [stats, setStats]           = useState(MOCK_STATS);
+  const [pendingLeaves, setPendingLeaves] = useState([]);
+  const [timetable, setTimetable]   = useState([]);
+  const [isLoading, setIsLoading]   = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get('/api/v1/admin/hod-stats')
-      .then(data => setStats(data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem('schoolsync_token');
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const [statsRes, leavesRes, timetableRes] = await Promise.all([
+          fetch('http://localhost:8000/hod/dashboard',           { headers }),
+          fetch('http://localhost:8000/leaves/pending',          { headers }),
+          fetch('http://localhost:8000/leaves/hod/timetable/today', { headers }),
+        ]);
+
+        // Stats — best-effort merge with mock
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          setStats(prev => ({ ...prev, ...statsData }));
+        }
+
+        // Pending leaves
+        if (leavesRes.ok) {
+          const leavesData = await leavesRes.json();
+          // API returns { success, count, data: [...] }
+          setPendingLeaves(leavesData.data ?? leavesData);
+        }
+
+        // Today's timetable — real data replaces mock entirely
+        if (timetableRes.ok) {
+          const ttData = await timetableRes.json();
+          setTimetable(ttData.slots ?? []);
+        }
+
+      } catch {
+        // stay on mock data
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
   }, []);
+
+  // Derive missing relief count from real timetable data
+  const vacantCount = timetable.filter(s => s.status === 'vacant').length;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const statCards = [
     {
-      value:       loading ? '…' : (stats?.pending_approvals_count ?? 0),
-      label:       'Pending Leave Approvals',
-      badge:       'PENDING',
-      badgeColor:  'bg-blue-100 text-blue-600',
+      value: stats.pending_approvals_count ?? pendingLeaves.length,
+      label: 'Pending Leave Approvals',
+      badge: 'PENDING',
+      badgeColor: 'bg-blue-100 text-blue-600',
       borderColor: 'border-blue-200',
     },
     {
-      value:       loading ? '…' : (stats?.missing_reliefs ?? 0),
-      label:       'Missing Reliefs',
-      badge:       'URGENT',
-      badgeColor:  'bg-red-100 text-red-600',
+      value: vacantCount || stats.missing_reliefs,
+      label: 'Missing Reliefs',
+      badge: 'URGENT',
+      badgeColor: 'bg-red-100 text-red-600',
       borderColor: 'border-red-200',
     },
     {
-      value:       loading ? '…' : (stats?.total_teachers ?? 0),
-      label:       'Dept Teachers',
-      badge:       'ACTIVE',
-      badgeColor:  'bg-emerald-100 text-emerald-600',
-      borderColor: 'border-emerald-200',
+      value: stats.teacher_workload_alert ? '⚠' : '✓',
+      label: 'Teacher Workload',
+      badge: 'LOAD',
+      badgeColor: 'bg-amber-100 text-amber-600',
+      borderColor: 'border-amber-200',
     },
     {
-      value:       loading ? '…' : (stats?.active_conflicts ?? 0),
-      label:       'Active Conflicts',
-      badge:       'CLEAR',
-      badgeColor:  'bg-green-100 text-green-600',
+      value: stats.active_conflicts ?? 0,
+      label: 'Active Conflicts',
+      badge: 'CLEAR',
+      badgeColor: 'bg-green-100 text-green-600',
       borderColor: 'border-green-200',
     },
   ];
+
+  const todayName = DAY_NAMES[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
 
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
@@ -105,15 +196,15 @@ const HODDashboard = () => {
         ))}
       </div>
 
-      {/* Quick Actions */}
+      {/* ── Quick Actions ──────────────────────────────────────────────── */}
       <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
         <h3 className="text-[13px] font-semibold text-gray-800 mb-3">Quick Actions</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Timetables',        icon: CalendarDays,   path: '/hod/timetables' },
-            { label: 'Leave Approvals',   icon: ClipboardCheck, path: '/hod/leave'      },
-            { label: 'Relief Management', icon: UserCheck,      path: '/hod/relief'     },
-            { label: 'Analytics',         icon: BarChart3,      path: '/hod/analytics'  },
+            { label: 'Timetables',        icon: CalendarDays,  path: '/hod/timetables' },
+            { label: 'Leave Approvals',   icon: ClipboardCheck, path: '/hod/leave'    },
+            { label: 'Relief Management', icon: UserCheck,     path: '/hod/relief'     },
+            { label: 'Analytics',         icon: BarChart3,     path: '/hod/analytics'  },
           ].map((qa) => {
             const Icon = qa.icon;
             return (
@@ -129,68 +220,121 @@ const HODDashboard = () => {
         </div>
       </div>
 
-      {/* Main Grid */}
+      {/* ── Main Grid ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3 space-y-4">
 
-          {/* Critical Alerts */}
-          <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <AlertCircle size={14} className="text-red-500" />
-              <h3 className="text-[13px] font-semibold text-gray-800">Critical Alerts</h3>
+          {/* Critical Alerts — only show if there are vacant slots */}
+          {vacantCount > 0 && (
+            <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertCircle size={14} className="text-red-500" />
+                <h3 className="text-[13px] font-semibold text-gray-800">Critical Alerts</h3>
+              </div>
+              {timetable
+                .filter(s => s.status === 'vacant')
+                .map((s, i) => (
+                  <div key={i} className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-3 py-2.5 mb-2">
+                    <div>
+                      <p className="text-[12px] font-semibold text-gray-800">
+                        Vacant Slot: Period {s.period}
+                      </p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        {s.original_teacher_name ? `Was: ${s.original_teacher_name}` : 'No teacher assigned'}
+                        {s.class_id ? ` · Class ${s.class_id}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate('/hod/relief')}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-[11px] font-semibold rounded-lg"
+                    >
+                      Assign Now
+                    </button>
+                  </div>
+                ))
+              }
             </div>
-            {stats?.missing_reliefs > 0 ? (
-              <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">
-                <div>
-                  <p className="text-[12px] font-semibold text-gray-800">Unassigned Relief Duties</p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">{stats.missing_reliefs} relief duties need assignment today</p>
-                </div>
-                <button onClick={() => navigate('/hod/relief')}
-                  className="px-3 py-1.5 bg-blue-600 text-white text-[11px] font-semibold rounded-lg">
-                  Assign Now
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-lg px-3 py-2.5">
-                <p className="text-[12px] font-semibold text-green-700">All clear — no critical alerts today</p>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Today's Timetable */}
           <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[13px] font-semibold text-gray-800">Today's Department Timetable</h3>
-              <button onClick={() => navigate('/hod/timetables')} className="flex items-center gap-1 text-[11px] text-blue-600 font-medium hover:text-blue-700">
+              <h3 className="text-[13px] font-semibold text-gray-800">
+                {todayName}'s Department Timetable
+              </h3>
+              <button className="flex items-center gap-1 text-[11px] text-blue-600 font-medium hover:text-blue-700">
                 Full Schedule <ArrowRight size={11} />
               </button>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
-                    <th className="text-left pb-2 pr-4">Period</th>
-                    <th className="text-left pb-2 pr-4">Teacher</th>
-                    <th className="text-left pb-2 pr-4">Subject</th>
-                    <th className="text-left pb-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {MOCK_TIMETABLE.map((row, i) => (
-                    <tr key={i} className={`text-[12px] ${row.status === 'cancelled' ? 'opacity-50' : ''}`}>
-                      <td className="py-2 pr-4 font-semibold text-gray-600">{row.period}<span className="text-gray-400 font-normal ml-1">({row.time})</span></td>
-                      <td className="py-2 pr-4 text-gray-700">{row.teacher}</td>
-                      <td className="py-2 pr-4 text-gray-700">{row.subject}</td>
-                      <td className="py-2"><StatusBadge status={row.status} reliefTeacher={row.reliefTeacher} /></td>
+              {timetable.length === 0 ? (
+                <p className="text-[12px] text-gray-400 text-center py-6">
+                  No timetable data for today.
+                </p>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                      <th className="text-left pb-2 pr-4">Period</th>
+                      <th className="text-left pb-2 pr-4">Teacher</th>
+                      <th className="text-left pb-2">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {timetable.map((row, i) => (
+                      <tr
+                        key={i}
+                        className={`text-[12px] ${row.status === 'vacant' ? 'bg-orange-50/40' : ''}`}
+                      >
+                        <td className="py-2 pr-4 font-semibold text-gray-600">
+                          {String(row.period).padStart(2, '0')}
+                        </td>
+                        <td className="py-2 pr-4 text-gray-700">
+                          {row.teacher_name ?? (
+                            <span className="text-orange-500 font-medium">Unassigned</span>
+                          )}
+                        </td>
+                        <td className="py-2">
+                          <StatusBadge
+                            status={row.status}
+                            teacherName={row.teacher_name}
+                            originalName={row.original_teacher_name}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
 
         <div className="lg:col-span-2 space-y-4">
+
+          {/* Staff Availability */}
+          <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[13px] font-semibold text-gray-800">Staff Availability</h3>
+              <span className="flex items-center gap-1 text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-md">
+                <Wifi size={8} /> LIVE NOW
+              </span>
+            </div>
+            <div className="space-y-2.5">
+              {MOCK_STAFF.map((staff, i) => (
+                <div key={i} className="flex items-center gap-2.5">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${staff.color}`}>
+                    {staff.initials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-gray-800 truncate">{staff.name}</p>
+                    <p className="text-[10px] text-gray-400 truncate">{staff.free}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Weekly Workload */}
           <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
@@ -219,7 +363,9 @@ const HODDashboard = () => {
                       <div className="w-full rounded-t-sm bg-blue-200" style={{ height: `${(d.teaching / 100) * 44}px` }} />
                       <div className="w-full rounded-b-sm bg-blue-500" style={{ height: `${(d.relief / 100) * 44}px` }} />
                     </div>
-                    <span className={`text-[9px] font-semibold ${d.day === 'W' ? 'text-blue-600' : 'text-gray-400'}`}>{d.day}</span>
+                    <span className={`text-[9px] font-semibold ${d.day === 'W' ? 'text-blue-600' : 'text-gray-400'}`}>
+                      {d.day}
+                    </span>
                   </div>
                 ))}
               </div>

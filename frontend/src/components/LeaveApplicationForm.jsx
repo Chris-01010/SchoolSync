@@ -32,38 +32,40 @@ export default function LeaveApplicationForm({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const payload = {
-      ...leaveForm,
-      document: leaveForm.document ? leaveForm.document.name : null
-    };
-
     if (leaveForm.endDate && leaveForm.startDate && leaveForm.endDate < leaveForm.startDate) {
       return;
     }
 
-    const token =
-  localStorage.getItem("schoolsync_token") || localStorage.getItem("token");
-console.log("TOKEN USED:", token);
+    const token = localStorage.getItem("schoolsync_token") || localStorage.getItem("token");
 
-const response = await fetch("http://localhost:8000/leaves/apply", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  },
-  body: JSON.stringify({
-    date: leaveForm.startDate,
-    period_start: 1,
-    period_end: 2,
-    leave_type: leaveForm.leaveType === "Sick Leave" ? "sick" : leaveForm.leaveType === "Casual Leave" ? "casual" : "other",
-    reason: leaveForm.reason,
-    handover_url: null,
-  }),
-});
+    try {
+      const response = await fetch("http://localhost:8000/leaves/apply", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          date: leaveForm.startDate,
+          period_start: 1,
+          period_end: 2,
+          leave_type: leaveForm.leaveType,
+          reason: leaveForm.reason,
+          handover_url: null,
+        }),
+      });
 
-console.log(await response.json());
+      const data = await response.json();
 
-onSubmit(payload);
+      if (!response.ok) {
+        console.error("Leave apply failed:", data);
+        return; // Don't close on failure
+      }
+
+      onSubmit(); // ✅ Only close on success
+    } catch (err) {
+      console.error("Leave apply error:", err);
+    }
   };
 
   return (

@@ -354,91 +354,38 @@ export function TeacherNotifications() {
       <AnimatePresence>
         {selectedNotif && (
           <motion.div
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() =>
-              setSelectedNotif(
-                null
-              )
-            }
+            onClick={() => setSelectedNotif(null)}
           >
             <motion.div
-              initial={{
-                scale: 0.95,
-                opacity: 0,
-              }}
-              animate={{
-                scale: 1,
-                opacity: 1,
-              }}
-              exit={{
-                scale: 0.95,
-                opacity: 0,
-              }}
-              transition={{
-                duration: 0.15,
-              }}
-              onClick={(e) =>
-                e.stopPropagation()
-              }
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-md p-6"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start gap-3">
                   {(() => {
-                    const cfg =
-                      ICON_MAP[
-                        selectedNotif
-                          .type
-                      ] ??
-                      ICON_MAP.announcement;
-
-                    const Icon =
-                      cfg.icon;
-
+                    const cfg = ICON_MAP[selectedNotif.type] ?? ICON_MAP.announcement;
+                    const Icon = cfg.icon;
                     return (
-                      <div
-                        className={`w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center flex-shrink-0`}
-                      >
-                        <Icon
-                          size={18}
-                          className={
-                            cfg.color
-                          }
-                        />
+                      <div className={`w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center flex-shrink-0`}>
+                        <Icon size={18} className={cfg.color} />
                       </div>
                     );
                   })()}
-
                   <div>
-                    <h2 className="text-[14px] font-bold text-gray-900">
-                      {
-                        selectedNotif.title
-                      }
-                    </h2>
-
-                    <p className="text-[10px] text-gray-400 mt-0.5">
-                      {
-                        selectedNotif.time
-                      }
-                    </p>
+                    <h2 className="text-[14px] font-bold text-gray-900">{selectedNotif.title}</h2>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{selectedNotif.time}</p>
                   </div>
                 </div>
-
                 <button
-                  onClick={() =>
-                    setSelectedNotif(
-                      null
-                    )
-                  }
+                  onClick={() => setSelectedNotif(null)}
                   className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                 >
                   <X size={16} />
@@ -449,13 +396,27 @@ export function TeacherNotifications() {
                 {selectedNotif.message || 'No additional details available for this notification.'}
               </p>
 
+              {/* ── Action buttons for relief notifications ── */}
+              {selectedNotif.type === 'relief_request' && selectedNotif.action_url && (
+                <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-xl">
+                  <p className="text-[11px] font-semibold text-orange-700 mb-2">
+                    You have a pending relief request. Go to My Relief Duties to respond.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setSelectedNotif(null);
+                      window.location.href = '/dashboard/relief-duties';
+                    }}
+                    className="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white text-[12px] font-semibold rounded-lg transition-colors"
+                  >
+                    Go to Relief Duties →
+                  </button>
+                </div>
+              )}
+
               <div className="flex justify-end mt-5">
                 <button
-                  onClick={() =>
-                    setSelectedNotif(
-                      null
-                    )
-                  }
+                  onClick={() => setSelectedNotif(null)}
                   className="px-4 py-2 text-[12px] font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
                 >
                   Close

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download, Search, CalendarDays,
@@ -29,7 +30,25 @@ const statusLabel = (status) => {
 
 const isActionable = (status) => status === 'pending' || status === 'clarification_requested';
 
+const HIGHLIGHT_STYLE_ID = 'leave-highlight-style';
+if (!document.getElementById(HIGHLIGHT_STYLE_ID)) {
+  const style = document.createElement('style');
+  style.id = HIGHLIGHT_STYLE_ID;
+  style.textContent = `
+    @keyframes leaveHighlightFade {
+      0%   { box-shadow: 0 0 0 3px #fbbf24, 0 0 0 6px #fef3c7; background-color: #fefce8; }
+      70%  { box-shadow: 0 0 0 3px #fbbf24, 0 0 0 6px #fef3c7; background-color: #fefce8; }
+      100% { box-shadow: none; background-color: transparent; }
+    }
+    .leave-card-highlight {
+      animation: leaveHighlightFade 3s ease-out forwards;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 export default function LeaveManagement() {
+  const [searchParams]                    = useSearchParams();
   const [leaves, setLeaves]               = useState([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState(null);
@@ -41,6 +60,20 @@ export default function LeaveManagement() {
   const [clarifyMsg, setClarifyMsg]       = useState('');
   const [rejectModal, setRejectModal]     = useState(null);
   const [rejectMsg, setRejectMsg]         = useState('');
+  const [highlightId, setHighlightId]     = useState(null);
+  const highlightHandled                  = useRef(false);
+  const cardRefs                          = useRef({});
+
+  useEffect(() => {
+    const tabParam     = searchParams.get('tab');
+    const leaveIdParam = searchParams.get('leave_id');
+    if (tabParam && ['pending', 'approved', 'rejected'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+    if (leaveIdParam) {
+      setHighlightId(leaveIdParam);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchLeaves = useCallback(async () => {
     setLoading(true);
@@ -62,6 +95,29 @@ export default function LeaveManagement() {
   }, []);
 
   useEffect(() => { fetchLeaves(); }, [fetchLeaves]);
+
+  useEffect(() => {
+    if (loading || !highlightId || highlightHandled.current) return;
+    const exists = leaves.some((l) => String(l.id) === String(highlightId));
+    if (!exists) {
+      showToast(`Leave request #${highlightId} not found.`, 'error');
+      highlightHandled.current = true;
+      return;
+    }
+    requestAnimationFrame(() => {
+      const node = cardRefs.current[highlightId];
+      if (node) {
+        node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+          node.classList.add('leave-card-highlight');
+          node.addEventListener('animationend', () => {
+            node.classList.remove('leave-card-highlight');
+          }, { once: true });
+        }, 400);
+        highlightHandled.current = true;
+      }
+    });
+  }, [loading, highlightId, leaves]);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -119,7 +175,6 @@ export default function LeaveManagement() {
 
   const tabLeaves = activeTab === 'pending' ? pendingLeaves : activeTab === 'approved' ? approvedLeaves : rejectedLeaves;
 
-  // Sort: emergency leaves float to the top
   const filtered = tabLeaves
     .filter((l) =>
       !search || l.teacher_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -136,7 +191,6 @@ export default function LeaveManagement() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-7">
 
-      {/* EMERGENCY BANNER */}
       <AnimatePresence>
         {emergencyCount > 0 && activeTab === 'pending' && (
           <motion.div
@@ -157,7 +211,6 @@ export default function LeaveManagement() {
         )}
       </AnimatePresence>
 
-      {/* HEADER */}
       <motion.div variants={itemVariants} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-[28px] font-bold tracking-tight text-gray-900">Leave Approvals</h1>
@@ -168,7 +221,6 @@ export default function LeaveManagement() {
         </button>
       </motion.div>
 
-      {/* TABS */}
       <motion.div variants={itemVariants} className="flex gap-0 border-b border-gray-200">
         {tabs.map((tab) => {
           const active = activeTab === tab.id;
@@ -189,7 +241,6 @@ export default function LeaveManagement() {
         })}
       </motion.div>
 
-      {/* FILTER ROW */}
       <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3">
         <div className="relative">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -202,7 +253,6 @@ export default function LeaveManagement() {
         </div>
       </motion.div>
 
-      {/* LOADING / ERROR */}
       {loading && <div className="flex items-center justify-center py-12 text-sm text-gray-400">Loading leaves…</div>}
       {error && (
         <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-5 py-4">
@@ -211,7 +261,6 @@ export default function LeaveManagement() {
         </div>
       )}
 
-      {/* LEAVE CARDS */}
       {!loading && !error && (
         <motion.div variants={itemVariants} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {filtered.length === 0 ? (
@@ -222,16 +271,18 @@ export default function LeaveManagement() {
           ) : (
             filtered.map((req) => {
               const emergency = isEmergency(req);
-
               return (
-                <motion.div key={req.id} whileHover={{ y: -2 }} transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                <motion.div
+                  key={req.id}
+                  ref={(el) => { cardRefs.current[String(req.id)] = el; }}
+                  whileHover={{ y: -2 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 22 }}
                   className={`overflow-hidden rounded-xl border p-5 shadow-sm transition-all ${
                     emergency
                       ? 'border-red-300 bg-red-50/60 ring-2 ring-red-200/80'
                       : 'border-gray-100 bg-white'
-                  }`}>
-
-                  {/* Emergency badge */}
+                  }`}
+                >
                   {emergency && (
                     <div className="flex items-center gap-2 mb-3">
                       <span className="relative flex h-2.5 w-2.5">
@@ -247,18 +298,14 @@ export default function LeaveManagement() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                        emergency
-                          ? 'bg-red-200 text-red-700'
-                          : 'bg-gray-200 text-gray-600'
+                        emergency ? 'bg-red-200 text-red-700' : 'bg-gray-200 text-gray-600'
                       }`}>
                         {getInitials(req.teacher_name)}
                       </div>
                       <div>
                         <p className="text-base font-bold text-gray-900">{req.teacher_name}</p>
                         <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${
-                          emergency
-                            ? 'bg-red-100 text-red-700 ring-1 ring-red-300'
-                            : 'bg-gray-100 text-gray-500'
+                          emergency ? 'bg-red-100 text-red-700 ring-1 ring-red-300' : 'bg-gray-100 text-gray-500'
                         }`}>
                           {req.leave_type}
                         </span>
@@ -268,7 +315,9 @@ export default function LeaveManagement() {
                       {statusLabel(req.status)}
                     </span>
                   </div>
+
                   <div className={`my-4 h-px ${emergency ? 'bg-red-200' : 'bg-gray-100'}`} />
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Date</p>
@@ -309,9 +358,7 @@ export default function LeaveManagement() {
                       </button>
                       <button onClick={() => handleApprove(req.id)} disabled={!!actionLoading}
                         className={`inline-flex items-center gap-1 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-sm transition disabled:opacity-50 ${
-                          emergency
-                            ? 'bg-red-600 hover:bg-red-700'
-                            : 'bg-blue-600 hover:bg-blue-700'
+                          emergency ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
                         }`}>
                         <CheckCircle size={13} />
                         {actionLoading === `approve-${req.id}` ? '…' : 'Approve'}
@@ -333,7 +380,6 @@ export default function LeaveManagement() {
         </motion.div>
       )}
 
-      {/* CLARIFY MODAL */}
       <AnimatePresence>
         {clarifyModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -361,7 +407,6 @@ export default function LeaveManagement() {
         )}
       </AnimatePresence>
 
-      {/* REJECT MODAL */}
       <AnimatePresence>
         {rejectModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -391,7 +436,6 @@ export default function LeaveManagement() {
         )}
       </AnimatePresence>
 
-      {/* TOAST */}
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
