@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import {
   useTeacherProfile,
+  useTeacherTimetable,
   useTeacherNotifications,
   useTeacherReliefConfirmed,
 } from '../../hooks/useTeacherData';
@@ -121,8 +122,9 @@ const ReliefCard = ({ duty }) => (
 );
 
 export default function TeacherHome() {
-  const { data: profile }              = useTeacherProfile();
-  const { data: notifList = [] }       = useTeacherNotifications();
+  const { data: profile }               = useTeacherProfile();
+  const { data: timetableData = {} }    = useTeacherTimetable();
+  const { data: notifList = [] }        = useTeacherNotifications();
   const { data: confirmedReliefs = [] } = useTeacherReliefConfirmed();
   const ctx      = useOutletContext();
   const navigate = useNavigate();
@@ -159,10 +161,16 @@ export default function TeacherHome() {
 
   const teacherName = profile?.name ?? 'Teacher';
 
+  // ─── Live timetable stats ─────────────────────────────────────────────────
+  const todayDow = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  const todaySlots = timetableData[todayDow] ?? [];
+  const totalClassesToday = todaySlots.length;
+  const freePeriodsToday = Math.max(0, 6 - totalClassesToday);
+
   const stats = {
-    totalClassesToday:     0,
+    totalClassesToday,
     completedClassesToday: 0,
-    freePeriodsToday:      0,
+    freePeriodsToday,
     pendingLeaveRequests:  leaveCounts.pending,
     approvedLeaves:        leaveCounts.approved,
     reliefDutiesToday:     confirmedReliefs.length,
