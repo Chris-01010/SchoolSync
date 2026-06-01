@@ -142,7 +142,7 @@ const HODDashboard = ({ user }) => {
 
   const statCards = [
     {
-      value: stats.pending_approvals_count ?? pendingLeaves.length,
+      value: stats.pending_approvals_count || pendingLeaves.length,
       label: 'Pending Leave Approvals',
       badge: 'PENDING',
       badgeColor: 'bg-blue-100 text-blue-600',
