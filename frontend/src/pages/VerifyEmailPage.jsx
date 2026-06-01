@@ -17,10 +17,10 @@ export default function VerifyEmailPage() {
     let cancelled = false;
 
     fetch(`http://localhost:8000/verify-email?token=${token}`)
-      .then(res => res.json())
-      .then(data => {
+      .then(async res => {
+        const data = await res.json();
         if (cancelled) return;
-        if (data.message === 'Email verified successfully. You can now log in.') {
+        if (res.ok) {
           setStatus('success');
         } else {
           setStatus('error');

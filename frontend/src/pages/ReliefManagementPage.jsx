@@ -112,15 +112,17 @@ function AutoAssignToast({ results, onClose }) {
           </div>
         ))}
 
-        {failed.map((r) => (
+        {failed.map((r, i) => (
           <div
-            key={r.slot_id}
+            key={r.slot_id ?? `no-slot-${i}`}
             className="flex items-start gap-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-100"
           >
             <AlertTriangle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-[12px] font-semibold text-amber-800">
-                Period {r.period} — No eligible teacher
+                {r.period && r.period !== "—"
+                  ? `Period ${r.period} — No eligible teacher`
+                  : r.message || "No timetable slots found for this absence"}
               </p>
               <p className="text-[10px] text-amber-600 mt-0.5">
                 Use Override to assign manually
@@ -365,7 +367,7 @@ export default function ReliefManagementPage() {
       setAutoAssignToast({
         results: [{
           slot_id: "error",
-          period: "—",
+          period: null,
           status: "no_candidate",
           message: e.message || "Auto-assign failed. Try again or use Override.",
         }],
@@ -857,6 +859,16 @@ export default function ReliefManagementPage() {
                 )}
 
                 {!candidatesLoading && candidates.length === 0 && (
+                  <div className="py-10 text-center">
+                    <AlertTriangle size={28} className="mx-auto mb-3 text-amber-400" />
+                    <p className="text-sm font-medium text-gray-600">No timetable slots found.</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      The absent teacher has no scheduled classes in this period, or the timetable has not been set up yet.
+                    </p>
+                  </div>
+                )}
+
+                {!candidatesLoading && candidates.length > 0 && selectedSlot && (selectedSlot.candidates?.length ?? 0) === 0 && (
                   <div className="py-10 text-center">
                     <AlertTriangle size={28} className="mx-auto mb-3 text-amber-400" />
                     <p className="text-sm font-medium text-gray-600">No eligible candidates found.</p>

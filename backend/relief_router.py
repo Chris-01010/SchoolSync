@@ -11,7 +11,7 @@ import datetime as dt
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -56,34 +56,25 @@ async def get_relief_candidates(
     if current_user.role not in (models.UserRole.HOD, models.UserRole.ADMIN):
         raise HTTPException(status_code=403, detail="HOD or Admin access required.")
 
-    absence_id_str = str(absence_id)
-    r = await db.execute(
-        text("SELECT id, teacher_id, date, period_start, period_end, status FROM absences WHERE id = :id"),
-        {"id": absence_id_str}
-    )
-    row = r.fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Absence not found.")
-
-    result = await db.execute(select(models.Absence).where(models.Absence.id == row[0]))
+    result = await db.execute(select(models.Absence).where(models.Absence.id == absence_id))
     absence = result.scalar_one_or_none()
     if not absence:
         raise HTTPException(status_code=404, detail="Absence not found.")
 
     if current_user.role == models.UserRole.HOD:
         hod_result = await db.execute(
-            select(models.Teacher).where(models.Teacher.user_id == str(current_user.id))
+            select(models.Teacher).where(models.Teacher.user_id == current_user.id)
         )
         hod = hod_result.scalar_one_or_none()
         absent_teacher_result = await db.execute(
-            select(models.Teacher).where(models.Teacher.id == str(absence.teacher_id))
+            select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
         )
         absent_teacher_check = absent_teacher_result.scalar_one_or_none()
         if hod and absent_teacher_check and hod.department_id != absent_teacher_check.department_id:
             raise HTTPException(status_code=403, detail="You can only view relief candidates for your department.")
 
     teacher_result = await db.execute(
-        select(models.Teacher).where(models.Teacher.id == str(absence.teacher_id))
+        select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
     )
     absent_teacher = teacher_result.scalar_one_or_none()
     if not absent_teacher:
@@ -229,14 +220,25 @@ async def auto_assign_relief(
     vacant_slots = slots_result.scalars().all()
 
     if not vacant_slots:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"No timetable slots found for {absent_teacher.name} on "
-                f"{absence.date} (day {day_of_week}), "
-                f"periods {absence.period_start}–{absence.period_end}."
-            )
-        )
+        return {
+            "success": True,
+            "absence_id": str(absence_id),
+            "assignments": [{
+                "slot_id": None,
+                "period": f"P{absence.period_start}–P{absence.period_end}",
+                "teacher_name": None,
+                "teacher_id": None,
+                "status": "no_candidate",
+                "message": (
+                    f"No timetable slots found for {absent_teacher.name} on "
+                    f"{absence.date} (day {day_of_week}), "
+                    f"periods {absence.period_start}–{absence.period_end}. "
+                    f"The timetable may not cover these periods."
+                ),
+            }],
+            "summary": {"assigned": 0, "skipped_already_active": 0, "no_candidate": 1},
+            "message": f"No timetable slots found for {absent_teacher.name}. The timetable may not cover these periods.",
+        }
 
     week_start = absence.date - timedelta(days=absence.date.weekday())
     week_end = week_start + timedelta(days=6)
@@ -509,17 +511,8 @@ async def stream_relief_candidates(
                 await event.wait()
                 event.clear()
                 try:
-                    result = await db.execute(
-                        text("SELECT id FROM absences WHERE id = :id"),
-                        {"id": absence_id_str}
-                    )
-                    row = result.fetchone()
-                    if not row:
-                        yield "event: error\ndata: {\"detail\": \"Absence not found\"}\n\n"
-                        return
-
                     absence_result = await db.execute(
-                        select(models.Absence).where(models.Absence.id == row[0])
+                        select(models.Absence).where(models.Absence.id == absence_id)
                     )
                     absence = absence_result.scalar_one_or_none()
                     if not absence:
@@ -528,7 +521,7 @@ async def stream_relief_candidates(
 
                     assignments_result = await db.execute(
                         select(models.ReliefAssignment).where(
-                            models.ReliefAssignment.absence_id == row[0]
+                            models.ReliefAssignment.absence_id == absence_id
                         )
                     )
                     assignments = assignments_result.scalars().all()
@@ -674,7 +667,7 @@ async def respond_to_relief(
         raise HTTPException(status_code=404, detail="Assignment not found.")
 
     teacher_result = await db.execute(
-        select(models.Teacher).where(models.Teacher.user_id == str(current_user.id))
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
     )
     current_teacher = teacher_result.scalar_one_or_none()
     if not current_teacher or str(current_teacher.id) != str(assignment.relief_teacher_id):
@@ -707,7 +700,7 @@ async def respond_to_relief(
     day_of_week = absence.date.weekday()
     slot_result = await db.execute(
         select(models.TimetableSlot).where(
-            models.TimetableSlot.teacher_id == str(absence.teacher_id),
+            models.TimetableSlot.teacher_id == absence.teacher_id,
             models.TimetableSlot.day_of_week == day_of_week,
             models.TimetableSlot.period == absence.period_start,
         )
@@ -717,7 +710,7 @@ async def respond_to_relief(
         raise HTTPException(status_code=404, detail="Timetable slot not found for this absence.")
 
     absent_teacher_result = await db.execute(
-        select(models.Teacher).where(models.Teacher.id == str(absence.teacher_id))
+        select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
     )
     absent_teacher = absent_teacher_result.scalar_one_or_none()
 
@@ -774,7 +767,7 @@ async def respond_to_relief(
     if body.mode == "consume":
         clash_result = await db.execute(
             select(models.TimetableSlot).where(
-                models.TimetableSlot.teacher_id == str(current_teacher.id),
+                models.TimetableSlot.teacher_id == current_teacher.id,
                 models.TimetableSlot.day_of_week == day_of_week,
                 models.TimetableSlot.period == absence.period_start,
             )
@@ -845,7 +838,7 @@ async def confirm_consumption(
     absence = absence_result.scalar_one_or_none()
 
     absent_teacher_result = await db.execute(
-        select(models.Teacher).where(models.Teacher.id == str(absence.teacher_id))
+        select(models.Teacher).where(models.Teacher.id == absence.teacher_id)
     )
     absent_teacher = absent_teacher_result.scalar_one_or_none()
 
@@ -925,14 +918,14 @@ async def list_pending_consumption(
     db: AsyncSession = Depends(get_db),
 ):
     teacher_result = await db.execute(
-        select(models.Teacher).where(models.Teacher.user_id == str(current_user.id))
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
     )
     current_teacher = teacher_result.scalar_one_or_none()
     if not current_teacher:
         return {"assignments": []}
 
     absences_result = await db.execute(
-        select(models.Absence).where(models.Absence.teacher_id == str(current_teacher.id))
+        select(models.Absence).where(models.Absence.teacher_id == current_teacher.id)
     )
     absences = absences_result.scalars().all()
     absence_ids = [str(a.id) for a in absences]
@@ -988,7 +981,7 @@ async def get_my_future_slots(
     db: AsyncSession = Depends(get_db),
 ):
     teacher_result = await db.execute(
-        select(models.Teacher).where(models.Teacher.user_id == str(current_user.id))
+        select(models.Teacher).where(models.Teacher.user_id == current_user.id)
     )
     teacher = teacher_result.scalar_one_or_none()
     if not teacher:
