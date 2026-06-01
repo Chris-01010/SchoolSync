@@ -26,14 +26,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from .database import Base
 
 
-# ---------------------------------------------------------------------------
-# UUID type
-# ---------------------------------------------------------------------------
-
 class GUID(TypeDecorator):
-    """Platform-independent GUID type.
-    Uses PostgreSQL's UUID type, otherwise uses CHAR(36).
-    """
     impl = CHAR
     cache_ok = True
 
@@ -64,10 +57,6 @@ class GUID(TypeDecorator):
                 return value
 
 
-# ---------------------------------------------------------------------------
-# Enums  (uppercase — must match values stored in the PostgreSQL DB)
-# ---------------------------------------------------------------------------
-
 class UserRole(str, PyEnum):
     ADMIN   = "ADMIN"
     HOD     = "HOD"
@@ -75,10 +64,11 @@ class UserRole(str, PyEnum):
 
 
 class AbsenceStatus(str, PyEnum):
-    PENDING                 = "PENDING"
-    APPROVED                = "APPROVED"
-    REJECTED                = "REJECTED"
-    CLARIFICATION_REQUESTED = "CLARIFICATION_REQUESTED"
+    PENDING                  = "pending"
+    APPROVED                 = "approved"
+    REJECTED                 = "rejected"
+    CLARIFICATION_REQUESTED  = "clarification_requested"
+
 
 
 class ReliefStatus(str, PyEnum):
@@ -106,10 +96,6 @@ class NotificationType(str, PyEnum):
     ANNOUNCEMENT    = "ANNOUNCEMENT"
     GENERAL         = "GENERAL"
 
-
-# ---------------------------------------------------------------------------
-# Models
-# ---------------------------------------------------------------------------
 
 class User(Base):
     __tablename__ = "users"
@@ -147,6 +133,7 @@ class Department(Base):
     )
     hod      = relationship("Teacher", foreign_keys=[hod_id])
     subjects = relationship("Subject", back_populates="dept_link")
+    # FIX: DepartmentSubject now exists below
     department_subjects = relationship("DepartmentSubject", back_populates="department")
 
 
@@ -163,7 +150,6 @@ class Teacher(Base):
     current_relief_hours = Column(Integer, default=0)
     total_hours_worked   = Column(Integer, default=0)
     is_active            = Column(Boolean, default=True)
-    # {"0": [1, 2]} — day index → list of blocked period numbers
     blocked_slots_json   = Column(JSON, default=dict, name="blocked_slots")
 
     user      = relationship("User", back_populates="teacher_profile")
@@ -187,12 +173,14 @@ class Teacher(Base):
         back_populates="teacher",
         cascade="all, delete-orphan",
     )
+    # FIX: removed duplicate leave_balance — keep only this one (with cascade)
     leave_balance = relationship(
         "TeacherLeaveBalance",
         back_populates="teacher",
         uselist=False,
         cascade="all, delete-orphan",
     )
+    absences = relationship("Absence", back_populates="teacher")
 
 
 class Subject(Base):
@@ -207,18 +195,49 @@ class Subject(Base):
     department_subjects = relationship("DepartmentSubject", back_populates="subject")
 
 
+# FIX: Added missing DepartmentSubject model (was referenced but never defined)
+class DepartmentSubject(Base):
+    __tablename__ = "department_subjects"
+
+    id            = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    department_id = Column(GUID(), ForeignKey("departments.id"), nullable=False)
+    subject_id    = Column(GUID(), ForeignKey("subjects.id"), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("department_id", "subject_id", name="uq_dept_subject"),
+    )
+
+    department = relationship("Department", back_populates="department_subjects")
+    subject    = relationship("Subject", back_populates="department_subjects")
+
+
+class TeacherSubject(Base):
+    __tablename__ = "teacher_subjects"
+
+    id         = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(GUID(), ForeignKey("teachers.id"), nullable=False)
+    subject_id = Column(GUID(), ForeignKey("subjects.id"), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "subject_id", name="uq_teacher_subject"),
+    )
+
+    teacher = relationship("Teacher", back_populates="teacher_subjects")
+    subject = relationship("Subject", back_populates="teacher_subjects")
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 
     id                = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    user_id           = Column(GUID(), ForeignKey("users.id"), nullable=False)
-    notification_type = Column(Enum(NotificationType), default=NotificationType.GENERAL, nullable=True)
+    user_id           = Column(GUID(), ForeignKey("users.id"))
     title             = Column(String, nullable=False)
     content           = Column(Text, nullable=False)
     is_read           = Column(Boolean, default=False)
-    read_at           = Column(DateTime(timezone=True), nullable=True)
     created_at        = Column(DateTime(timezone=True), server_default=func.now())
+    notification_type = Column(String, default="GENERAL")
     action_url        = Column(String, nullable=True)
+    read_at           = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="notifications")
 
@@ -297,12 +316,14 @@ class Absence(Base):
     resolved               = Column(Boolean, default=False)
     resolution_report_url  = Column(String)
     clarification_note     = Column(String, nullable=True)
+    is_full_day            = Column(Boolean, default=True)
+    end_date               = Column(Date, nullable=True)
     is_emergency           = Column(Boolean, default=False)
     emergency_submitted_at = Column(DateTime(timezone=True), nullable=True)
     hod_response_deadline  = Column(DateTime(timezone=True), nullable=True)
     auto_approved          = Column(Boolean, default=False)
 
-    teacher = relationship("Teacher")
+    teacher = relationship("Teacher", back_populates="absences")
 
 
 class ReliefAssignment(Base):
@@ -324,7 +345,6 @@ class ReliefAssignment(Base):
     consume_absent_confirmed     = Column(Boolean, default=False)
     is_emergency                 = Column(Boolean, default=False)
     response_deadline            = Column(DateTime(timezone=True), nullable=True)
-    # Dispatch pool fields (used by relief_dispatch.py)
     deadline_at                  = Column(DateTime(timezone=True), nullable=True)
     rank_index                   = Column(Integer, nullable=True)
     ranked_pool                  = Column(Text, nullable=True)
@@ -344,8 +364,13 @@ class BlockedSlot(Base):
     period        = Column(Integer, nullable=False)
     reason        = Column(String, nullable=True)
     created_at    = Column(DateTime(timezone=True), server_default=func.now())
-    clarification = Column(String, nullable=True)   # visible in DB schema
+    clarification = Column(String, nullable=True)
 
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "day", "period", name="uq_blocked_slot"),
+    )
+
+    # FIX: added missing back-reference (Teacher has back_populates="blocked_slot_entries")
     teacher = relationship("Teacher", back_populates="blocked_slot_entries")
 
 
@@ -361,53 +386,51 @@ class AuditLog(Base):
     timestamp               = Column(DateTime(timezone=True), server_default=func.now())
 
 
-# ---------------------------------------------------------------------------
-# Junction / supplementary tables (present in Supabase schema)
-# ---------------------------------------------------------------------------
-
-class TeacherSubject(Base):
-    __tablename__ = "teacher_subjects"
-
-    id             = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    teacher_id     = Column(GUID(), ForeignKey("teachers.id"), nullable=False)
-    subject_id     = Column(GUID(), ForeignKey("subjects.id"), nullable=False)
-    created_at     = Column(DateTime(timezone=True), server_default=func.now())
-    teacher_name   = Column(String, nullable=True)
-    subject_name   = Column(String, nullable=True)
-    department_name = Column(String, nullable=True)
-
-    teacher = relationship("Teacher", back_populates="teacher_subjects")
-    subject = relationship("Subject", back_populates="teacher_subjects")
-
-    __table_args__ = (UniqueConstraint("teacher_id", "subject_id"),)
-
-
-class DepartmentSubject(Base):
-    __tablename__ = "department_subjects"
-
-    id              = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    department_id   = Column(GUID(), ForeignKey("departments.id"), nullable=False)
-    subject_id      = Column(GUID(), ForeignKey("subjects.id"), nullable=False)
-    created_at      = Column(DateTime(timezone=True), server_default=func.now())
-    department_name = Column(String, nullable=True)
-    subject_name    = Column(String, nullable=True)
-
-    department = relationship("Department", back_populates="department_subjects")
-    subject    = relationship("Subject", back_populates="department_subjects")
-
-    __table_args__ = (UniqueConstraint("department_id", "subject_id"),)
-
-
 class TeacherLeaveBalance(Base):
     __tablename__ = "teacher_leave_balances"
 
-    id                  = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    teacher_id          = Column(GUID(), ForeignKey("teachers.id"), nullable=False, unique=True)
-    academic_year       = Column(String, nullable=False)
-    balance             = Column(Float, nullable=False)
-    used_ytd            = Column(Float, nullable=False)
-    carry_over          = Column(Float, nullable=False)
-    last_credited_month = Column(Integer, nullable=True)
-    last_updated        = Column(DateTime(timezone=True), server_default=func.now())
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    teacher_id = Column(
+        GUID(),
+        ForeignKey("teachers.id"),
+        nullable=False,
+        unique=True,
+    )
+
+    academic_year = Column(
+        String(9),
+        nullable=False,
+        default="2026-27",
+    )
+
+    balance = Column(
+        Float,
+        nullable=False,
+        default=0.0,
+    )
+
+    used_ytd = Column(
+        Float,
+        nullable=False,
+        default=0.0,
+    )
+
+    carry_over = Column(
+        Float,
+        nullable=False,
+        default=0.0,
+    )
+
+    last_credited_month = Column(
+        Integer,
+        nullable=True,
+    )
+
+    last_updated = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
     teacher = relationship("Teacher", back_populates="leave_balance")

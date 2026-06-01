@@ -5,7 +5,7 @@ import { X, Upload, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 const LEAVE_TYPES = ['Sick Leave', 'Casual Leave', 'Duty Leave', 'Emergency Leave'];
 const MAX_FILE_BYTES = 3 * 1024 * 1024;
 
-const ApplyLeaveModal = ({ isOpen, onClose, onSubmit }) => {
+const ApplyLeaveModal = ({ isOpen, onClose, onSubmit, leaveBalance }) => {
   const [form, setForm] = useState({
     leaveType: 'Sick Leave',
     fromDate: '',
@@ -17,8 +17,28 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSubmit }) => {
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState(null);
   const [encoding, setEncoding] = useState(false);
+  const [touched, setTouched] = useState({ fromDate: false, toDate: false });
   const fileRef = useRef(null);
   const firstRef = useRef(null);
+
+  const errors = {
+    fromDate: !form.fromDate
+      ? 'Please select a start date'
+      : form.toDate && form.fromDate > form.toDate
+      ? 'Start date cannot be after end date'
+      : null,
+    toDate: !form.toDate
+      ? 'Please select an end date'
+      : form.fromDate && form.toDate < form.fromDate
+      ? 'End date cannot be before start date'
+      : null,
+  };
+
+  const dayCount = form.fromDate && form.toDate
+    ? Math.round((new Date(form.toDate) - new Date(form.fromDate)) / (1000 * 60 * 60 * 24)) + 1
+    : 0;
+
+  const isValid = !errors.fromDate && !errors.toDate && form.reason.trim();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -58,11 +78,18 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSubmit }) => {
   };
 
   // Use onClick instead of onSubmit to avoid HTML5 form validation blocking interaction
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (encoding) return;
-    onSubmit?.(form);
-    setForm({ leaveType: 'Sick Leave', fromDate: '', toDate: '', reason: '', file: null, fileDataUrl: null });
-    setFileError(null);
+    setTouched({ fromDate: true, toDate: true });
+    if (!isValid) return;
+    try {
+      await onSubmit?.({ ...form, dayCount });
+      setForm({ leaveType: 'Sick Leave', fromDate: '', toDate: '', reason: '', file: null, fileDataUrl: null });
+      setFileError(null);
+      setTouched({ fromDate: false, toDate: false });
+    } catch {
+      // parent handles the error alert
+    }
   };
 
   return (
@@ -104,13 +131,39 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSubmit }) => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">From Date</label>
-                    <input type="date" value={form.fromDate} onChange={set('fromDate')}
-                      className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:border-blue-400 transition-colors" />
+                    <input type="date" value={form.fromDate}
+                      onChange={(e) => { set('fromDate')(e); setTouched(t => ({ ...t, fromDate: true })); }}
+                      onBlur={() => setTouched(t => ({ ...t, fromDate: true }))}
+                      className={`w-full px-3 py-2 text-[12px] border rounded-lg bg-white text-gray-800 focus:outline-none focus:border-blue-400 transition-colors ${
+                        touched.fromDate && errors.fromDate ? 'border-red-400' : 'border-gray-200'
+                      }`} />
+                    <AnimatePresence>
+                      {touched.fromDate && errors.fromDate && (
+                        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                          transition={{ duration: 0.15 }} className="flex items-center gap-1 mt-1">
+                          <AlertCircle size={11} className="text-red-500 flex-shrink-0" />
+                          <p className="text-[10px] text-red-500 font-medium">{errors.fromDate}</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">To Date</label>
-                    <input type="date" value={form.toDate} onChange={set('toDate')} min={form.fromDate}
-                      className="w-full px-3 py-2 text-[12px] border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:border-blue-400 transition-colors" />
+                    <input type="date" value={form.toDate} min={form.fromDate}
+                      onChange={(e) => { set('toDate')(e); setTouched(t => ({ ...t, toDate: true })); }}
+                      onBlur={() => setTouched(t => ({ ...t, toDate: true }))}
+                      className={`w-full px-3 py-2 text-[12px] border rounded-lg bg-white text-gray-800 focus:outline-none focus:border-blue-400 transition-colors ${
+                        touched.toDate && errors.toDate ? 'border-red-400' : 'border-gray-200'
+                      }`} />
+                    <AnimatePresence>
+                      {touched.toDate && errors.toDate && (
+                        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                          transition={{ duration: 0.15 }} className="flex items-center gap-1 mt-1">
+                          <AlertCircle size={11} className="text-red-500 flex-shrink-0" />
+                          <p className="text-[10px] text-red-500 font-medium">{errors.toDate}</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
 
@@ -167,13 +220,26 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSubmit }) => {
                   )}
                 </div>
 
+                {/* Low balance warning */}
+                {dayCount > 0 && leaveBalance !== null && dayCount > leaveBalance && (
+                  <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+                    <AlertCircle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] font-bold text-amber-800">Insufficient Leave Balance</p>
+                      <p className="text-[10px] text-amber-700 mt-0.5">
+                        You are requesting {dayCount} day{dayCount > 1 ? 's' : ''} but only have {leaveBalance.toFixed(1)} day{leaveBalance !== 1 ? 's' : ''} remaining. Your balance will go to 0.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Actions */}
                 <div className="flex items-center justify-end gap-3 pt-1">
                   <button type="button" onClick={onClose}
                     className="px-4 py-2 text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                     Cancel
                   </button>
-                  <button type="button" onClick={handleSubmit} disabled={encoding}
+                  <button type="button" onClick={handleSubmit} disabled={encoding || !isValid}
                     className="px-5 py-2 text-[12px] font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200 disabled:opacity-60 disabled:cursor-not-allowed">
                     {encoding ? 'Processing…' : 'Submit Request'}
                   </button>

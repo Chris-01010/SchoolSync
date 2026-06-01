@@ -17,17 +17,17 @@ import { api } from '../../services/api';
 
 // ─── Icon config per notification_type ────────────────────────────────────────
 const ICON_MAP = {
-  leave_request:   { Icon: CheckCircle2,   bg: 'bg-amber-50',   color: 'text-amber-600'   },
-  leave_approved:  { Icon: CheckCircle2,   bg: 'bg-emerald-50', color: 'text-emerald-600' },
-  leave_rejected:  { Icon: X,              bg: 'bg-red-50',     color: 'text-red-500'     },
-  relief_request:  { Icon: Repeat2,        bg: 'bg-orange-50',  color: 'text-orange-500'  },
-  relief_accepted: { Icon: Repeat2,        bg: 'bg-emerald-50', color: 'text-emerald-600' },
-  relief_rejected: { Icon: Repeat2,        bg: 'bg-red-50',     color: 'text-red-500'     },
-  announcement:    { Icon: Users,          bg: 'bg-blue-50',    color: 'text-blue-500'    },
-  general:         { Icon: Bell,           bg: 'bg-gray-50',    color: 'text-gray-500'    },
+  LEAVE_REQUEST:   { Icon: CheckCircle2,   bg: 'bg-amber-50',   color: 'text-amber-600'   },
+  LEAVE_APPROVED:  { Icon: CheckCircle2,   bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  LEAVE_REJECTED:  { Icon: X,              bg: 'bg-red-50',     color: 'text-red-500'     },
+  RELIEF_REQUEST:  { Icon: Repeat2,        bg: 'bg-orange-50',  color: 'text-orange-500'  },
+  RELIEF_ACCEPTED: { Icon: Repeat2,        bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  RELIEF_REJECTED: { Icon: Repeat2,        bg: 'bg-red-50',     color: 'text-red-500'     },
+  ANNOUNCEMENT:    { Icon: Users,          bg: 'bg-blue-50',    color: 'text-blue-500'    },
+  GENERAL:         { Icon: Bell,           bg: 'bg-gray-50',    color: 'text-gray-500'    },
 };
 
-const getIcon = (type) => ICON_MAP[type] ?? ICON_MAP.general;
+const getIcon = (type) => ICON_MAP[type] ?? ICON_MAP.GENERAL;
 
 const timeAgo = (isoString) => {
   if (!isoString) return '';

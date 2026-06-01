@@ -4,3 +4,5 @@ backend/__pycache__/
 backend/app.log
 backend/schoolsync.db
 *.lnk
+app.log
+node_modules/

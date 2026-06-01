@@ -6006,7 +6006,7 @@ asyncio.exceptions.CancelledError
 2026-05-31 23:26:06,354 [INFO] backend.auth - User TCH001 (UserRole.TEACHER) authenticated successfully.
 2026-05-31 23:27:01,966 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-05-31 23:28:01 +03)" (scheduled at 2026-05-31 23:27:01.961265+03:00)
 2026-05-31 23:27:04,579 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-05-31 23:28:01 +03)" executed successfully
-2026-06-01 11:43:10,481 [INFO] backend.main - SchoolSync API started. Schema managed externally — skipping create_all.
+2026-06-01 11:43:10,481 [INFO] backend.main - SchoolSync API started. Schema managed externally ï¿½ skipping create_all.
 2026-06-01 11:43:10,481 [INFO] apscheduler.scheduler - Adding job tentatively -- it will be properly scheduled when the scheduler starts
 2026-06-01 11:43:10,481 [INFO] apscheduler.scheduler - Added job "startup.<locals>._expiry_job" to job store "default"
 2026-06-01 11:43:10,481 [INFO] apscheduler.scheduler - Scheduler started
@@ -6243,7 +6243,7 @@ asyncio.exceptions.CancelledError
 2026-06-01 13:07:10,483 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:08:10 IST)" (scheduled at 2026-06-01 13:07:10.481155+05:30)
 2026-06-01 13:07:11,628 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:08:10 IST)" executed successfully
 2026-06-01 13:07:33,060 [INFO] apscheduler.scheduler - Scheduler has been shut down
-2026-06-01 13:07:56,259 [INFO] backend.main - SchoolSync API started. Schema managed externally — skipping create_all.
+2026-06-01 13:07:56,259 [INFO] backend.main - SchoolSync API started. Schema managed externally ï¿½ skipping create_all.
 2026-06-01 13:07:56,274 [INFO] apscheduler.scheduler - Adding job tentatively -- it will be properly scheduled when the scheduler starts
 2026-06-01 13:07:56,279 [INFO] apscheduler.scheduler - Added job "startup.<locals>._expiry_job" to job store "default"
 2026-06-01 13:07:56,280 [INFO] apscheduler.scheduler - Scheduler started
@@ -6256,7 +6256,7 @@ asyncio.exceptions.CancelledError
 2026-06-01 13:09:00,504 [WARNING] backend.auth - Invalid or expired JWT token received.
 2026-06-01 13:09:00,517 [WARNING] backend.auth - Invalid or expired JWT token received.
 2026-06-01 13:09:33,820 [INFO] apscheduler.scheduler - Scheduler has been shut down
-2026-06-01 13:10:17,434 [INFO] backend.main - SchoolSync API started. Schema managed externally — skipping create_all.
+2026-06-01 13:10:17,434 [INFO] backend.main - SchoolSync API started. Schema managed externally ï¿½ skipping create_all.
 2026-06-01 13:10:17,434 [INFO] apscheduler.scheduler - Adding job tentatively -- it will be properly scheduled when the scheduler starts
 2026-06-01 13:10:17,434 [INFO] apscheduler.scheduler - Added job "startup.<locals>._expiry_job" to job store "default"
 2026-06-01 13:10:17,434 [INFO] apscheduler.scheduler - Scheduler started
@@ -6394,7 +6394,7 @@ asyncio.exceptions.CancelledError
 2026-06-01 13:34:17,444 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:35:17 IST)" (scheduled at 2026-06-01 13:34:17.434080+05:30)
 2026-06-01 13:34:18,535 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:35:17 IST)" executed successfully
 2026-06-01 13:35:10,050 [INFO] apscheduler.scheduler - Scheduler has been shut down
-2026-06-01 13:35:28,410 [INFO] backend.main - SchoolSync API started. Schema managed externally — skipping create_all.
+2026-06-01 13:35:28,410 [INFO] backend.main - SchoolSync API started. Schema managed externally ï¿½ skipping create_all.
 2026-06-01 13:35:28,418 [INFO] apscheduler.scheduler - Adding job tentatively -- it will be properly scheduled when the scheduler starts
 2026-06-01 13:35:28,421 [INFO] apscheduler.scheduler - Added job "startup.<locals>._expiry_job" to job store "default"
 2026-06-01 13:35:28,422 [INFO] apscheduler.scheduler - Scheduler started
@@ -6402,7 +6402,7 @@ asyncio.exceptions.CancelledError
 2026-06-01 13:36:28,432 [INFO] apscheduler.executors.default - Running job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:37:28 IST)" (scheduled at 2026-06-01 13:36:28.418890+05:30)
 2026-06-01 13:36:30,092 [INFO] apscheduler.executors.default - Job "startup.<locals>._expiry_job (trigger: interval[0:01:00], next run at: 2026-06-01 13:37:28 IST)" executed successfully
 2026-06-01 13:36:35,944 [INFO] apscheduler.scheduler - Scheduler has been shut down
-2026-06-01 13:36:52,086 [INFO] backend.main - SchoolSync API started. Schema managed externally — skipping create_all.
+2026-06-01 13:36:52,086 [INFO] backend.main - SchoolSync API started. Schema managed externally ï¿½ skipping create_all.
 2026-06-01 13:36:52,102 [INFO] apscheduler.scheduler - Adding job tentatively -- it will be properly scheduled when the scheduler starts
 2026-06-01 13:36:52,107 [INFO] apscheduler.scheduler - Added job "startup.<locals>._expiry_job" to job store "default"
 2026-06-01 13:36:52,107 [INFO] apscheduler.scheduler - Scheduler started

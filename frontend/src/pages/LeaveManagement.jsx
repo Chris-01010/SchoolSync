@@ -61,6 +61,7 @@ export default function LeaveManagement() {
   const [rejectModal, setRejectModal]     = useState(null);
   const [rejectMsg, setRejectMsg]         = useState('');
   const [highlightId, setHighlightId]     = useState(null);
+  const [balances, setBalances]           = useState({});
   const highlightHandled                  = useRef(false);
   const cardRefs                          = useRef({});
 
@@ -95,6 +96,21 @@ export default function LeaveManagement() {
   }, []);
 
   useEffect(() => { fetchLeaves(); }, [fetchLeaves]);
+
+useEffect(() => {
+  if (!leaves.length) return;
+  const pending = leaves.filter(l => l.status === 'pending' || l.status === 'clarification_requested');
+  pending.forEach(async (l) => {
+    if (!l.teacher_id || balances[l.teacher_id] !== undefined) return;
+    try {
+      const res = await api.get(`/leave-balance/teacher/${l.teacher_id}`);
+      const bal = res?.data?.balance ?? null;
+      setBalances(prev => ({ ...prev, [l.teacher_id]: bal }));
+    } catch {
+      setBalances(prev => ({ ...prev, [l.teacher_id]: null }));
+    }
+  });
+}, [leaves]);
 
   useEffect(() => {
     if (loading || !highlightId || highlightHandled.current) return;
@@ -304,11 +320,18 @@ export default function LeaveManagement() {
                       </div>
                       <div>
                         <p className="text-base font-bold text-gray-900">{req.teacher_name}</p>
-                        <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${
-                          emergency ? 'bg-red-100 text-red-700 ring-1 ring-red-300' : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {req.leave_type}
-                        </span>
+                        <>
+                          <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${
+                            emergency ? 'bg-red-100 text-red-700 ring-1 ring-red-300' : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {req.leave_type}
+                          </span>
+                          {balances[req.teacher_id] !== undefined && balances[req.teacher_id] !== null && balances[req.teacher_id] < 2 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-300 ml-1">
+                              <AlertTriangle size={10} /> {balances[req.teacher_id] === 0 ? 'No Balance' : `Low: ${balances[req.teacher_id].toFixed(1)}d`}
+                            </span>
+                          )}
+                        </>
                       </div>
                     </div>
                     <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeColor(req.status)}`}>

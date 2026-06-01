@@ -1,79 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Settings, Search, Menu, Plus, Check } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-
-const BASE = 'http://localhost:8000';
-function getHeaders() {
-  const token = localStorage.getItem('schoolsync_token');
-  return { Authorization: `Bearer ${token}` };
-}
-
-function getNavUrl(n) {
-  switch (n.notification_type) {
-    case 'LEAVE_REQUEST':
-      return `/hod/leave?leave_id=${n.action_url?.split('=')[1] ?? ''}&tab=pending`;
-    case 'LEAVE_APPROVED':
-      return '/hod/leave?tab=approved';
-    case 'LEAVE_REJECTED':
-      return '/hod/leave?tab=rejected';
-    case 'RELIEF_REQUEST':
-      return n.action_url ?? '/hod/relief';
-    default:
-      return n.action_url ?? null;
-  }
-}
+import React from 'react';
+import { Settings, Search, Menu } from 'lucide-react';
+import NotificationDropdown from '../shared/NotificationDropdown';
 
 const Navbar = ({ onMenuClick, user }) => {
-  const navigate = useNavigate();
-  const [searchVal, setSearchVal] = useState('');
-  const [notifs, setNotifs] = useState([]);
-  const [open, setOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const [searchVal, setSearchVal] = React.useState('');
 
   const initials = user?.name
     ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'HD';
-
-  const unread = notifs.filter((n) => !n.is_read).length;
-
-  useEffect(() => {
-    fetch(`${BASE}/leaves/notifications/`, { headers: getHeaders() })
-      .then((r) => r.json())
-      .then((d) => setNotifs(Array.isArray(d?.data) ? d.data : []))
-      .catch(console.error);
-  }, []);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target))
-        setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, []);
-
-  const markAllRead = async () => {
-    await fetch(`${BASE}/leaves/notifications/read-all`, {
-      method: 'PUT', headers: getHeaders(),
-    }).catch(console.error);
-    setNotifs((prev) => prev.map((n) => ({ ...n, is_read: true })));
-  };
-
-  const handleNotifClick = async (n) => {
-    setOpen(false);
-    setNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x));
-    fetch(`${BASE}/leaves/notifications/${n.id}/read`, {
-      method: 'PUT', headers: getHeaders(),
-    }).catch(console.error);
-    const url = getNavUrl(n);
-    if (url) navigate(url);
-  };
 
   return (
     <header className="h-12 bg-white border-b border-gray-100 flex items-center px-4 gap-3 flex-shrink-0 z-10">
@@ -98,8 +32,9 @@ const Navbar = ({ onMenuClick, user }) => {
       <div className="flex-1" />
 
       <div className="flex items-center gap-1.5">
-        
-          
+        {/* shared NotificationDropdown — do not inline bell logic here */}
+        <NotificationDropdown notificationsPath="/hod/notifications" />
+
         <button className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
           <Settings size={16} />
         </button>
