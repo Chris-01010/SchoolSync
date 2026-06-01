@@ -601,8 +601,9 @@ async def get_pending_leaves(
         "count":   len(leaves),
         "data": [
             {
-                "id":                 str(l.id),
-                "teacher_name":       l.teacher.name if l.teacher else "Unknown Teacher",
+                "id":           str(l.id),
+                "teacher_id":   str(l.teacher_id),  
+                "teacher_name": l.teacher.name if l.teacher else "Unknown Teacher",
                 "start_date":         str(l.date),
                 "end_date":           str(l.end_date) if l.end_date else str(l.date),
                 "leave_type":         l.leave_type,
